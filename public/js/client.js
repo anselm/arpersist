@@ -182,4 +182,64 @@ window.addEventListener('DOMContentLoaded', () => {
 })
 
 
+/*
+
+NOTES
+
+*
+
+
+	let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
+
+	// periodically build an anchor that glues an arkit coordinate to a world coordinate
+	// TODO this could actually be a callback inside of getlocation
+
+	let bridge = {}
+	bridge.anchor = frame.addAnchor(this.headCoordinateSystem, [0,0,0])
+	bridge.cartesian = Cesium.Cartesian3.fromDegrees(longitude, latitude, elevation,  Ellipsoid.WGS84, new Cesium.Cartesian3(0,0,0) )
+
+	// now deal with the user choosing to place a new feature in space in front of them - in arkit coordinates
+	// (In this case I place the anchor relative to the head a bit in front of the user)
+	//
+	// https://developer.apple.com/documentation/arkit/arsessionconfiguration/worldalignment/gravityandheading
+	// The y-axis matches the direction of gravity as detected by the device's motion sensing hardware; that is,
+	// the vector (0,-1,0) points downward.
+	// The x- and z-axes match the longitude and latitude directions as measured by Location Services.
+	// The vector (0,0,-1) points to true north and the vector (-1,0,0) points west.
+	// (That is, the positive x-, y-, and z-axes point east, up, and south, respectively.)
+	//
+
+	let feature = {}
+	feature.anchor = frame.addAnchor(this.headCoordinateSystem, [0,0,-0.7777])
+	let scratch = new Cesium.Cartesian3(feature.anchor.transform.x, feature.anchor.transform.z, feature.anchor.transform.y)
+	feature.cartesian = Cesium.Cartesian3.add(bridge.cartesian, scratch, scratch)
+
+	// reconstituting the feature (after it was saved over a network or in a database) is something like this
+
+	let reconstituted = {}
+	let scratch = Cesium.Cartesian3.subtract(bridge.cartesian,feature.cartesian,new Cesium.Cartesian3(0,0,0))
+
+	reconstituted.anchor = frame.addAnchor(this.headCoordinateSystem, [scratch.x, scratch.y, scratch.z])
+
+// TODO STILL
+//	because ios can move the special camera+geolocation anchors that I am placing
+//	I probably need to re-compute the position of any features that I place
+//	If I were to associate any features I place with anchors this could happen automatically - but I prefer to do it myself
+//
+
+// Notes
+// Given an LLA convert it to a fixed frame reference
+// https://cesiumjs.org/Cesium/Build/Documentation/Transforms.html
+//let result = new Matrix4()
+//let origin = new Cesium.Cartesian3(longitude, latitude, elevation)
+//Cesium.Transforms.eastNorthUpToFixedFrame(origin, Ellipsoid.WGS84, result)
+// https://cesiumjs.org/Cesium/Build/Documentation/Transforms.html
+// https://github.com/AnalyticalGraphicsInc/cesium/blob/1f330880bc4247d7c0eed9bf54da041b529e786b/Source/Core/Transforms.js#L123
+
+
+*/
+
+
+
+
 
