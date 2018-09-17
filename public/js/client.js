@@ -2,143 +2,55 @@
 ////////////////////////////////////////////////////////////////////////
 // client - Sep 11 2018
 //
-// - publishes entities (which are hashes) to a server
+// - publishes entities to a server
 // - busy polls server for updates
 // - paints entities to display
 // - uses xr ios extensions to anchor entities relative to an anchor
 //
 // - TODO generate a room UUID per session so that every client instance has its own room
 // - TODO do not shovel everything back to client every update - only send back differences
-// - TODO do not busy poll
 //
 ////////////////////////////////////////////////////////////////////////
 
 
 ////////////////////////////////////////////////////////////////////////
-// position update for now
-////////////////////////////////////////////////////////////////////////
-
-let worldPosition = {
-	latitude: 0,
-	longitude: 0,
-	elevation: 0,	// TODO
-	orientation: 0	// TODO
-}
-
-function startWorldPositionUpdate() {
-	navigator.geolocation.watchPosition(function(position) {
-		worldPosition.latitude = position.coords.latitude
-		worldPosition.longitude = position.coords.longitude
-		console.log("World Position is")
-		console.log(worldPosition)
-	});
-}
-
-startWorldPositionUpdate()
-
-////////////////////////////////////////////////////////////////////////
-// network and database wrapper for now
-////////////////////////////////////////////////////////////////////////
-
-var entities = {}
-
-function postData(url,data) {
-    return fetch(url, {
-        method: "POST",
-        mode: "cors", // no-cors, cors, *same-origin
-        cache: "no-cache",
-        credentials: "same-origin", // include, same-origin, *omit
-        headers: { "Content-Type": "application/json; charset=utf-8", },
-        referrer: "no-referrer", // no-referrer, *client
-        body: JSON.stringify(data),
-    }).then(response => response.json())
-}
-
-function entity_broadcast(entity) {
-	postData('/api/entity/save',entity).then(result => {
-		if(!result || !result.uuid) {
-			console.error("failed to save to server")
-		} else {
-			// save locally if network returns it to us ( we don't need to do this here but can wait for busy poll for now )
-			entities[result.uuid] = result
-		}
-	})
-}
-
-function entity_collect(callback_handler) {
-	callback_handler(entities)
-}
-
-function entity_busy_poll_server() {
-
-	// for now we busy poll - later on a long socket would be wiser
-
-	var d = new Date()
-	var n = d.getTime()
-	console.log("Busy polling server at time " + n )
-
-	postData('/api/entity/sync',{time:n}).then(results => {
-
-		for(let uuid in results) {
-			let entity = results[uuid]
-			if(entity.uuid && !entities[entity.uuid]) {
-				entities[entity.uuid] = entity
-				console.log("Added entity")
-				console.log(entity)
-			}
-		}
-
-		setTimeout(entity_busy_poll_server,1000)
-
-	})
-
-}
-
-function entity_initialize() {
-	entity_busy_poll_server()
-}
-
-////////////////////////////////////////////////////////////////////////
 // anchor example
 ////////////////////////////////////////////////////////////////////////
 
-class ARAnchorExample extends XRExampleBase {
+class ARAnchorGPSTest extends XRExampleBase {
 
-	constructor(domElement){
+	constructor(domElement) {
+
+		// begin capturing gps information
+		this.gpsInitialize();
+
+		// begin a system for managing a concept of persistent entities / features / objects
+		this.entityInitialize();
+
+		// add a ux button for adding features
 		super(domElement, false)
-		this.headCoordinateSystem = 0;
 		this.addObjectButton = document.createElement('button')
 		this.addObjectButton.setAttribute('class', 'add-object-button')
 		this.addObjectButton.innerText = 'Add Box'
 		this.el.appendChild(this.addObjectButton)
+		this.addObjectButton.addEventListener('click', this.uxAdd );
 
-		// initialize an entity management system
-		entity_initialize()
-
-		this.addObjectButton.addEventListener('click', this.makeEntity );
 	}
 
-	makeEntity() {
-		let entity = {
-			uuid:0,
-			kind:"box",
-			x:0,
-			y:0,
-			z:-0.75,
-			latitude: worldPosition.latitude,
-			longitude: worldPosition.longitude,
-			elevation: 0,
-			orientation: 0
-		}
-		entity_broadcast(entity);
-	}
+	///////////////////////////////////////////////
+	// scene glue / callbacks
+	///////////////////////////////////////////////
 
 	// Called during construction by parent scope
-	initializeScene(){
+	initializeScene() {
 		this.scene.add(new THREE.AmbientLight('#FFF', 0.2))
 		let directionalLight = new THREE.DirectionalLight('#FFF', 0.6)
 		directionalLight.position.set(0, 10, 0)
 		this.scene.add(directionalLight)
+	}
+
+	updateScene(frame) {
+		this.uxUpdate(frame);
 	}
 
 	createSceneGraphNode(){
@@ -147,34 +59,215 @@ class ARAnchorExample extends XRExampleBase {
 		return new THREE.Mesh(geometry, material)
 	}
 
-	updateScene(frame){
+	///////////////////////////////////////////////
+	// ux glue
+	///////////////////////////////////////////////
 
-		this.headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
+	uxAdd() {
+		this.entityCreateOnePlease = 1;
+	}
 
-		entity_collect((unused) => {
-			for(let uuid in entities) {
-				if(!uuid) continue;
-				let entity = entities[uuid]
+	uxUpdate(frame) {
 
-				// give each entity some cpu time to do whatever it wishes
-				if(!entity.node) {
-					// ideally an entity would be responsible for itself - but for now let's hardcode a renderable for it
-					entity.node = this.createSceneGraphNode()
-					entity.anchorUID = frame.addAnchor(this.headCoordinateSystem, [entity.x, entity.y, entity.z])
-					this.addAnchoredNode(new XRAnchorOffset(entity.anchorUID), entity.node)
+		let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
+
+		if(this.entityCreateOnePlease) {
+			this.entityCreateOnePlease = 0;
+			this.entityAdd(frame,headCoordinateSystem)
+		}
+
+		this.entityUpdate(frame,headCoordinateSystem);
+	}
+
+	///////////////////////////////////////////////
+	// gps glue
+	///////////////////////////////////////////////
+
+	gpsInitialize() {
+		this.gps = 0;
+		navigator.geolocation.watchPosition((position) => {
+			this.gps = position;
+		});
+	}
+
+	gpsGet() {
+		let scratch = this.gps;
+		this.gps = 0;
+		return scratch;
+	}
+
+	////////////////////////////////////////////////////////////
+	// geographic anchor concept - connects arkit pose + gps
+	///////////////////////////////////////////////////////////
+
+	gpsAnchorGet(frame,headCoordinateSystem) {
+
+		// TODO some kind of better strategy should go here as to how frequently we update the anchors - for now always TRUE
+
+		if(true) {
+
+			// given a frame pose attempt to associate this with an anchor to bind an arkit pose to a gps coordinate
+
+			let gps = this.gpsGet();
+
+			if(gps) {
+
+				console.log("gpsAnchorCapture: has a fresh GPS");
+				console.log(gps);
+
+				if(this.gpsAnchor && this.gpsAnchor.anchor) {
+					// for now just remove it rather than having a queue
+					frame.removeAnchor(this.gpsAnchor.anchor);
 				}
 
+				// add a new anchor which ostensibly binds the virtual to the real
+				this.gpsAnchor = {}
+				this.gpsAnchor.anchor = frame.addAnchor(this.headCoordinateSystem, [0,0,0])
+				this.gpsAnchor.gps = gps;
+			}
+		}
+
+		return this.gpsAnchor;
+	}
+
+	///////////////////////////////////////////////
+	// entity concept of server managed entities
+	///////////////////////////////////////////////
+
+	entityInitialize() {
+		this.entities = {}
+		this.entityBusyPoll()
+	}
+
+	entityBusyPoll() {
+
+		// for now we busy poll server and store anything new
+
+		var d = new Date()
+		var n = d.getTime()
+		console.log("Busy polling server at time " + n )
+
+		this.postDataHelper('/api/entity/sync',{time:n}).then(results => {
+
+			for(let uuid in results) {
+				let entity = results[uuid]
+				if(entity.uuid && !this.entities[entity.uuid]) {
+					this.entities[entity.uuid] = entity
+					console.log("Added entity to local set")
+					console.log(entity)
+				}
 			}
 
+			setTimeout(this.entityBusyPoll,1000)
+
 		})
+	}
+
+	entityUpdate(frame,headCoordinateSystem) {
+
+		// Update entities we know of
+
+		for(let uuid in entities) {
+			if(!uuid) continue;
+			let entity = entities[uuid]
+
+			// give each entity some cpu time to do whatever it wishes
+			if(!entity.node) {
+				// ideally an entity would be responsible for itself - but for now let's hardcode a renderable for it
+				entity.node = this.createSceneGraphNode()
+				entity.anchorUID = frame.addAnchor(this.headCoordinateSystem, [entity.x, entity.y, entity.z])
+				this.addAnchoredNode(new XRAnchorOffset(entity.anchorUID), entity.node)
+			}
+
+		}
+
+
+		// now deal with the user choosing to place a new feature in space in front of them - in arkit coordinates
+		// (In this case I place the anchor relative to the head a bit in front of the user)
+		//
+		// https://developer.apple.com/documentation/arkit/arsessionconfiguration/worldalignment/gravityandheading
+		// The y-axis matches the direction of gravity as detected by the device's motion sensing hardware; that is,
+		// the vector (0,-1,0) points downward.
+		// The x- and z-axes match the longitude and latitude directions as measured by Location Services.
+		// The vector (0,0,-1) points to true north and the vector (-1,0,0) points west.
+		// (That is, the positive x-, y-, and z-axes point east, up, and south, respectively.)
+		//
+
+		// reconstituting the feature (after it was saved over a network or in a database) is something like this
+
+		let reconstituted = {}
+		let scratch = Cesium.Cartesian3.subtract(bridge.cartesian,feature.cartesian,new Cesium.Cartesian3(0,0,0))
+
+		reconstituted.anchor = frame.addAnchor(this.headCoordinateSystem, [scratch.x, scratch.y, scratch.z])
+	}
+
+	entityAdd(frame,headCoordinateSystem) {
+
+		// get a gps associated anchor or fail
+
+		let gpsAnchor = this.gpsAnchorGet(frame,headCoordinateSystem);
+
+		if(!gpsAnchor) {
+			console.error("No camera pose + gps yet");
+			// TODO be more helpful for end user
+			return;
+		}
+
+		// Make a new entity to broadcast to network
+		let entity = {}
+
+		// Place in front of current actual camera (not in front of last captured world anchor)
+		let anchor = frame.addAnchor(headCoordinateSystem, [0,0,-0.7777])
+
+		// Get relative cartesian coordinates of new entity
+		let local = new Cesium.Cartesian3(anchor.transform.x, anchor.transform.z, anchor.transform.y)
+
+		// Get absolute cartesian coordinates of world associated anchor
+		let world = Cesium.Cartesian3.fromDegrees(gpsAnchor.gps.longitude, gpsAnchor.gps.latitude, gpsAnchor.gps.elevation,  Ellipsoid.WGS84, new Cesium.Cartesian3(0,0,0) )
+
+		// Actual position of feature is relative to world anchor (and recycle 'local' to store the result for a moment)
+		entity.cartesian = Cesium.Cartesian3.subtract(local,world,local)
+
+		// TODO throw away the anchor - or don't even make one
+
+		// push to network
+
+		this.entityBroadcast(entity);
 
 	}
+
+
+	entityBroadcast(entity) {
+		this.postDataHelper('/api/entity/save',entity).then(result => {
+			if(!result || !result.uuid) {
+				console.error("failed to save to server")
+			} else {
+				// save locally if network returns it to us ( we don't need to do this here but can wait for busy poll for now )
+				this.entities[result.uuid] = result
+			}
+		})
+	}
+
+	postDataHelper(url,data) {
+	    return fetch(url, {
+	        method: "POST",
+	        mode: "cors", // no-cors, cors, *same-origin
+	        cache: "no-cache",
+	        credentials: "same-origin", // include, same-origin, *omit
+	        headers: { "Content-Type": "application/json; charset=utf-8", },
+	        referrer: "no-referrer", // no-referrer, *client
+	        body: JSON.stringify(data),
+	    }).then(response => response.json())
+	}
+
+
+
 }
 
 window.addEventListener('DOMContentLoaded', () => {
 	setTimeout(() => {
 		try {
-			window.pageApp = new ARAnchorExample(document.getElementById('target'))
+			window.pageApp = new ARAnchorGPSTest(document.getElementById('target'))
 		} catch(e) {
 			console.error('page error', e)
 		}
@@ -238,8 +331,6 @@ NOTES
 
 
 */
-
-
 
 
 
