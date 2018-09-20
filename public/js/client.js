@@ -1,25 +1,23 @@
 
-////////////////////////////////////////////////////////////////////////
-// client - Sep 11 2018
-//
-// - publishes entities to a server
-// - busy polls server for updates
-// - paints entities to display
-// - uses xr ios extensions to anchor entities relative to an anchor
-//
-// - TODO generate a room UUID per session so that every client instance has its own room
-// - TODO do not shovel everything back to client every update - only send back differences
-//
-////////////////////////////////////////////////////////////////////////
+function postDataHelper(url,data) {
+    return fetch(url, {
+        method: "POST",
+        mode: "cors", // no-cors, cors, *same-origin
+        cache: "no-cache",
+        credentials: "same-origin", // include, same-origin, *omit
+        headers: { "Content-Type": "application/json; charset=utf-8", },
+        referrer: "no-referrer", // no-referrer, *client
+        body: JSON.stringify(data),
+    }).then(response => response.json())
+}
 
 
-////////////////////////////////////////////////////////////////////////
-// anchor example
-////////////////////////////////////////////////////////////////////////
 
 class ARAnchorGPSTest extends XRExampleBase {
 
 	constructor(domElement) {
+
+		super(domElement, false)
 
 		// begin capturing gps information
 		this.gpsInitialize();
@@ -27,56 +25,57 @@ class ARAnchorGPSTest extends XRExampleBase {
 		// begin a system for managing a concept of persistent entities / features / objects
 		this.entityInitialize();
 
-		// add a ux button for adding features
-		super(domElement, false)
-		this.addObjectButton = document.createElement('button')
-		this.addObjectButton.setAttribute('class', 'add-object-button')
-		this.addObjectButton.innerText = 'Add Box'
-		this.el.appendChild(this.addObjectButton)
-		this.addObjectButton.addEventListener('click', this.uxAdd );
+		// tap to stick something to wall
+		this._tapEventData = null 
+		this.el.addEventListener('touchstart', this._onTouchStart.bind(this), false)
 
 	}
 
 	///////////////////////////////////////////////
-	// scene glue / callbacks
+	// scene support
 	///////////////////////////////////////////////
 
-	// Called during construction by parent scope
 	initializeScene() {
+		// Called during construction by parent scope
 		this.scene.add(new THREE.AmbientLight('#FFF', 0.2))
 		let directionalLight = new THREE.DirectionalLight('#FFF', 0.6)
 		directionalLight.position.set(0, 10, 0)
 		this.scene.add(directionalLight)
 	}
 
+	// Called once per frame, before render, to give the app a chance to update this.scene
 	updateScene(frame) {
-		this.uxUpdate(frame);
+
+		// If we have tap data, attempt a hit test for a surface
+		if(this._tapEventData !== null){
+			const x = this._tapEventData[0]
+			const y = this._tapEventData[1]
+			this._tapEventData = null
+			this.entityAdd(frame,x,y)
+		}
+
+		// give entity system a chance to finalize network traffic - will finalize addition
+		this.entityUpdate(frame)
 	}
 
-	createSceneGraphNode(){
+	createSceneGraphNode() {
+		// helper to make geometry
 		let geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1)
 		let material = new THREE.MeshPhongMaterial({ color: '#FF9999' })
 		return new THREE.Mesh(geometry, material)
 	}
 
-	///////////////////////////////////////////////
-	// ux glue
-	///////////////////////////////////////////////
-
-	uxAdd() {
-		this.entityCreateOnePlease = 1;
-	}
-
-	uxUpdate(frame) {
-
-		let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
-
-		if(this.entityCreateOnePlease) {
-			this.entityCreateOnePlease = 0;
-			this.entityAdd(frame,headCoordinateSystem)
+	_onTouchStart(ev){
+		// Save screen taps as normalized coordinates for use in this.updateScene
+		if (!ev.touches || ev.touches.length === 0) {
+			console.error('No touches on touch event', ev)
+			return
 		}
-
-		this.entityUpdate(frame,headCoordinateSystem);
+		//save screen coordinates normalized to -1..1 (0,0 is at center and 1,1 is at top right)
+		this._tapEventData = [
+			ev.touches[0].clientX / window.innerWidth,
+			ev.touches[0].clientY / window.innerHeight
+		]
 	}
 
 	///////////////////////////////////////////////
@@ -96,15 +95,21 @@ class ARAnchorGPSTest extends XRExampleBase {
 		return scratch;
 	}
 
-	////////////////////////////////////////////////////////////
-	// geographic anchor concept - connects arkit pose + gps
-	///////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////
+	// world or geographic anchor concept
+	/////////////////////////////////////////////////////////////////////
 
-	gpsAnchorGet(frame,headCoordinateSystem) {
+	worldAnchorGet(frame,headCoordinateSystem) {
 
-		// TODO some kind of better strategy should go here as to how frequently we update the anchors - for now always TRUE
+		// right now just fetches one once only
 
-		if(true) {
+		// call this in order to get a world anchor - ideally not all the time and ideally after the system has stabilized
+
+		// A 'world anchor' is an anchor with both a local coordinate position and a gps position
+
+		// TODO some kind of better strategy should go here as to how frequently to update the world anchor...
+
+		if(!this.worldAnchor) {
 
 			// given a frame pose attempt to associate this with an anchor to bind an arkit pose to a gps coordinate
 
@@ -112,22 +117,23 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 			if(gps) {
 
-				console.log("gpsAnchorCapture: has a fresh GPS");
+				console.log("worldAnchorGet: has a fresh GPS");
 				console.log(gps);
 
-				if(this.gpsAnchor && this.gpsAnchor.anchor) {
+				if(this.worldAnchor && this.worldAnchor.anchor) {
 					// for now just remove it rather than having a queue
-					frame.removeAnchor(this.gpsAnchor.anchor);
+					frame.removeAnchor(this.worldAnchor.anchor);
 				}
 
 				// add a new anchor which ostensibly binds the virtual to the real
-				this.gpsAnchor = {}
-				this.gpsAnchor.anchor = frame.addAnchor(this.headCoordinateSystem, [0,0,0])
-				this.gpsAnchor.gps = gps;
+				this.worldAnchor = {}
+				this.worldAnchor.anchorUID = frame.addAnchor(headCoordinateSystem, [0,0,0])
+				this.worldAnchor.cartesian = Cesium.Cartesian3.fromDegrees(gps.longitude, gps.latitude, gps.elevation ); //,  Ellipsoid.WGS84 );
 			}
+
 		}
 
-		return this.gpsAnchor;
+		return this.worldAnchor;
 	}
 
 	///////////////////////////////////////////////
@@ -141,13 +147,13 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 	entityBusyPoll() {
 
-		// for now we busy poll server and store anything new
+		// busy poll server to retrieve any server state
 
 		var d = new Date()
 		var n = d.getTime()
 		console.log("Busy polling server at time " + n )
 
-		this.postDataHelper('/api/entity/sync',{time:n}).then(results => {
+		postDataHelper('/api/entity/sync',{time:n}).then(results => {
 
 			for(let uuid in results) {
 				let entity = results[uuid]
@@ -163,103 +169,120 @@ class ARAnchorGPSTest extends XRExampleBase {
 		})
 	}
 
-	entityUpdate(frame,headCoordinateSystem) {
+	entityUpdate(frame) {
 
-		// Update entities we know of
+		// every frame visit our entities and do anything we want
 
-		for(let uuid in entities) {
-			if(!uuid) continue;
-			let entity = entities[uuid]
-
-			// give each entity some cpu time to do whatever it wishes
-			if(!entity.node) {
-				// ideally an entity would be responsible for itself - but for now let's hardcode a renderable for it
-				entity.node = this.createSceneGraphNode()
-				entity.anchorUID = frame.addAnchor(this.headCoordinateSystem, [entity.x, entity.y, entity.z])
-				this.addAnchoredNode(new XRAnchorOffset(entity.anchorUID), entity.node)
-			}
-
-		}
-
-
-		// now deal with the user choosing to place a new feature in space in front of them - in arkit coordinates
-		// (In this case I place the anchor relative to the head a bit in front of the user)
-		//
-		// https://developer.apple.com/documentation/arkit/arsessionconfiguration/worldalignment/gravityandheading
-		// The y-axis matches the direction of gravity as detected by the device's motion sensing hardware; that is,
-		// the vector (0,-1,0) points downward.
-		// The x- and z-axes match the longitude and latitude directions as measured by Location Services.
-		// The vector (0,0,-1) points to true north and the vector (-1,0,0) points west.
-		// (That is, the positive x-, y-, and z-axes point east, up, and south, respectively.)
-		//
-
-		// reconstituting the feature (after it was saved over a network or in a database) is something like this
-
-		let reconstituted = {}
-		let scratch = Cesium.Cartesian3.subtract(bridge.cartesian,feature.cartesian,new Cesium.Cartesian3(0,0,0))
-
-		reconstituted.anchor = frame.addAnchor(this.headCoordinateSystem, [scratch.x, scratch.y, scratch.z])
-	}
-
-	entityAdd(frame,headCoordinateSystem) {
+		let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
 
 		// get a gps associated anchor or fail
-
-		let gpsAnchor = this.gpsAnchorGet(frame,headCoordinateSystem);
-
-		if(!gpsAnchor) {
-			console.error("No camera pose + gps yet");
+		let worldAnchor = this.worldAnchorGet(frame,headCoordinateSystem);
+		if(!worldAnchor) {
+			console.error("entityAdd: No camera pose + gps yet");
 			// TODO be more helpful for end user
 			return;
 		}
 
-		// Make a new entity to broadcast to network
-		let entity = {}
+		for(let uuid in this.entities) {
+			if(!uuid) continue;
+			let entity = this.entities[uuid]
 
-		// Place in front of current actual camera (not in front of last captured world anchor)
-		let anchor = frame.addAnchor(headCoordinateSystem, [0,0,-0.7777])
+			if(!entity.node) {
 
-		// Get relative cartesian coordinates of new entity
-		let local = new Cesium.Cartesian3(anchor.transform.x, anchor.transform.z, anchor.transform.y)
+				// entity does not have a scene representation - add one
+				entity.node = this.createSceneGraphNode()
 
-		// Get absolute cartesian coordinates of world associated anchor
-		let world = Cesium.Cartesian3.fromDegrees(gpsAnchor.gps.longitude, gpsAnchor.gps.latitude, gpsAnchor.gps.elevation,  Ellipsoid.WGS84, new Cesium.Cartesian3(0,0,0) )
+				// get absolute position
+				let v = new Cesium.Cartesian3(entity.x,entity.y,entity.z)
 
-		// Actual position of feature is relative to world anchor (and recycle 'local' to store the result for a moment)
-		entity.cartesian = Cesium.Cartesian3.subtract(local,world,local)
+				// get world transform for where we are now
+				let m = Cesium.Transforms.eastNorthUpToFixedFrame(worldAnchor.cartesian)
+				let inv = Cesium.Matrix4.inverseTransformation(m, new Cesium.Matrix4())
 
-		// TODO throw away the anchor - or don't even make one
+				// inverse transform the vector relative to us
+				let xyz = Cesium.Matrix4.multiplyByPoint(inv, v, new Cesium.Cartesian3());
 
-		// push to network
+				entity.anchorUID = frame.addAnchor(headCoordinateSystem, [xyz.x, xyz.y, xyz.z])
+				this.addAnchoredNode(new XRAnchorOffset(entity.anchorUID), entity.node)
+ 
+			}
 
-		this.entityBroadcast(entity);
+		}
+	}
+
+	entityAdd(frame,x,y) {
+
+		let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
+
+		// get a gps associated anchor or fail
+		let worldAnchor = this.worldAnchorGet(frame,headCoordinateSystem);
+		if(!worldAnchor) {
+			console.error("entityAdd: No camera pose + gps yet");
+			// TODO be more helpful for end user
+			return;
+		}
+
+		// Get an anchoroffset object (has an anchor by uid) by attempting a hit test using the normalized screen coordinates
+		frame.findAnchor(x, y).then(anchorOffset => {
+			if(anchorOffset === null){
+				console.log('miss')
+				return
+			}
+			console.log('hit')
+			console.log(anchorOffset)
+
+			// where is this in local coordinates? (in 3d in arkit local frame of reference)
+			let xyz = anchorOffset.getPosition()
+
+			// where is world anchor in local coordinates? (in 3d in arkit local frame of reference)
+			let worldAnchorOffset = new XRAnchorOffset(worldAnchor.anchorUID)
+			let wxyz = worldAnchorOffset.getPosition()
+
+			// get a cartesian representation of the local vector displacement relative to world anchor (in meters???)
+
+			xyz[0] = xyz[0] - worldAnchor.xyz[0]
+			xyz[1] = xyz[1] - worldAnchor.xyz[1]
+			xyz[2] = xyz[2] - worldAnchor.xyz[2]
+
+			// https://developer.apple.com/documentation/arkit/arsessionconfiguration/worldalignment/gravityandheading
+			// The y-axis matches the direction of gravity as detected by the device's motion sensing hardware; that is,
+			// the vector (0,-1,0) points downward.
+			// The x- and z-axes match the longitude and latitude directions as measured by Location Services.
+			// The vector (0,0,-1) points to true north and the vector (-1,0,0) points west.
+			// (That is, the positive x-, y-, and z-axes point east, up, and south, respectively.)
+
+			let v = new Cesium.Cartesian3(xyz[0],xyz[2],xyz[1])
+
+			// convert the world anchor cartesian coordinates to a 3d transform in space
+			let m = Cesium.Transforms.eastNorthUpToFixedFrame(worldAnchor.cartesian)
+
+			// transform the vector to an absolute position on earth (presumably this is meters??)
+			let result = Cesium.Matrix4.multiplyByPoint(m, v, new Cesium.Cartesian3());
+
+			// could go back to degrees but why bother
+			//var carto  = Cesium.Ellipsoid.WGS84.cartesianToCartographic(result);
+			// var lon = Cesium.Math.toDegrees(carto.longitude); 
+			// var lat = Cesium.Math.toDegrees(carto.latitude); 
+
+			let entity = { x: result.x , y: result.y , z: result.z }
+			this.entityBroadcast(entity)
+
+		}).catch(err => {
+			console.error('Error in hit test', err)
+		})
 
 	}
 
-
 	entityBroadcast(entity) {
-		this.postDataHelper('/api/entity/save',entity).then(result => {
+		postDataHelper('/api/entity/save',entity).then(result => {
 			if(!result || !result.uuid) {
-				console.error("failed to save to server")
+				console.error("entityBroadcast: failed to save to server")
 			} else {
-				// save locally if network returns it to us ( we don't need to do this here but can wait for busy poll for now )
-				this.entities[result.uuid] = result
+				// could save locally if network returns it to us ( we don't need to do this here but can wait for busy poll for now )
+				// this.entities[result.uuid] = result
 			}
 		})
 	}
-
-	postDataHelper(url,data) {
-	    return fetch(url, {
-	        method: "POST",
-	        mode: "cors", // no-cors, cors, *same-origin
-	        cache: "no-cache",
-	        credentials: "same-origin", // include, same-origin, *omit
-	        headers: { "Content-Type": "application/json; charset=utf-8", },
-	        referrer: "no-referrer", // no-referrer, *client
-	        body: JSON.stringify(data),
-	    }).then(response => response.json())
-	}
-
 
 
 }
@@ -275,62 +298,41 @@ window.addEventListener('DOMContentLoaded', () => {
 })
 
 
-/*
-
-NOTES
-
-*
+// let handler = Cesium.Transforms.localFrameToFixedFrameGenerator( "east", "north")
 
 
-	let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
 
-	// periodically build an anchor that glues an arkit coordinate to a world coordinate
-	// TODO this could actually be a callback inside of getlocation
+console.log(cartesian)
+console.log(matrix)
 
-	let bridge = {}
-	bridge.anchor = frame.addAnchor(this.headCoordinateSystem, [0,0,0])
-	bridge.cartesian = Cesium.Cartesian3.fromDegrees(longitude, latitude, elevation,  Ellipsoid.WGS84, new Cesium.Cartesian3(0,0,0) )
-
-	// now deal with the user choosing to place a new feature in space in front of them - in arkit coordinates
-	// (In this case I place the anchor relative to the head a bit in front of the user)
-	//
-	// https://developer.apple.com/documentation/arkit/arsessionconfiguration/worldalignment/gravityandheading
-	// The y-axis matches the direction of gravity as detected by the device's motion sensing hardware; that is,
-	// the vector (0,-1,0) points downward.
-	// The x- and z-axes match the longitude and latitude directions as measured by Location Services.
-	// The vector (0,0,-1) points to true north and the vector (-1,0,0) points west.
-	// (That is, the positive x-, y-, and z-axes point east, up, and south, respectively.)
-	//
-
-	let feature = {}
-	feature.anchor = frame.addAnchor(this.headCoordinateSystem, [0,0,-0.7777])
-	let scratch = new Cesium.Cartesian3(feature.anchor.transform.x, feature.anchor.transform.z, feature.anchor.transform.y)
-	feature.cartesian = Cesium.Cartesian3.add(bridge.cartesian, scratch, scratch)
-
-	// reconstituting the feature (after it was saved over a network or in a database) is something like this
-
-	let reconstituted = {}
-	let scratch = Cesium.Cartesian3.subtract(bridge.cartesian,feature.cartesian,new Cesium.Cartesian3(0,0,0))
-
-	reconstituted.anchor = frame.addAnchor(this.headCoordinateSystem, [scratch.x, scratch.y, scratch.z])
-
-// TODO STILL
-//	because ios can move the special camera+geolocation anchors that I am placing
-//	I probably need to re-compute the position of any features that I place
-//	If I were to associate any features I place with anchors this could happen automatically - but I prefer to do it myself
-//
-
-// Notes
-// Given an LLA convert it to a fixed frame reference
-// https://cesiumjs.org/Cesium/Build/Documentation/Transforms.html
-//let result = new Matrix4()
-//let origin = new Cesium.Cartesian3(longitude, latitude, elevation)
-//Cesium.Transforms.eastNorthUpToFixedFrame(origin, Ellipsoid.WGS84, result)
-// https://cesiumjs.org/Cesium/Build/Documentation/Transforms.html
-// https://github.com/AnalyticalGraphicsInc/cesium/blob/1f330880bc4247d7c0eed9bf54da041b529e786b/Source/Core/Transforms.js#L123
+console.log("lon="+lon + " " + " lat=" + lat)
 
 
-*/
+
+//var position = Cesium.Cartesian3.fromDegrees(-106.690647, 36.806761, 0);
+//Cesium.Cartesian3.add(position, offset, position);
+//var p = new Cesium.Cartesian3(100, 0, 0);
+//console.log(result)
+
+
+
+// 
+// TODO - multiply my vector above by the transform - getting a new point in space
+// 		- convert this point in 3 space back to cartesian
+
+// 
+//var pos = Cesium.Cartesian3.fromDegrees(61.296382224724795,35.628536117000692); 
+//var carto  = Cesium.Ellipsoid.WGS84.cartesianToCartographic(pos);     
+//var lon = Cesium.Math.toDegrees(carto.longitude); 
+//var lat = Cesium.Math.toDegrees(carto.latitude); 
+
+// ok, given a point on a unit sphere - representing effectively some rotation
+// rotate the vector by an imaginary x axis by its latitude
+// rotate the vector by an imaginary rotation axis
+// now i have a point in space - convert that point back to an xyz
+
+// rotate a vector by the spin axis
+// then by the x axis
 
 
 
