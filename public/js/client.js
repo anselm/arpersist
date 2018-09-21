@@ -112,6 +112,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 		if(!this.worldAnchor) {
 
 			// given a frame pose attempt to associate this with an anchor to bind an arkit pose to a gps coordinate
+			console.log("worldAnchorGet: considering adding a world anchor");
 
 			let gps = this.gpsGet();
 
@@ -129,6 +130,9 @@ class ARAnchorGPSTest extends XRExampleBase {
 				this.worldAnchor = {}
 				this.worldAnchor.anchorUID = frame.addAnchor(headCoordinateSystem, [0,0,0])
 				this.worldAnchor.cartesian = Cesium.Cartesian3.fromDegrees(gps.longitude, gps.latitude, gps.elevation ); //,  Ellipsoid.WGS84 );
+
+				console.log("World anchor is at " + gps.longitude + " " + gps.latitude);
+				console.log(this.worldAnchor);
 			}
 
 		}
@@ -222,36 +226,62 @@ class ARAnchorGPSTest extends XRExampleBase {
 			return;
 		}
 
+		console.log("entityAdd: Successfully got a world anchor at position");
+
+		// where is world anchor in local coordinates? (in 3d in arkit local frame of reference)
+		let worldAnchorOffset = new XRAnchorOffset(worldAnchor.anchorUID)
+		let wxyz = worldAnchorOffset.getPosition()
+
+		console.log(worldAnchor);
+		console.log(wxyz);
+
 		// Get an anchoroffset object (has an anchor by uid) by attempting a hit test using the normalized screen coordinates
 		frame.findAnchor(x, y).then(anchorOffset => {
 			if(anchorOffset === null){
 				console.log('miss')
 				return
 			}
-			console.log('hit')
+
+			console.log('entityAdd: successfully hit a surface')
 			console.log(anchorOffset)
 
 			// where is this in local coordinates? (in 3d in arkit local frame of reference)
 			let xyz = anchorOffset.getPosition()
 
-			// where is world anchor in local coordinates? (in 3d in arkit local frame of reference)
-			let worldAnchorOffset = new XRAnchorOffset(worldAnchor.anchorUID)
-			let wxyz = worldAnchorOffset.getPosition()
+			console.log("entityAdd: we believe the feature is here");
+			console.log(xyz);
 
 			// get a cartesian representation of the local vector displacement relative to world anchor (in meters???)
 
-			xyz[0] = xyz[0] - worldAnchor.xyz[0]
-			xyz[1] = xyz[1] - worldAnchor.xyz[1]
-			xyz[2] = xyz[2] - worldAnchor.xyz[2]
+			xyz[0] = xyz[0] - wxyz[0]
+			xyz[1] = xyz[1] - wxyz[1]
+			xyz[2] = xyz[2] - wxyz[2]
 
 			// https://developer.apple.com/documentation/arkit/arsessionconfiguration/worldalignment/gravityandheading
-			// The y-axis matches the direction of gravity as detected by the device's motion sensing hardware; that is,
-			// the vector (0,-1,0) points downward.
-			// The x- and z-axes match the longitude and latitude directions as measured by Location Services.
-			// The vector (0,0,-1) points to true north and the vector (-1,0,0) points west.
-			// (That is, the positive x-, y-, and z-axes point east, up, and south, respectively.)
+			// ARKit aligns with the world. If you are anywhere on earth facing north then:
+			//		+ x+ values always point towards larger longitudes (or always to the right)
+			//		+ y+ values point towards space
+			//		+ z+ values point *south* towards smaller latitudes (which is slightly unexpected)
 
-			let v = new Cesium.Cartesian3(xyz[0],xyz[2],xyz[1])
+			// https://en.wikipedia.org/wiki/ECEF
+			// If you are in box defined by an arkit local coordinate system at any point on earth facing north then:
+			//		+ x+ values point towards the right or increasing longitude
+			//		+ y+ values point towards space
+			//		+ z+ values point south (or decreasing longitude)
+			//
+			// 
+
+// i am taking a relative vector, effectively at 0,0 and i am trying to rotate it to a place on earth - to persist that vector
+// ....
+// but if the cartesian coordinates at 0,0 are not expressed as variance in the x dimension... my rotation is implicity wrong.
+// 
+
+			// In ECEF coordinates certain operations would produce certain results
+			//	+ increasing latitudes (moving towards north pole) would shrink X and grow Z (as we move up vertically in cartesian)
+			//	+ increasing longitudes from 0,0 would also shrink X and grow Y (until we reach 90')
+			//	+ increasing elevation would grow X if longitude and latitude are zero
+
+			let v = new Cesium.Cartesian3(xyz[0],-xyz[2],xyz[1])
 
 			// convert the world anchor cartesian coordinates to a 3d transform in space
 			let m = Cesium.Transforms.eastNorthUpToFixedFrame(worldAnchor.cartesian)
@@ -290,49 +320,41 @@ class ARAnchorGPSTest extends XRExampleBase {
 window.addEventListener('DOMContentLoaded', () => {
 	setTimeout(() => {
 		try {
-			window.pageApp = new ARAnchorGPSTest(document.getElementById('target'))
+//			window.pageApp = new ARAnchorGPSTest(document.getElementById('target'))
 		} catch(e) {
 			console.error('page error', e)
 		}
 	}, 1000)
 })
 
+function test(input,vector) {
 
-// let handler = Cesium.Transforms.localFrameToFixedFrameGenerator( "east", "north")
+	// Build a rotation that can rotate a vector to a place on earth
+
+	let r = Cesium.Cartesian3.fromDegrees(...input)
+	let m = Cesium.Transforms.eastNorthUpToFixedFrame(r)
+
+	// This rotation should be able to transform a vector in EUS notation to any place on earth
+
+	let v = new Cesium.Cartesian3(...vector)
+
+	// transform the vector to an absolute position on earth (presumably this is meters??)
+	let r2 = Cesium.Matrix4.multiplyByPoint(m, v, new Cesium.Cartesian3())
+
+	let c  = Cesium.Ellipsoid.WGS84.cartesianToCartographic(r2);
+	let lon = Cesium.Math.toDegrees(c.longitude); 
+	let lat = Cesium.Math.toDegrees(c.latitude);
+
+	console.log("lon = " + lon + " lat=" + lat)
+
+}
 
 
+test([0,0,0],[10000,0,0])
+test([0,45,0],[10000000,0,0]) // I would expect the result to NOT change latitudes.... yet it doth still move.
+test([-100,0,0],[0,0,0])
+test([-100,45,0],[0,0,0])
 
-console.log(cartesian)
-console.log(matrix)
-
-console.log("lon="+lon + " " + " lat=" + lat)
-
-
-
-//var position = Cesium.Cartesian3.fromDegrees(-106.690647, 36.806761, 0);
-//Cesium.Cartesian3.add(position, offset, position);
-//var p = new Cesium.Cartesian3(100, 0, 0);
-//console.log(result)
-
-
-
-// 
-// TODO - multiply my vector above by the transform - getting a new point in space
-// 		- convert this point in 3 space back to cartesian
-
-// 
-//var pos = Cesium.Cartesian3.fromDegrees(61.296382224724795,35.628536117000692); 
-//var carto  = Cesium.Ellipsoid.WGS84.cartesianToCartographic(pos);     
-//var lon = Cesium.Math.toDegrees(carto.longitude); 
-//var lat = Cesium.Math.toDegrees(carto.latitude); 
-
-// ok, given a point on a unit sphere - representing effectively some rotation
-// rotate the vector by an imaginary x axis by its latitude
-// rotate the vector by an imaginary rotation axis
-// now i have a point in space - convert that point back to an xyz
-
-// rotate a vector by the spin axis
-// then by the x axis
 
 
 
