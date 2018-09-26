@@ -55,6 +55,9 @@ app.post('/api/entity/save', (request, response) => {
 
 app.post('/api/entity/sync', (request, response) => {
   //let params = url.parse(request.url, true).query
+  var d = new Date()
+  var n = d.getTime()
+  console.log("ping at time " + n)
   response.json(entities)
 });
 
