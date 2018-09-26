@@ -7,11 +7,9 @@ function postDataHelper(url,data) {
         credentials: "same-origin", // include, same-origin, *omit
         headers: { "Content-Type": "application/json; charset=utf-8", },
         referrer: "no-referrer", // no-referrer, *client
-        body: JSON.stringify(data),
+        body: data,
     }).then(response => response.json())
 }
-
-
 
 class ARAnchorGPSTest extends XRExampleBase {
 
@@ -116,7 +114,8 @@ class ARAnchorGPSTest extends XRExampleBase {
 		var n = d.getTime()
 		console.log("Busy polling server at time " + n )
 		let scope = this
-		postDataHelper('/api/entity/sync',{time:n}).then(results => {
+		let data = JSON.stringify({time:n})
+		postDataHelper('/api/entity/sync',data).then(results => {
 			for(let uuid in results) {
 				let entity = results[uuid]
 				if(entity.uuid && !scope.entities[entity.uuid]) {
@@ -345,7 +344,8 @@ class ARAnchorGPSTest extends XRExampleBase {
 	}
 
 	entityBroadcast(entity) {
-		postDataHelper('/api/entity/save',entity).then(result => {
+		let data = JSON.stringify(entity)
+		postDataHelper('/api/entity/save',data).then(result => {
 			if(!result || !result.uuid) {
 				console.error("entityBroadcast: failed to save to server")
 			} else {
@@ -355,13 +355,31 @@ class ARAnchorGPSTest extends XRExampleBase {
 		})
 	}
 
+	//////////////////////////////////////////////////////////
+
+	saveTest() {
+
+		const formData = new FormData()
+		formData.append('blob', new Blob(['Hello World!\n']), 'test')
+
+		fetch('/api/blob/save', {
+		  method: 'POST',
+		  body: formData
+		})
+		.then(r => r.json())
+		.then(data => {
+		  console.log(data)
+		})
+
+	}
 
 }
 
 window.addEventListener('DOMContentLoaded', () => {
 	setTimeout(() => {
 		try {
-			window.pageApp = new ARAnchorGPSTest(document.getElementById('target'))
+			window.myapp = new ARAnchorGPSTest(document.getElementById('target'))
+			window.myapp.saveTest()
 		} catch(e) {
 			console.error('page error', e)
 		}

@@ -38,12 +38,21 @@ const express = require('express')
 const parser = require('body-parser')
 const app = express()
 const url = require('url')
+const multer = require('multer')
+const upload = multer({dest:'uploads/'})
 
 app.use(parser.json())
 
 app.get("/", (request, response) => {
   response.sendFile(__dirname + '/public/index.html')
 })
+
+app.post('/api/blob/save', upload.single('blob'), (request, response) => {
+  console.log("saved result")
+  console.log(request.file)
+  console.log(request.body)
+  response.json({result:"thanks"})
+});
 
 app.post('/api/entity/save', (request, response) => {
   //let params = url.parse(request.url, true).query
