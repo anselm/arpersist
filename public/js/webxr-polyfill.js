@@ -1,4 +1,28 @@
-/******/ (function(modules) { // webpackBootstrap
+/* if there is a navigator.xr, clear it out */
+if(typeof navigator.xr != 'undefined') {
+    if(typeof XRDisplay != 'undefined') { XRDisplay = null }
+    if(typeof XRSession != 'undefined') { XRSession = null }
+    if(typeof XRSessionCreateParameters != 'undefined') { XRSessionCreateParameters = null }
+    if(typeof Reality != 'undefined') { Reality = null }
+    if(typeof XRPointCloud != 'undefined') { XRPointCloud = null }
+    if(typeof XRLightEstimate != 'undefined') { XRLightEstimate = null }
+    if(typeof XRAnchor != 'undefined') { XRAnchor = null }
+    if(typeof XRPlaneAnchor != 'undefined') { XRPlaneAnchor = null }
+    if(typeof XRFaceAnchor != 'undefined') { XRFaceAnchor = null }
+    if(typeof XRImageAnchor != 'undefined') { XRImageAnchor = null }
+    if(typeof XRAnchorOffset != 'undefined') { XRAnchorOffset = null }
+    if(typeof XRStageBounds != 'undefined') { XRStageBounds = null }
+    if(typeof XRStageBoundsPoint != 'undefined') { XRStageBoundsPoint = null }
+    if(typeof XRPresentationFrame != 'undefined') { XRPresentationFrame = null }
+    if(typeof XRView != 'undefined') { XRView = null }
+    if(typeof XRViewport != 'undefined') { XRViewport = null }
+    if(typeof XRCoordinateSystem != 'undefined') { XRCoordinateSystem = null }
+    if(typeof XRViewPose != 'undefined') { XRViewPose = null }
+    if(typeof XRLayer != 'undefined') { XRLayer = null }
+    if(typeof XRWebGLLayer != 'undefined') { XRWebGLLayer = null }
+    if(typeof XRVideoFrame != 'undefined') { XRVideoFrame = null }
+    //navigator.xr = null;
+}/******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
 /******/ 	var installedModules = {};
 /******/
@@ -1538,6 +1562,51 @@ var ARKitWrapper = function (_EventHandlerBase) {
 			});
 		}
 
+		/***
+   * getWorldMap requests a worldmap from the platform
+   * @returns {Promise<any>} a promise that will be resolved when the worldMap has been retrieved, or an error otherwise
+   */
+
+	}, {
+		key: "getWorldMap",
+		value: function getWorldMap() {
+			var _this7 = this;
+
+			return new Promise(function (resolve, reject) {
+				if (!_this7._isInitialized) {
+					reject(new Error('ARKit is not initialized'));
+					return;
+				}
+
+				window.webkit.messageHandlers.getWorldMap.postMessage({
+					callback: _this7._createPromiseCallback('getWorldMap', resolve)
+				});
+			});
+		}
+
+		/***
+   * setWorldMap requests a worldmap for the platform be set
+   * @returns {Promise<any>} a promise that will be resolved when the worldMap has been set, or an error otherwise
+   */
+
+	}, {
+		key: "setWorldMap",
+		value: function setWorldMap(worldMap) {
+			var _this8 = this;
+
+			return new Promise(function (resolve, reject) {
+				if (!_this8._isInitialized) {
+					reject(new Error('ARKit is not initialized'));
+					return;
+				}
+
+				window.webkit.messageHandlers.setWorldMap.postMessage({
+					worldMap: worldMap.worldMap,
+					callback: _this8._createPromiseCallback('setWorldMap', resolve)
+				});
+			});
+		}
+
 		/* 
   RACE CONDITION:  call stop, then watch:  stop does not set isWatching false until it gets a message back from the app,
   so watch will return and not issue a watch command.   May want to set isWatching false immediately?
@@ -1550,16 +1619,16 @@ var ARKitWrapper = function (_EventHandlerBase) {
 	}, {
 		key: "stop",
 		value: function stop() {
-			var _this7 = this;
+			var _this9 = this;
 
 			return new Promise(function (resolve, reject) {
-				if (!_this7._isWatching) {
+				if (!_this9._isWatching) {
 					resolve();
 					return;
 				}
 				console.log('----STOP');
 				window.webkit.messageHandlers.stopAR.postMessage({
-					callback: _this7._createPromiseCallback('stop', resolve)
+					callback: _this9._createPromiseCallback('stop', resolve)
 				});
 			});
 		}
@@ -1810,14 +1879,14 @@ var ARKitWrapper = function (_EventHandlerBase) {
 	}, {
 		key: "_createPromiseCallback",
 		value: function _createPromiseCallback(action, resolve) {
-			var _this8 = this;
+			var _this10 = this;
 
 			var callbackName = this._generateCallbackUID(action);
 			window[callbackName] = function (data) {
 				delete window[callbackName];
 				var wrapperCallbackName = '_on' + action[0].toUpperCase() + action.slice(1);
-				if (typeof _this8[wrapperCallbackName] == 'function') {
-					_this8[wrapperCallbackName](data);
+				if (typeof _this10[wrapperCallbackName] == 'function') {
+					_this10[wrapperCallbackName](data);
 				}
 				resolve(data);
 			};
@@ -2593,6 +2662,16 @@ var Reality = function (_EventHandlerBase) {
 		value: function _getLightAmbientIntensity() {
 			throw new Error('Exending classes should implement _getLightAmbientIntensity');
 		}
+	}, {
+		key: '_getWorldMap',
+		value: function _getWorldMap() {
+			throw new Error('Exending classes should implement _getWorldMap');
+		}
+	}, {
+		key: '_setWorldMap',
+		value: function _setWorldMap(worldMap) {
+			throw new Error('Exending classes should implement _setWorldMap');
+		}
 
 		// attribute EventHandler onchange;
 
@@ -3157,6 +3236,17 @@ var XRSession = function (_EventHandlerBase) {
 				console.error('REMOVE_WORLD_ANCHOR event error', e);
 			}
 		}
+	}, {
+		key: 'getWorldMap',
+		value: function getWorldMap() {
+			return this.reality._getWorldMap();
+		}
+	}, {
+		key: 'setWorldMap',
+		value: function setWorldMap(worldMap) {
+			return this.reality._setWorldMap(worldMap);
+		}
+
 		/*
   attribute EventHandler onblur;
   attribute EventHandler onfocus;
@@ -7658,89 +7748,89 @@ DeviceOrientationTracker.DEG_TO_RAD = Math.PI / 180;
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-var _XRDisplay = __webpack_require__(6);
+var _XRDisplay2 = __webpack_require__(6);
 
-var _XRDisplay2 = _interopRequireDefault(_XRDisplay);
+var _XRDisplay3 = _interopRequireDefault(_XRDisplay2);
 
-var _XRSession = __webpack_require__(11);
+var _XRSession2 = __webpack_require__(11);
 
-var _XRSession2 = _interopRequireDefault(_XRSession);
+var _XRSession3 = _interopRequireDefault(_XRSession2);
 
-var _XRSessionCreateParameters = __webpack_require__(29);
+var _XRSessionCreateParameters2 = __webpack_require__(29);
 
-var _XRSessionCreateParameters2 = _interopRequireDefault(_XRSessionCreateParameters);
+var _XRSessionCreateParameters3 = _interopRequireDefault(_XRSessionCreateParameters2);
 
-var _Reality = __webpack_require__(7);
+var _Reality2 = __webpack_require__(7);
 
-var _Reality2 = _interopRequireDefault(_Reality);
+var _Reality3 = _interopRequireDefault(_Reality2);
 
-var _XRPointCloud = __webpack_require__(30);
+var _XRPointCloud2 = __webpack_require__(30);
 
-var _XRPointCloud2 = _interopRequireDefault(_XRPointCloud);
+var _XRPointCloud3 = _interopRequireDefault(_XRPointCloud2);
 
-var _XRLightEstimate = __webpack_require__(20);
+var _XRLightEstimate2 = __webpack_require__(20);
 
-var _XRLightEstimate2 = _interopRequireDefault(_XRLightEstimate);
+var _XRLightEstimate3 = _interopRequireDefault(_XRLightEstimate2);
 
-var _XRAnchor = __webpack_require__(1);
+var _XRAnchor2 = __webpack_require__(1);
 
-var _XRAnchor2 = _interopRequireDefault(_XRAnchor);
+var _XRAnchor3 = _interopRequireDefault(_XRAnchor2);
 
-var _XRPlaneAnchor = __webpack_require__(10);
+var _XRPlaneAnchor2 = __webpack_require__(10);
 
-var _XRPlaneAnchor2 = _interopRequireDefault(_XRPlaneAnchor);
+var _XRPlaneAnchor3 = _interopRequireDefault(_XRPlaneAnchor2);
 
-var _XRFaceAnchor = __webpack_require__(8);
+var _XRFaceAnchor2 = __webpack_require__(8);
 
-var _XRFaceAnchor2 = _interopRequireDefault(_XRFaceAnchor);
+var _XRFaceAnchor3 = _interopRequireDefault(_XRFaceAnchor2);
 
-var _XRImageAnchor = __webpack_require__(9);
+var _XRImageAnchor2 = __webpack_require__(9);
 
-var _XRImageAnchor2 = _interopRequireDefault(_XRImageAnchor);
+var _XRImageAnchor3 = _interopRequireDefault(_XRImageAnchor2);
 
-var _XRAnchorOffset = __webpack_require__(21);
+var _XRAnchorOffset2 = __webpack_require__(21);
 
-var _XRAnchorOffset2 = _interopRequireDefault(_XRAnchorOffset);
+var _XRAnchorOffset3 = _interopRequireDefault(_XRAnchorOffset2);
 
-var _XRStageBounds = __webpack_require__(31);
+var _XRStageBounds2 = __webpack_require__(31);
 
-var _XRStageBounds2 = _interopRequireDefault(_XRStageBounds);
+var _XRStageBounds3 = _interopRequireDefault(_XRStageBounds2);
 
-var _XRStageBoundsPoint = __webpack_require__(32);
+var _XRStageBoundsPoint2 = __webpack_require__(32);
 
-var _XRStageBoundsPoint2 = _interopRequireDefault(_XRStageBoundsPoint);
+var _XRStageBoundsPoint3 = _interopRequireDefault(_XRStageBoundsPoint2);
 
-var _XRPresentationFrame = __webpack_require__(33);
+var _XRPresentationFrame2 = __webpack_require__(33);
 
-var _XRPresentationFrame2 = _interopRequireDefault(_XRPresentationFrame);
+var _XRPresentationFrame3 = _interopRequireDefault(_XRPresentationFrame2);
 
-var _XRView = __webpack_require__(13);
+var _XRView2 = __webpack_require__(13);
 
-var _XRView2 = _interopRequireDefault(_XRView);
+var _XRView3 = _interopRequireDefault(_XRView2);
 
-var _XRViewport = __webpack_require__(22);
+var _XRViewport2 = __webpack_require__(22);
 
-var _XRViewport2 = _interopRequireDefault(_XRViewport);
+var _XRViewport3 = _interopRequireDefault(_XRViewport2);
 
-var _XRCoordinateSystem = __webpack_require__(34);
+var _XRCoordinateSystem2 = __webpack_require__(34);
 
-var _XRCoordinateSystem2 = _interopRequireDefault(_XRCoordinateSystem);
+var _XRCoordinateSystem3 = _interopRequireDefault(_XRCoordinateSystem2);
 
-var _XRViewPose = __webpack_require__(14);
+var _XRViewPose2 = __webpack_require__(14);
 
-var _XRViewPose2 = _interopRequireDefault(_XRViewPose);
+var _XRViewPose3 = _interopRequireDefault(_XRViewPose2);
 
-var _XRLayer = __webpack_require__(23);
+var _XRLayer2 = __webpack_require__(23);
 
-var _XRLayer2 = _interopRequireDefault(_XRLayer);
+var _XRLayer3 = _interopRequireDefault(_XRLayer2);
 
-var _XRWebGLLayer = __webpack_require__(35);
+var _XRWebGLLayer2 = __webpack_require__(35);
 
-var _XRWebGLLayer2 = _interopRequireDefault(_XRWebGLLayer);
+var _XRWebGLLayer3 = _interopRequireDefault(_XRWebGLLayer2);
 
-var _XRVideoFrame = __webpack_require__(36);
+var _XRVideoFrame2 = __webpack_require__(36);
 
-var _XRVideoFrame2 = _interopRequireDefault(_XRVideoFrame);
+var _XRVideoFrame3 = _interopRequireDefault(_XRVideoFrame2);
 
 var _EventHandlerBase2 = __webpack_require__(3);
 
@@ -7780,27 +7870,49 @@ var XRPolyfill = function (_EventHandlerBase) {
 
 		var _this = _possibleConstructorReturn(this, (XRPolyfill.__proto__ || Object.getPrototypeOf(XRPolyfill)).call(this));
 
-		window.XRDisplay = _XRDisplay2.default;
-		window.XRSession = _XRSession2.default;
-		window.XRSessionCreateParameters = _XRSessionCreateParameters2.default;
-		window.Reality = _Reality2.default;
-		window.XRPointCloud = _XRPointCloud2.default;
-		window.XRLightEstimate = _XRLightEstimate2.default;
-		window.XRAnchor = _XRAnchor2.default;
-		window.XRPlaneAnchor = _XRPlaneAnchor2.default;
-		window.XRFaceAnchor = _XRFaceAnchor2.default;
-		window.XRImageAnchor = _XRImageAnchor2.default;
-		window.XRAnchorOffset = _XRAnchorOffset2.default;
-		window.XRStageBounds = _XRStageBounds2.default;
-		window.XRStageBoundsPoint = _XRStageBoundsPoint2.default;
-		window.XRPresentationFrame = _XRPresentationFrame2.default;
-		window.XRView = _XRView2.default;
-		window.XRViewport = _XRViewport2.default;
-		window.XRCoordinateSystem = _XRCoordinateSystem2.default;
-		window.XRViewPose = _XRViewPose2.default;
-		window.XRLayer = _XRLayer2.default;
-		window.XRWebGLLayer = _XRWebGLLayer2.default;
-		window.XRVideoFrame = _XRVideoFrame2.default;
+		window.XRDisplay = _XRDisplay3.default;
+		window.XRSession = _XRSession3.default;
+		window.XRSessionCreateParameters = _XRSessionCreateParameters3.default;
+		window.Reality = _Reality3.default;
+		window.XRPointCloud = _XRPointCloud3.default;
+		window.XRLightEstimate = _XRLightEstimate3.default;
+		window.XRAnchor = _XRAnchor3.default;
+		window.XRPlaneAnchor = _XRPlaneAnchor3.default;
+		window.XRFaceAnchor = _XRFaceAnchor3.default;
+		window.XRImageAnchor = _XRImageAnchor3.default;
+		window.XRAnchorOffset = _XRAnchorOffset3.default;
+		window.XRStageBounds = _XRStageBounds3.default;
+		window.XRStageBoundsPoint = _XRStageBoundsPoint3.default;
+		window.XRPresentationFrame = _XRPresentationFrame3.default;
+		window.XRView = _XRView3.default;
+		window.XRViewport = _XRViewport3.default;
+		window.XRCoordinateSystem = _XRCoordinateSystem3.default;
+		window.XRViewPose = _XRViewPose3.default;
+		window.XRLayer = _XRLayer3.default;
+		window.XRWebGLLayer = _XRWebGLLayer3.default;
+		window.XRVideoFrame = _XRVideoFrame3.default;
+
+		XRDisplay = window.XRDisplay;
+		XRSession = window.XRSession;
+		XRSessionCreateParameters = window.XRSessionCreateParameters;
+		Reality = window.Reality;
+		XRPointCloud = window.XRPointCloud;
+		XRLightEstimate = window.XRLightEstimate;
+		XRAnchor = window.XRAnchor;
+		XRPlaneAnchor = window.XRPlaneAnchor;
+		XRFaceAnchor = window.XRFaceAnchor;
+		XRImageAnchor = window.XRImageAnchor;
+		XRAnchorOffset = window.XRAnchorOffset;
+		XRStageBounds = window.XRStageBounds;
+		XRStageBoundsPoint = window.XRStageBoundsPoint;
+		XRPresentationFrame = window.XRPresentationFrame;
+		XRView = window.XRView;
+		XRViewport = window.XRViewport;
+		XRCoordinateSystem = window.XRCoordinateSystem;
+		XRViewPose = window.XRViewPose;
+		XRLayer = window.XRLayer;
+		XRWebGLLayer = window.XRWebGLLayer;
+		XRVideoFrame = window.XRVideoFrame;
 
 		_this._getVRDisplaysFinished = false;
 
@@ -7903,7 +8015,9 @@ var XRPolyfill = function (_EventHandlerBase) {
 /* Install XRPolyfill if window.XR does not exist */
 
 
-if (typeof navigator.XR === 'undefined') navigator.XR = new XRPolyfill();
+if (typeof navigator.XR === 'undefined') {
+	navigator.XR = new XRPolyfill();
+}
 
 /***/ }),
 /* 26 */
@@ -10886,6 +11000,7 @@ var FlatDisplay = function (_XRDisplay) {
 			// #define WEB_AR_TRACKING_STATE_LIMITED_MOTION       @"ar_tracking_limited_excessive_motion"
 			// #define WEB_AR_TRACKING_STATE_LIMITED_FEATURES     @"ar_tracking_limited_insufficient_features"
 			// #define WEB_AR_TRACKING_STATE_NOT_AVAILABLE        @"ar_tracking_not_available"
+			// #define WEB_AR_TRACKING_STATE_RELOCALIZING 	 	  @"ar_tracking_relocalizing"
 		}
 	}, {
 		key: '_handleComputerVisionData',
@@ -12078,6 +12193,51 @@ var CameraReality = function (_Reality) {
 				return null;
 			}
 		}
+
+		/**
+  * retrieves a worldMap from the platform, if possible
+     * @returns a promise when the worldMap has been retrieved
+     * @private
+     */
+
+	}, {
+		key: '_getWorldMap',
+		value: function _getWorldMap() {
+			var _this7 = this;
+
+			return new Promise(function (resolve, reject) {
+				if (_this7._arKitWrapper) {
+					_this7._arKitWrapper.getWorldMap().then(function (ARKitWorldMap) {
+						if (ARKitWorldMap.saved === true) {
+							resolve(ARKitWorldMap.worldMap);
+						} else if (ARKitWorldMap.error !== null) {
+							reject(ARKitWorldMap.error);
+						} else {
+							reject(null);
+						}
+					});
+				} else {
+					reject('ARKit not supported');
+				}
+			});
+		}
+
+		/**
+   * sets a worldMap for the platform, if possible
+   * @param worldMap a platform specific worldmap
+      * @returns a promise when the worldMap has been set
+      * @private
+      */
+
+	}, {
+		key: '_setWorldMap',
+		value: function _setWorldMap(worldMap) {
+			if (this._arKitWrapper) {
+				return this._arKitWrapper.setWorldMap(worldMap);
+			} else {
+				return null;
+			}
+		}
 	}, {
 		key: '_getTimeStamp',
 		value: function _getTimeStamp(timestamp) {
@@ -12439,3 +12599,24 @@ exports.default = ARCoreCameraRenderer;
 
 /***/ })
 /******/ ]);
+XRDisplay = window.XRDisplay
+XRSession = window.XRSession
+XRSessionCreateParameters = window.XRSessionCreateParameters
+Reality = window.Reality
+XRPointCloud = window.XRPointCloud
+XRLightEstimate = window.XRLightEstimate
+XRAnchor = window.XRAnchor;
+XRPlaneAnchor = window.XRPlaneAnchor;
+XRFaceAnchor = window.XRFaceAnchor;
+XRImageAnchor = window.XRImageAnchor;
+XRAnchorOffset = window.XRAnchorOffset;
+XRStageBounds = window.XRStageBounds;
+XRStageBoundsPoint = window.XRStageBoundsPoint;
+XRPresentationFrame = window.XRPresentationFrame;
+XRView = window.XRView;
+XRViewport = window.XRViewport;
+XRCoordinateSystem = window.XRCoordinateSystem;
+XRViewPose = window.XRViewPose;
+XRLayer = window.XRLayer;
+XRWebGLLayer = window.XRWebGLLayer; 
+XRVideoFrame = window.XRVideoFrame;

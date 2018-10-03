@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "multer": "^1.4.0",
-    "shortid": "^2.2.13"
+    "shortid": "^2.2.13",
+    "socket.io": "^2.1.1"
   }
 }

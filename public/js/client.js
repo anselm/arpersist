@@ -25,7 +25,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 		// tap to indicate that user wants to interact (make an object etc)
 		this._tapEventData = null 
-		this.el.addEventListener('touchstart', this._onTouchStart.bind(this), false)
+	//	this.el.addEventListener('touchstart', this._onTouchStart.bind(this), false)
 
 	}
 
@@ -40,6 +40,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 			ev.touches[0].clientX / window.innerWidth,
 			ev.touches[0].clientY / window.innerHeight
 		]
+		console.log(ev.touches)
 	}
 
 	///////////////////////////////////////////////
@@ -47,18 +48,58 @@ class ARAnchorGPSTest extends XRExampleBase {
 	///////////////////////////////////////////////
 
 	initializeScene() {
+
+		// Add a box at the scene origin
+		let box = new THREE.Mesh(
+			new THREE.BoxBufferGeometry(0.1, 0.1, 0.1),
+			new THREE.MeshPhongMaterial({ color: '#DDFFDD' })
+		)
+		box.position.set(0, 0.05, 0)
+        this.floorGroup.add( this.AxesHelper( 0.2 ) );
+		this.floorGroup.add(box)
+
 		// Called during construction by parent scope
 		this.scene.add(new THREE.AmbientLight('#FFF', 0.2))
 		let directionalLight = new THREE.DirectionalLight('#FFF', 0.6)
 		directionalLight.position.set(0, 10, 0)
 		this.scene.add(directionalLight)
+
+		this.listenerSetup = false
 	}
 
 	// Called once per frame, before render, to give the app a chance to update this.scene
 	updateScene(frame) {
 
+		const worldCoordinates = frame.getCoordinateSystem(XRCoordinateSystem.TRACKER)
+
+		// setup a listener for anchors being re-loaded
+		if (!this.listenerSetup) {
+			this.listenerSetup = true
+			this.session.addEventListener(XRSession.NEW_WORLD_ANCHOR, this._handleNewWorldAnchor.bind(this))
+		}
+
+		// listen for save map requests from userland
+		if(this.pleaseSaveMap) {
+			this.pleaseSaveMap = 0;
+
+		//	this.session.createImageAnchor("test", new ImageData(10,10), 10,10 , 0.2).then((results) => {
+		//		console.log(results)
+		//		console.log("got a result");
+		//	});
+
+console.log("Saving map")
+			this.session.getWorldMap(result => {
+				themap = result
+				console.log("getting map")
+				console.log(result)
+			})
+
+		}
+
+
 		// If we have tap data, attempt a hit test for a surface
-		if(this._tapEventData !== null){
+		if(this._tapEventData){
+			console.log(this._tapEventData )
 			const x = this._tapEventData[0]
 			const y = this._tapEventData[1]
 			this._tapEventData = null
@@ -67,6 +108,34 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 		// give entity system a chance to finalize network traffic - will finalize addition
 		this.entitiesUpdate(frame)
+	}
+
+	_handleNewWorldAnchor(event) {
+		let anchor = event.detail
+		if (anchor.uid.startsWith('anchor-')) {
+			// it's an anchor we created last time
+			//this.addAnchoredNode(new XRAnchorOffset(anchor.uid), this._createSceneGraphNode())
+			console.log("saw an anchor again")
+		}
+	}
+
+	AxesHelper( size ) {
+		size = size || 1;
+			var vertices = [
+			0, 0, 0,	size, 0, 0,
+			0, 0, 0,	0, size, 0,
+			0, 0, 0,	0, 0, size
+		];
+			var colors = [
+			1, 0, 0,	1, 0.6, 0,
+			0, 1, 0,	0.6, 1, 0,
+			0, 0, 1,	0, 0.6, 1
+		];
+		var geometry = new THREE.BufferGeometry();
+		geometry.addAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+		geometry.addAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
+		var material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors } );
+		return new THREE.LineSegments(geometry, material);
 	}
 
 	createSceneGraphNode(args = 0) {
@@ -106,9 +175,17 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 	entityInitialize() {
 		this.entities = {}
-		this.entityBusyPoll()
+		this.socket = io()
+		this.socket.on('publish', function(entity){
+			console.log("got entity")
+			console.log(entity)
+			if(entity.uuid && !scope.entities[entity.uuid]) {
+				scope.entities[entity.uuid] = entity
+			}
+		})
 	}
 
+	/*
 	entityBusyPoll() {
 		var d = new Date()
 		var n = d.getTime()
@@ -125,6 +202,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 			setTimeout( function() { scope.entityBusyPoll() },1000)
 		})
 	}
+	*/
 
 	entityUpdate(frame,entity) {
 
@@ -324,14 +402,18 @@ class ARAnchorGPSTest extends XRExampleBase {
 			console.log("entityAdd: Entity is at lon"+lon + " lat"+lat)
 		}
 
-		// publish only a few properties
-		if(true) {
-			this.entityBroadcast({
-				style:entity.style,
-				trans:entity.trans,
-				cartesian:entity.cartesian
-			})
+		let blob = {
+			style:entity.style,
+			trans:entity.trans,
+			cartesian:entity.cartesian
 		}
+
+		// publish 
+		if(true) {
+			this.entityBroadcast()
+		}
+
+		socket.emit('publish',blob);
 
 		// hack - force a second copy of the entity here right now for local immediate feedback
 		if(false) {
@@ -379,9 +461,52 @@ window.addEventListener('DOMContentLoaded', () => {
 	setTimeout(() => {
 		try {
 			window.myapp = new ARAnchorGPSTest(document.getElementById('target'))
-			window.myapp.saveTest()
 		} catch(e) {
 			console.error('page error', e)
 		}
 	}, 1000)
 })
+
+let themap = 0;
+
+function savemap() {
+	window.myapp.pleaseSaveMap = 1;
+}
+
+function loadmap() {
+	console.log("load")
+	window.myapp.session._xr.setWorldMap(themap)
+}
+
+/*
+
+i want a mapping mode that lets me build a map.... which is what it always does
+
+save a map...
+
+load a map...
+
+
+
+
+So, if you have time this weekend, the app we need should
+
+- have a button or menu that says “save the map” that will call “session.getworldmap()” and when the promise succeeds, will send the object to the cloud
+
+- have a button or menu that says “load the map”, that grabs the map and calls “session.setworldmap(map)”
+
+- you should have your known “worldAnchor”, it should be saved (by name) with the map, and thus restored.  Probably need to delete one (if it exists) before loading the map?  Dunno if it will just relocalize an anchor with the same name
+
+- you should save the geolocation info (XYZ) of the anchor with the map
+
+*/
+
+
+
+
+
+
+
+
+
+

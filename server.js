@@ -40,6 +40,9 @@ const app = express()
 const url = require('url')
 const multer = require('multer')
 const upload = multer({dest:'uploads/'})
+var http = require('http').Server(app);
+var io = require('socket.io')(http);
+
 
 app.use(parser.json())
 
@@ -72,6 +75,14 @@ app.post('/api/entity/sync', (request, response) => {
 
 app.use(express.static('public'))
 
-app.listen(port, () => console.log(`Listening on port ${port}`))
+io.on('connection', function(socket){
+  socket.on('publish', function(msg){
+    io.emit('publish', msg)
+  })
+})
+
+http.listen(port, function(){
+  console.log('listening on port ' + port )
+})
 
 
