@@ -90,24 +90,31 @@ class ARAnchorGPSTest extends XRExampleBase {
 		}
 
 		// resolve frame related chores
-		switch(this.command) {
-			case "ux_save":
-				this.session.getWorldMap((result) => {
-					console.log("getting map")
-					console.log(result)
-				})
-				break
-			case "ux_load":
-				console.log("load")
-				break
-			case "ux_wipe":
-				console.log("wipe")
-				break
-			case "ux_make":
-				this.entitiesAdd(frame,0,0)
-			default:
+		try {
+			let command = this.command
+			this.command = 0
+			switch(command) {
+				case "ux_save":
+					console.log(this.session.getWorldMap)
+					this.session.getWorldMap().then(result => {
+						console.log("getting map")
+						console.log(result)
+					})
+					break
+				case "ux_load":
+					console.log("load")
+					break
+				case "ux_wipe":
+					console.log("wipe")
+					break
+				case "ux_make":
+					this.entitiesAdd(frame,0,0)
+				default:
+					break
+			}
+		} catch(e) {
+			console.error(e)
 		}
-		this.command = 0
 
 		// resolve changes in arkit frame of reference
 		this.entitiesUpdate(frame)
@@ -415,12 +422,10 @@ class ARAnchorGPSTest extends XRExampleBase {
 			cartesian:entity.cartesian
 		}
 
-		// publish 
-		if(true) {
-			this.entityBroadcast()
+		// publish
+		if(this.socket) {
+			this.socket.emit('publish',blob);
 		}
-
-		socket.emit('publish',blob);
 
 		// hack - force a second copy of the entity here right now for local immediate feedback
 		if(false) {
@@ -430,18 +435,6 @@ class ARAnchorGPSTest extends XRExampleBase {
 			this.entities[entity.uuid] = entity
 		}
 
-	}
-
-	entityBroadcast(entity) {
-		let data = JSON.stringify(entity)
-		postDataHelper('/api/entity/save',data).then(result => {
-			if(!result || !result.uuid) {
-				console.error("entityBroadcast: failed to save to server")
-			} else {
-				// could save locally if network returns it to us ( we don't need to do this here but can wait for busy poll for now )
-				// this.entities[result.uuid] = result
-			}
-		})
 	}
 
 	//////////////////////////////////////////////////////////
