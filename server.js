@@ -40,7 +40,7 @@ const parser = require('body-parser')
 const app = express()
 const url = require('url')
 const multer = require('multer')
-const upload = multer({dest:'uploads/'})
+const upload = multer({dest:'public/uploads/'})
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 
@@ -56,6 +56,11 @@ app.post('/api/blob/save', upload.single('blob'), (request, response) => {
   response.json({result:"thanks"})
 });
 */
+
+app.post('/api/map/save', upload.single('blob'), (request, response) => {
+  console.log("saved result public/uploads/" + request.file.filename)
+  response.json({filename:request.file.filename})
+});
 
 app.post('/api/map/save', upload.single('blob'), (request, response) => {
   console.log("saved result " + request.file)

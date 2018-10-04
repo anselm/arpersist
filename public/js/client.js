@@ -79,36 +79,29 @@ class ARAnchorGPSTest extends XRExampleBase {
 		this.listenerSetup = false
 	}
 
+	loadMap() {
+		if(!this.savedMapName)this.savedMapName = "5a13610c3f400f860363f59e3cadb13f"
+		let filename = 'uploads/'+this.savedMapName
+		fetch(filename).then((response) => { return response.text() }).then( (data) => {
+			console.log("got a file " + filename)
+			console.log(data)
+		})
+	}
+
 	saveMap(hash) {
-
-console.log("saving")
-console.log(hash)
-
-try {
 		const formData = new FormData()
-
-console.log("bbb")
-console.log(hash.worldMap)
-
 		let blob = new Blob([hash.worldMap], { type: "text/html"} );
-
 		formData.append('blob', blob )
-
-console.log("aaa")
-
 		fetch('/api/map/save', {
 		  method: 'POST',
 		  body: formData
 		})
 		.then(r => r.json())
 		.then(data => {
-			console.log("done map save")
-		  console.log(data)
+			// save this fact for now... kind of a hack
+			console.log("done map save as filename " + data.filename)
+			this.savedMapName = data.filename
 		})
-
-} catch(e) {
-	console.error(e)
-}
 		/* async way
 		(async () => {
 		  const rawResponse = await fetch('/api/save', {
@@ -182,6 +175,7 @@ console.log("aaa")
 					break
 				case "ux_load":
 					console.log("load")
+					this.loadMap()
 					break
 				case "ux_wipe":
 					console.log("wipe")
