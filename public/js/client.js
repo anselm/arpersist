@@ -11,6 +11,8 @@ function postDataHelper(url,data) {
     }).then(response => response.json())
 }
 
+
+
 class ARAnchorGPSTest extends XRExampleBase {
 
 	constructor(args) {
@@ -77,6 +79,83 @@ class ARAnchorGPSTest extends XRExampleBase {
 		this.listenerSetup = false
 	}
 
+	saveMap(hash) {
+
+console.log("saving")
+console.log(hash)
+
+try {
+		const formData = new FormData()
+
+console.log("bbb")
+console.log(hash.worldMap)
+
+		let blob = new Blob([hash.worldMap], { type: "text/html"} );
+
+		formData.append('blob', blob )
+
+console.log("aaa")
+
+		fetch('/api/map/save', {
+		  method: 'POST',
+		  body: formData
+		})
+		.then(r => r.json())
+		.then(data => {
+			console.log("done map save")
+		  console.log(data)
+		})
+
+} catch(e) {
+	console.error(e)
+}
+		/* async way
+		(async () => {
+		  const rawResponse = await fetch('/api/save', {
+		    method: 'POST',
+		    headers: {
+		      'Accept': 'application/json',
+		      'Content-Type': 'application/json'
+		    },
+		    body: JSON.stringify(hash)
+		  });
+		  const content = await rawResponse.json();
+
+		  console.log(content);
+		})();
+		*/
+
+		/*
+		// as a form field for multipart
+		var data = new FormData();
+		data.append( "json", JSON.stringify(json) );
+		fetch("/api/save", {
+		    method: "POST",
+		    body: data
+		})
+		.then(function(res){ return res.json(); })
+		.then(function(data){ alert( JSON.stringify( data ) ) })
+		*/
+
+/*
+
+		let data = JSON.stringify(hash)
+		console.log("saving")
+		console.log(data)
+		postDataHelper('/api/map/save',data).then(result => {
+			console.log("got result")
+			console.log(result)
+			if(!result || !result.uuid) {
+				console.error("entityBroadcast: failed to save to server")
+			} else {
+				// could save locally if network returns it to us ( we don't need to do this here but can wait for busy poll for now )
+				// this.entities[result.uuid] = result
+			}
+		})
+*/
+
+	}
+
 	updateScene(frame) {
 
 		// Called once per frame, before render, to give the app a chance to update this.scene
@@ -97,8 +176,8 @@ class ARAnchorGPSTest extends XRExampleBase {
 				case "ux_save":
 					console.log(this.session.getWorldMap)
 					this.session.getWorldMap().then(result => {
-						console.log("getting map")
-						console.log(result)
+						console.log("trying to save")
+						this.saveMap(result)
 					})
 					break
 				case "ux_load":
@@ -435,23 +514,6 @@ class ARAnchorGPSTest extends XRExampleBase {
 			this.entities[entity.uuid] = entity
 		}
 
-	}
-
-	//////////////////////////////////////////////////////////
-
-	saveTest() {
-
-		const formData = new FormData()
-		formData.append('blob', new Blob(['Hello World!\n']), 'test')
-
-		fetch('/api/blob/save', {
-		  method: 'POST',
-		  body: formData
-		})
-		.then(r => r.json())
-		.then(data => {
-		  console.log(data)
-		})
 	}
 
 }

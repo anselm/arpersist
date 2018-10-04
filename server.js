@@ -51,8 +51,14 @@ app.get("/", (request, response) => {
   response.sendFile(__dirname + '/public/index.html')
 })
 
+/*
 app.post('/api/blob/save', upload.single('blob'), (request, response) => {
-  console.log("saved result")
+  response.json({result:"thanks"})
+});
+*/
+
+app.post('/api/map/save', upload.single('blob'), (request, response) => {
+  console.log("saved result " + request.file)
   console.log(request.file)
   console.log(request.body)
   response.json({result:"thanks"})
