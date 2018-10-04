@@ -23,6 +23,7 @@ function entity_save(entity) {
   // save a blob and return it with a uuid if none
   if(!entity.uuid) {
     entity.uuid = shortid.generate()
+    console.log("granted new uuid " + entity.uuid )
   }
   entities[entity.uuid] = entity
   return entity
@@ -61,7 +62,8 @@ app.post('/api/entity/save', (request, response) => {
   //let params = url.parse(request.url, true).query
   let entity = request.body;
   let result = entity_save(entity)
-  console.log(result);
+  console.log("saved new")
+  console.log(result)
   response.json(result)
 });
 

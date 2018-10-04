@@ -23,12 +23,20 @@ class ARAnchorGPSTest extends XRExampleBase {
 		// begin a system for managing a concept of persistent entities / features / objects
 		this.entityInitialize();
 
-		// tap to indicate that user wants to interact (make an object etc)
-		this._tapEventData = null 
-	//	this.el.addEventListener('touchstart', this._onTouchStart.bind(this), false)
+		// user input handlers
+
+	    document.getElementById("ux_save").onclick = (ev) => { console.log("map save latched"); this.command = ev.srcElement.id }
+	    document.getElementById("ux_load").onclick = (ev) => { console.log("map load latched"); this.command = ev.srcElement.id }
+	    document.getElementById("ux_wipe").onclick = (ev) => { console.log("map wipe latched"); this.command = ev.srcElement.id }
+	    document.getElementById("ux_make").onclick = (ev) => { console.log("map make latched"); this.command = ev.srcElement.id }
+
+		// tap to indicate that user wants to interact (make an object etc) - disabled for now - will reactivate with edit/manipulate operations
+		// this._tapEventData = null 
+		//	this.el.addEventListener('touchstart', this._onTouchStart.bind(this), false)
 
 	}
 
+	/*
 	_onTouchStart(ev){
 		// Save screen taps as normalized coordinates for use in this.updateScene
 		if (!ev.touches || ev.touches.length === 0) {
@@ -42,12 +50,14 @@ class ARAnchorGPSTest extends XRExampleBase {
 		]
 		console.log(ev.touches)
 	}
+	*/
 
 	///////////////////////////////////////////////
-	// scene support
+	// scene geometry and update callback
 	///////////////////////////////////////////////
 
 	initializeScene() {
+		// called from parent scope
 
 		// Add a box at the scene origin
 		let box = new THREE.Mesh(
@@ -67,8 +77,9 @@ class ARAnchorGPSTest extends XRExampleBase {
 		this.listenerSetup = false
 	}
 
-	// Called once per frame, before render, to give the app a chance to update this.scene
 	updateScene(frame) {
+
+		// Called once per frame, before render, to give the app a chance to update this.scene
 
 		const worldCoordinates = frame.getCoordinateSystem(XRCoordinateSystem.TRACKER)
 
@@ -78,35 +89,27 @@ class ARAnchorGPSTest extends XRExampleBase {
 			this.session.addEventListener(XRSession.NEW_WORLD_ANCHOR, this._handleNewWorldAnchor.bind(this))
 		}
 
-		// listen for save map requests from userland
-		if(this.pleaseSaveMap) {
-			this.pleaseSaveMap = 0;
-
-		//	this.session.createImageAnchor("test", new ImageData(10,10), 10,10 , 0.2).then((results) => {
-		//		console.log(results)
-		//		console.log("got a result");
-		//	});
-
-console.log("Saving map")
-			this.session.getWorldMap(result => {
-				themap = result
-				console.log("getting map")
-				console.log(result)
-			})
-
+		// resolve frame related chores
+		switch(this.command) {
+			case "ux_save":
+				this.session.getWorldMap((result) => {
+					console.log("getting map")
+					console.log(result)
+				})
+				break
+			case "ux_load":
+				console.log("load")
+				break
+			case "ux_wipe":
+				console.log("wipe")
+				break
+			case "ux_make":
+				this.entitiesAdd(frame,0,0)
+			default:
 		}
+		this.command = 0
 
-
-		// If we have tap data, attempt a hit test for a surface
-		if(this._tapEventData){
-			console.log(this._tapEventData )
-			const x = this._tapEventData[0]
-			const y = this._tapEventData[1]
-			this._tapEventData = null
-			this.entitiesAdd(frame,x,y)
-		}
-
-		// give entity system a chance to finalize network traffic - will finalize addition
+		// resolve changes in arkit frame of reference
 		this.entitiesUpdate(frame)
 	}
 
@@ -115,7 +118,7 @@ console.log("Saving map")
 		if (anchor.uid.startsWith('anchor-')) {
 			// it's an anchor we created last time
 			//this.addAnchoredNode(new XRAnchorOffset(anchor.uid), this._createSceneGraphNode())
-			console.log("saw an anchor again")
+			console.log("Handle World Anchor callback : saw an anchor again named " + anchor.uid )
 		}
 	}
 
@@ -209,6 +212,8 @@ console.log("Saving map")
 		let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
 		let trackerCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.TRACKER)
 
+		// for new entities (which may have arrived over network) once only promote them to have an anchor
+		// it's not strictly necessary to give them an anchor - just trying this approach for now
 		if(!entity.node && entity.cartesian && this.worldAnchor && entity.uuid != "world") {
 
 			// get the entity ECEF cartesian coordinates
@@ -241,7 +246,7 @@ console.log("Saving map")
 
 		}
 
-		// add a node if there is sufficient data
+		// add a node if there is sufficient data (entity may have appeared over the net)
 		if(!entity.node) {
 			console.log("adding entity to display using trans")
 			entity.node = this.createSceneGraphNode(entity.style)
@@ -249,6 +254,7 @@ console.log("Saving map")
 		}
 
 		// if entity has an anchor keep it constantly pinned to anchor
+		// (there's some argument to give entities that are created locally an anchor because the user intent is to pin it there)
 		if(entity.anchor) {
 			entity.node.matrixAutoUpdate = false
 			entity.node.matrix.fromArray(entity.anchorOffset.getOffsetTransform(entity.anchor.coordinateSystem))
@@ -256,6 +262,7 @@ console.log("Saving map")
 		}
 
 		// a hack - fallback to use trans itself
+		// (there's some argument to not always give entities anchors - such as if they were created over the network)
 		if(!entity.anchor && entity.trans && entity.node) {
 			entity.node.matrixAutoUpdate = false
 			entity.node.matrix.fromArray(entity.trans)
@@ -452,7 +459,6 @@ console.log("Saving map")
 		.then(data => {
 		  console.log(data)
 		})
-
 	}
 
 }
@@ -467,27 +473,7 @@ window.addEventListener('DOMContentLoaded', () => {
 	}, 1000)
 })
 
-let themap = 0;
-
-function savemap() {
-	window.myapp.pleaseSaveMap = 1;
-}
-
-function loadmap() {
-	console.log("load")
-	window.myapp.session._xr.setWorldMap(themap)
-}
-
 /*
-
-i want a mapping mode that lets me build a map.... which is what it always does
-
-save a map...
-
-load a map...
-
-
-
 
 So, if you have time this weekend, the app we need should
 
@@ -495,7 +481,8 @@ So, if you have time this weekend, the app we need should
 
 - have a button or menu that says “load the map”, that grabs the map and calls “session.setworldmap(map)”
 
-- you should have your known “worldAnchor”, it should be saved (by name) with the map, and thus restored.  Probably need to delete one (if it exists) before loading the map?  Dunno if it will just relocalize an anchor with the same name
+- you should have your known “worldAnchor”, it should be saved (by name) with the map, and thus restored. 
+ Probably need to delete one (if it exists) before loading the map?  Dunno if it will just relocalize an anchor with the same name
 
 - you should save the geolocation info (XYZ) of the anchor with the map
 
