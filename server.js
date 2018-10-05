@@ -1,15 +1,15 @@
-////////////////////////////////////////////////////////////////////////
-// server
-//
-// - persist entities (which are hashes)
-// - return them on demand
-//
-// - TODO generate a room UUID per session so that every client instance has its own room
-// - TODO do not shovel everything back to client every update - only send back differences
-// - TODO do not busy poll
-//
-////////////////////////////////////////////////////////////////////////
 
+const express = require('express')
+const parser = require('body-parser')
+const app = express()
+const url = require('url')
+const multer = require('multer')
+const upload = multer({dest:'public/uploads/'})
+const http = require('http').Server(app)
+const io = require('socket.io')(http)
+const fs = require('fs')
+
+const port = 3000
 
 //////////////////////////////////////////////////
 // fancy database
@@ -33,41 +33,11 @@ function entity_save(entity) {
 // server
 //////////////////////////////////////////////////
 
-const port = 3000
-
-const express = require('express')
-const parser = require('body-parser')
-const app = express()
-const url = require('url')
-const multer = require('multer')
-const upload = multer({dest:'public/uploads/'})
-var http = require('http').Server(app);
-var io = require('socket.io')(http);
-
-
 app.use(parser.json())
 
 app.get("/", (request, response) => {
   response.sendFile(__dirname + '/public/index.html')
 })
-
-/*
-app.post('/api/blob/save', upload.single('blob'), (request, response) => {
-  response.json({result:"thanks"})
-});
-*/
-
-app.post('/api/map/save', upload.single('blob'), (request, response) => {
-  console.log("saved result public/uploads/" + request.file.filename)
-  response.json({filename:request.file.filename})
-});
-
-app.post('/api/map/save', upload.single('blob'), (request, response) => {
-  console.log("saved result " + request.file)
-  console.log(request.file)
-  console.log(request.body)
-  response.json({result:"thanks"})
-});
 
 app.post('/api/entity/save', (request, response) => {
   //let params = url.parse(request.url, true).query
@@ -84,6 +54,35 @@ app.post('/api/entity/sync', (request, response) => {
   var n = d.getTime()
   console.log("ping at time " + n)
   response.json(entities)
+});
+
+app.post('/api/map/save', upload.single('blob'), (request, response) => {
+
+  let source = "public/uploads/" + request.file.filename // sanitize TODO
+  let target = "public/uploads/" + request.body.zone
+
+  console.log(source)
+  console.log(target)
+
+  try {
+    fs.statSync(target)
+    fs.unlinkSync(target)
+    console.log("deleted")
+  } catch(err) {
+    console.log("not deleted")
+  }
+
+  try {
+    console.log("moving")
+    fs.renameSync(source, target)
+    response.json({status:"thanks"})
+    console.log("moved")
+  } catch(err) {
+    console.log("failed")
+    console.log(err)
+    response.json({status:"error"})
+  }
+
 });
 
 app.use(express.static('public'))

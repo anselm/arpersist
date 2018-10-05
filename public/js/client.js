@@ -15,9 +15,12 @@ function postDataHelper(url,data) {
 
 class ARAnchorGPSTest extends XRExampleBase {
 
-	constructor(args) {
+	constructor(args,zone) {
 
 		super(args, false)
+
+		// for development - a way to divvy up traffic so that multiple developers can use the same server with separate rooms
+		this.zone = zone
 
 		// begin capturing gps information
 		this.gpsInitialize();
@@ -26,7 +29,6 @@ class ARAnchorGPSTest extends XRExampleBase {
 		this.entityInitialize();
 
 		// user input handlers
-
 	    document.getElementById("ux_save").onclick = (ev) => { console.log("map save latched"); this.command = ev.srcElement.id }
 	    document.getElementById("ux_load").onclick = (ev) => { console.log("map load latched"); this.command = ev.srcElement.id }
 	    document.getElementById("ux_wipe").onclick = (ev) => { console.log("map wipe latched"); this.command = ev.srcElement.id }
@@ -59,9 +61,8 @@ class ARAnchorGPSTest extends XRExampleBase {
 	///////////////////////////////////////////////
 
 	initializeScene() {
-		// called from parent scope
+		// called from parent scope - draw some visual cues
 
-		// Add a box at the scene origin
 		let box = new THREE.Mesh(
 			new THREE.BoxBufferGeometry(0.1, 0.1, 0.1),
 			new THREE.MeshPhongMaterial({ color: '#DDFFDD' })
@@ -70,118 +71,26 @@ class ARAnchorGPSTest extends XRExampleBase {
         this.floorGroup.add( this.AxesHelper( 0.2 ) );
 		this.floorGroup.add(box)
 
-		// Called during construction by parent scope
 		this.scene.add(new THREE.AmbientLight('#FFF', 0.2))
 		let directionalLight = new THREE.DirectionalLight('#FFF', 0.6)
 		directionalLight.position.set(0, 10, 0)
 		this.scene.add(directionalLight)
-
-		this.listenerSetup = false
-	}
-
-	loadMap() {
-		if(!this.savedMapName)this.savedMapName = "5a13610c3f400f860363f59e3cadb13f"
-		let filename = 'uploads/'+this.savedMapName
-		fetch(filename).then((response) => { return response.text() }).then( (data) => {
-			console.log("got a file " + filename)
-			console.log(data)
-		})
-	}
-
-	saveMap(hash) {
-		const formData = new FormData()
-		let blob = new Blob([hash.worldMap], { type: "text/html"} );
-		formData.append('blob', blob )
-		fetch('/api/map/save', {
-		  method: 'POST',
-		  body: formData
-		})
-		.then(r => r.json())
-		.then(data => {
-			// save this fact for now... kind of a hack
-			console.log("done map save as filename " + data.filename)
-			this.savedMapName = data.filename
-		})
-		/* async way
-		(async () => {
-		  const rawResponse = await fetch('/api/save', {
-		    method: 'POST',
-		    headers: {
-		      'Accept': 'application/json',
-		      'Content-Type': 'application/json'
-		    },
-		    body: JSON.stringify(hash)
-		  });
-		  const content = await rawResponse.json();
-
-		  console.log(content);
-		})();
-		*/
-
-		/*
-		// as a form field for multipart
-		var data = new FormData();
-		data.append( "json", JSON.stringify(json) );
-		fetch("/api/save", {
-		    method: "POST",
-		    body: data
-		})
-		.then(function(res){ return res.json(); })
-		.then(function(data){ alert( JSON.stringify( data ) ) })
-		*/
-
-/*
-
-		let data = JSON.stringify(hash)
-		console.log("saving")
-		console.log(data)
-		postDataHelper('/api/map/save',data).then(result => {
-			console.log("got result")
-			console.log(result)
-			if(!result || !result.uuid) {
-				console.error("entityBroadcast: failed to save to server")
-			} else {
-				// could save locally if network returns it to us ( we don't need to do this here but can wait for busy poll for now )
-				// this.entities[result.uuid] = result
-			}
-		})
-*/
-
 	}
 
 	updateScene(frame) {
-
 		// Called once per frame, before render, to give the app a chance to update this.scene
-
-		const worldCoordinates = frame.getCoordinateSystem(XRCoordinateSystem.TRACKER)
-
-		// setup a listener for anchors being re-loaded
-		if (!this.listenerSetup) {
-			this.listenerSetup = true
-			this.session.addEventListener(XRSession.NEW_WORLD_ANCHOR, this._handleNewWorldAnchor.bind(this))
-		}
 
 		// resolve frame related chores
 		try {
 			let command = this.command
 			this.command = 0
 			switch(command) {
-				case "ux_save":
-					console.log(this.session.getWorldMap)
-					this.session.getWorldMap().then(result => {
-						console.log("trying to save")
-						this.saveMap(result)
-					})
-					break
-				case "ux_load":
-					console.log("load")
-					this.loadMap()
-					break
+				case "ux_save": this.mapSave(this.zone); break
+				case "ux_load": this.mapLoad(this.zone); break
 				case "ux_wipe":
-					console.log("wipe")
+					console.log("wipe server for this room todo")
 					break
-				case "ux_make":
-					this.entitiesAdd(frame,0,0)
+				case "ux_make": this.entitiesAdd(frame,0,0); break
 				default:
 					break
 			}
@@ -191,15 +100,6 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 		// resolve changes in arkit frame of reference
 		this.entitiesUpdate(frame)
-	}
-
-	_handleNewWorldAnchor(event) {
-		let anchor = event.detail
-		if (anchor.uid.startsWith('anchor-')) {
-			// it's an anchor we created last time
-			//this.addAnchoredNode(new XRAnchorOffset(anchor.uid), this._createSceneGraphNode())
-			console.log("Handle World Anchor callback : saw an anchor again named " + anchor.uid )
-		}
 	}
 
 	AxesHelper( size ) {
@@ -240,9 +140,14 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 	gpsInitialize() {
 		this.gps = 0;
-		navigator.geolocation.watchPosition((position) => {
-			this.gps = position;
-		});
+		return
+		try {
+			navigator.geolocation.watchPosition((position) => {
+				this.gps = position;
+			});
+		} catch(e) {
+			console.error(e)
+		}
 	}
 
 	gpsGet() {
@@ -252,6 +157,100 @@ class ARAnchorGPSTest extends XRExampleBase {
 		return scratch;
 	}
 
+	//////////////////////////////////////////////////
+	// 3d reconstruction maps
+	/////////////////////////////////////////////////
+
+	mapHandleNewWorldAnchor(event) {
+		let anchor = event.detail
+		console.log("got an event")
+		console.log(event)
+		if (anchor.uid.startsWith('anchor-')) {
+			// it's an anchor we created last time
+			//this.addAnchoredNode(new XRAnchorOffset(anchor.uid), this._createSceneGraphNode())
+			console.log("Handle World Anchor callback : saw an anchor again named " + anchor.uid )
+		}
+	}
+
+	mapLoad(zone="azurevidian") {
+
+		//	const worldCoordinates = frame.getCoordinateSystem(XRCoordinateSystem.TRACKER)
+
+		if (!this.mapListenerSetupLatch) {
+			console.log("latched listener")
+			this.mapListenerSetupLatch = true
+			this.session.addEventListener(XRSession.NEW_WORLD_ANCHOR, this.mapHandleNewWorldAnchor.bind(this))
+		}
+
+		fetch("uploads/"+zone).then((response) => { return response.text() }).then( (data) => {
+			console.log("got a file " + zone)
+			this.session.setWorldMap({worldMap:data}).then(results => {
+				console.log("results status from loading is good")
+			})
+		})
+	}
+
+	mapSave(zone="azurevidian") {
+
+		this.session.getWorldMap().then(results => {
+			console.log(results)
+			const data = new FormData()
+			let blob = new Blob([results.worldMap], { type: "text/html"} );
+			data.append('blob',blob)
+			data.append('zone',zone)
+			fetch('/api/map/save', { method: 'POST', body: data }).then(r => r.json()).then(status => {
+				console.log("results status from saving a map was")
+				console.log(status)
+			})
+		})
+
+		/* async way
+		(async () => {
+		  const rawResponse = await fetch('/api/save', {
+		    method: 'POST',
+		    headers: {
+		      'Accept': 'application/json',
+		      'Content-Type': 'application/json'
+		    },
+		    body: JSON.stringify(hash)
+		  });
+		  const content = await rawResponse.json();
+
+		  console.log(content);
+		})();
+		*/
+
+		/*
+		// as a form field for multipart
+		var data = new FormData();
+		data.append( "json", JSON.stringify(json) );
+		fetch("/api/save", {
+		    method: "POST",
+		    body: data
+		})
+		.then(function(res){ return res.json(); })
+		.then(function(data){ alert( JSON.stringify( data ) ) })
+		*/
+
+		/*
+
+		let data = JSON.stringify(hash)
+		console.log("saving")
+		console.log(data)
+		postDataHelper('/api/map/save',data).then(result => {
+			console.log("got result")
+			console.log(result)
+			if(!result || !result.uuid) {
+				console.error("entityBroadcast: failed to save to server")
+			} else {
+				// could save locally if network returns it to us ( we don't need to do this here but can wait for busy poll for now )
+				// this.entities[result.uuid] = result
+			}
+		})
+		*/
+
+	}
+
 	///////////////////////////////////////////////
 	// entity concept of server managed entities
 	///////////////////////////////////////////////
@@ -259,11 +258,11 @@ class ARAnchorGPSTest extends XRExampleBase {
 	entityInitialize() {
 		this.entities = {}
 		this.socket = io()
-		this.socket.on('publish', function(entity){
+		this.socket.on('publish', (entity) => {
 			console.log("got entity")
 			console.log(entity)
-			if(entity.uuid && !scope.entities[entity.uuid]) {
-				scope.entities[entity.uuid] = entity
+			if(entity.uuid && !this.entities[entity.uuid]) {
+				this.entities[entity.uuid] = entity
 			}
 		})
 	}
@@ -287,18 +286,23 @@ class ARAnchorGPSTest extends XRExampleBase {
 	}
 	*/
 
+	entitiesUpdate(frame) {
+		for(let uuid in this.entities) {
+			this.entityUpdate(frame, this.entities[uuid])
+		}
+	}
+
 	entityUpdate(frame,entity) {
 
 		let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
 		let trackerCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.TRACKER)
 
-		// for new entities (which may have arrived over network) once only promote them to have an anchor
-		// it's not strictly necessary to give them an anchor - just trying this approach for now
-		if(!entity.node && entity.cartesian && this.worldAnchor && entity.uuid != "world") {
+		// entities that came in over the net don't need an anchor but this can be helpful for debugging
+		if(false && this.worldAnchor && !entity.anchor) {
 
 			// get the entity ECEF cartesian coordinates
 			let v = new Cesium.Cartesian3(entity.cartesian.x,entity.cartesian.y,entity.cartesian.z)
-			console.log("absolutely from ");
+			console.log("new entity absolutely from ");
 			console.log(v)
 
 			// get a matrix that can transform from ECEF to ARkit
@@ -319,30 +323,27 @@ class ARAnchorGPSTest extends XRExampleBase {
 			console.log("entityUpdate thinks it is finally at")
 			console.log(v3)
 
-			// one way to place an entity is to give it an anchor
 			entity.anchorUID = frame.addAnchor(trackerCoordinateSystem, [v3.x, v3.y, v3.z])
 			entity.anchorOffset = new XRAnchorOffset(entity.anchorUID)
 			entity.anchor = frame.getAnchor(entity.anchorOffset.anchorUID)
 
 		}
 
-		// add a node if there is sufficient data (entity may have appeared over the net)
+		// add a visual scene node if needed and it doesn't have one
 		if(!entity.node) {
 			console.log("adding entity to display using trans")
 			entity.node = this.createSceneGraphNode(entity.style)
 			this.scene.add(entity.node)
 		}
 
-		// if entity has an anchor keep it constantly pinned to anchor
-		// (there's some argument to give entities that are created locally an anchor because the user intent is to pin it there)
+		// if entity has an anchor keep it constantly pinned to anchor every frame
 		if(entity.anchor) {
 			entity.node.matrixAutoUpdate = false
 			entity.node.matrix.fromArray(entity.anchorOffset.getOffsetTransform(entity.anchor.coordinateSystem))
 			entity.node.updateMatrixWorld(true)
 		}
 
-		// a hack - fallback to use trans itself
-		// (there's some argument to not always give entities anchors - such as if they were created over the network)
+		// test / debugging - move the scene node to entity transform (this can get out of sync with anchor)
 		if(!entity.anchor && entity.trans && entity.node) {
 			entity.node.matrixAutoUpdate = false
 			entity.node.matrix.fromArray(entity.trans)
@@ -404,12 +405,6 @@ class ARAnchorGPSTest extends XRExampleBase {
 		return this.worldAnchor;
 	}
 
-	entitiesUpdate(frame) {
-		for(let uuid in this.entities) {
-			this.entityUpdate(frame, this.entities[uuid])
-		}
-	}
-
 	entitiesAdd(frame,x,y) {
 
 		let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
@@ -441,10 +436,11 @@ class ARAnchorGPSTest extends XRExampleBase {
 		let entity = {}
 		entity.uuid = 0
 		entity.style = "box"
-		entity.cartesian = 0
 		entity.anchorUID = frame.addAnchor(headCoordinateSystem, [0,0,-1])
 		entity.anchorOffset = new XRAnchorOffset(entity.anchorUID)
 		entity.anchor = frame.getAnchor(entity.anchorOffset.anchorUID)
+		console.log("made anchor")
+		console.log(entity)
 
 		// arkit world coordinates
 		let t = entity.trans = entity.anchorOffset.getOffsetTransform(entity.anchor.coordinateSystem)
@@ -490,6 +486,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 		}
 
 		let blob = {
+			uuid:entity.anchorUID,
 			style:entity.style,
 			trans:entity.trans,
 			cartesian:entity.cartesian
@@ -498,10 +495,18 @@ class ARAnchorGPSTest extends XRExampleBase {
 		// publish
 		if(this.socket) {
 			this.socket.emit('publish',blob);
+			console.log("published to network")
+			console.log(blob)
 		}
 
-		// hack - force a second copy of the entity here right now for local immediate feedback
-		if(false) {
+		if(true) {
+			// in a network philosophy the idea now is to throw away the instance that i just built
+			// the network will return it to me in a moment - and entitiesupdate will fully produce it
+		} else {
+			console.log("making a second copy for debugging")
+			// as a test the object can be made immediately - the approach is is to move it out of the colliding uuid
+			// the network will return a second copy of the same object in a moment
+			// (in the entitiesupdate this object will get a visible scene graph node if it doesn't have one yet)
 			if(!this.entitycounter) this.entitycounter = 1; else this.entitycounter++;
 			entity.style = "sphere"
 			entity.uuid = this.entitycounter
@@ -512,28 +517,31 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 }
 
+function getUrlParams(vars={}) {
+    window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, (m,key,value) => { vars[key] = value })
+    return vars;
+}
+
 window.addEventListener('DOMContentLoaded', () => {
 	setTimeout(() => {
-		try {
-			window.myapp = new ARAnchorGPSTest(document.getElementById('target'))
-		} catch(e) {
-			console.error('page error', e)
-		}
+		window.myapp = new ARAnchorGPSTest(document.getElementById('target'),getUrlParams()["zone"])
 	}, 1000)
 })
 
 /*
 
-So, if you have time this weekend, the app we need should
+	- let me make an anchor, post it to the server, and get it back - and filter by zone
 
-- have a button or menu that says “save the map” that will call “session.getworldmap()” and when the promise succeeds, will send the object to the cloud
 
-- have a button or menu that says “load the map”, that grabs the map and calls “session.setworldmap(map)”
+ - write code to get the initial room state from the server based on the room key
 
-- you should have your known “worldAnchor”, it should be saved (by name) with the map, and thus restored. 
- Probably need to delete one (if it exists) before loading the map?  Dunno if it will just relocalize an anchor with the same name
+ - test make a world anchor and test save it and recover it
 
-- you should save the geolocation info (XYZ) of the anchor with the map
+ - test save and reload a map
+
+ - write code to recover the anchors from map reloading
+
+
 
 */
 

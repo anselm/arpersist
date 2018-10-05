@@ -1,4 +1,5 @@
 public/.DS_Store
 .DS_Store
 public/uploads
+public/uploads/*
 node_modules
