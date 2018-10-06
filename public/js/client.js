@@ -1,18 +1,4 @@
 
-function postDataHelper(url,data) {
-    return fetch(url, {
-        method: "POST",
-        mode: "cors", // no-cors, cors, *same-origin
-        cache: "no-cache",
-        credentials: "same-origin", // include, same-origin, *omit
-        headers: { "Content-Type": "application/json; charset=utf-8", },
-        referrer: "no-referrer", // no-referrer, *client
-        body: data,
-    }).then(response => response.json())
-}
-
-
-
 class ARAnchorGPSTest extends XRExampleBase {
 
 	constructor(args,zone) {
@@ -90,7 +76,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 				case "ux_wipe":
 					console.log("wipe server for this room todo")
 					break
-				case "ux_make": this.entitiesAdd(frame,0,0); break
+				case "ux_make": this.entityAdd(frame,0,0); break
 				default:
 					break
 			}
@@ -99,7 +85,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 		}
 
 		// resolve changes in arkit frame of reference
-		this.entitiesUpdate(frame)
+		this.entityUpdateAll(frame)
 	}
 
 	AxesHelper( size ) {
@@ -140,13 +126,15 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 	gpsInitialize() {
 		this.gps = 0;
-		return
-		try {
-			navigator.geolocation.watchPosition((position) => {
-				this.gps = position;
-			});
-		} catch(e) {
-			console.error(e)
+
+		if ("geolocation" in navigator) {
+			try {
+				navigator.geolocation.watchPosition((position) => {
+					this.gps = position;
+				});
+			} catch(e) {
+				console.error(e)
+			}
 		}
 	}
 
@@ -268,7 +256,21 @@ class ARAnchorGPSTest extends XRExampleBase {
 	}
 
 	/*
+
 	entityBusyPoll() {
+
+		function postDataHelper(url,data) {
+		    return fetch(url, {
+		        method: "POST",
+		        mode: "cors", // no-cors, cors, *same-origin
+		        cache: "no-cache",
+		        credentials: "same-origin", // include, same-origin, *omit
+		        headers: { "Content-Type": "application/json; charset=utf-8", },
+		        referrer: "no-referrer", // no-referrer, *client
+		        body: data,
+		    }).then(response => response.json())
+		}
+
 		var d = new Date()
 		var n = d.getTime()
 		console.log("Busy polling server at time " + n )
@@ -286,7 +288,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 	}
 	*/
 
-	entitiesUpdate(frame) {
+	entityUpdateAll(frame) {
 		for(let uuid in this.entities) {
 			this.entityUpdate(frame, this.entities[uuid])
 		}
@@ -405,7 +407,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 		return this.worldAnchor;
 	}
 
-	entitiesAdd(frame,x,y) {
+	entityAdd(frame,x,y) {
 
 		let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
 
@@ -530,18 +532,12 @@ window.addEventListener('DOMContentLoaded', () => {
 
 /*
 
-	- let me make an anchor, post it to the server, and get it back - and filter by zone
+issues oct 5 2018
 
-
- - write code to get the initial room state from the server based on the room key
-
- - test make a world anchor and test save it and recover it
-
- - test save and reload a map
-
- - write code to recover the anchors from map reloading
-
-
+	- reloading doesn't seem to spur anchor creation - whats up?
+	- at startup should fetch all content of the zone - means telling server what zone you want
+	- during normal synchronous update should filter by zone as well
+	- re-examine the math and flow of creating entities; does it make sense to make anchors for network inbound entities?
 
 */
 
