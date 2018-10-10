@@ -13,6 +13,7 @@ const port = 3000
 
 //////////////////////////////////////////////////
 // fancy database
+// TODO put this in a class and add persistence
 //////////////////////////////////////////////////
 
 var shortid = require('shortid')
@@ -29,6 +30,17 @@ function entity_save(entity) {
   return entity
 }
 
+function entity_filter(args) {
+  // TODO replace sloppy code with map
+  let results = []
+  for(let uuid in entities) {
+    let entity = this.entities[uuid]
+    if(entity.zone != args.zone) continue
+    results.push(entity)
+  }
+  return results
+}
+
 //////////////////////////////////////////////////
 // server
 //////////////////////////////////////////////////
@@ -40,21 +52,13 @@ app.get("/", (request, response) => {
 })
 
 app.post('/api/entity/save', (request, response) => {
-  //let params = url.parse(request.url, true).query
-  let entity = request.body;
-  let result = entity_save(entity)
-  console.log("saved new")
-  console.log(result)
-  response.json(result)
-});
+  // unused
+  response.json(entity_save(request.body))
+})
 
 app.post('/api/entity/sync', (request, response) => {
-  //let params = url.parse(request.url, true).query
-  var d = new Date()
-  var n = d.getTime()
-  console.log("ping at time " + n)
-  response.json(entities)
-});
+  response.json(entity_filter(request.body))
+})
 
 app.post('/api/map/save', upload.single('blob'), (request, response) => {
 
@@ -89,6 +93,7 @@ app.use(express.static('public'))
 
 io.on('connection', function(socket){
   socket.on('publish', function(msg){
+    // TODO filter traffic to channels based on what those channels have reported is their zoone
     io.emit('publish', msg)
   })
 })
