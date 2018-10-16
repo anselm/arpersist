@@ -688,8 +688,9 @@ window.addEventListener('DOMContentLoaded', () => {
 	}, 1000)
 })
 
-// for networking i really do need to have unique uuids - so i need to take the room name + participant name + a uuid
-// client could actually grant their own uuids to themselves this way
-// maybe it could be granted at networking start
+// todo
+// 	- server - must ask server for all initial objects and must partition by zone
+//	- server - server could actually grant a uuid root to me
+//	- truly transform rather than translate
 
 

@@ -1,13 +1,13 @@
 {
-  "name": "xrserver",
-  "version": "1.0.0",
-  "description": "a restful server for persisting session state in an augmented reality application",
-  "main": "index.js",
+  "name": "xrgeo",
+  "version": "1.0.1",
+  "description": "testing arkit anchors",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "me",
+  "license": "BSD",
   "devDependencies": {
     "express": "^4.16.3"
   },

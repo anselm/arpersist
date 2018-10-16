@@ -8,19 +8,15 @@ A persistent AR browser
 	npm start
 	Then goto url of the server instance with xrviewer-ios browser
 
-#Current status and goals
 
-bugs and issues oct 8 2018
+#Bugs
 
-	- rebuilt to latest
-<<<	- reloading doesn't seem to spur anchor creation - whats up?
-
+	- reloading doesn't seem to spur anchor creation - whats up?
 	- at startup should fetch all content of the zone - means telling server what zone you want
 	- during normal synchronous update should filter by zone as well
 	- re-examine the math and flow of creating entities; does it make sense to make anchors for network inbound entities?
 
-
-bigger goals - an opportunity to play with ar authoring and fixing some design flaws with conventional social networks
+#Future
 
 	user experience
 
