@@ -1848,7 +1848,7 @@ var ARKitWrapper = function (_EventHandlerBase) {
 						} else {
 							plane.center = _element2.plane_center;
 							plane.extent[0] = _element2.plane_extent.x;
-							plane.extent[1] = _element2.plane_extent.y;
+							plane.extent[1] = _element2.plane_extent.z;
 							plane.modelMatrix = _element2.transform;
 							plane.alignment = _element2.plane_alignment;
 						}
@@ -2494,6 +2494,8 @@ var XRDisplay = function (_EventHandlerBase) {
 exports.default = XRDisplay;
 
 
+XRDisplay.VIDEO_FRAME = 'videoFrame';
+XRDisplay.TRACKING_CHANGED = 'tracking-changed';
 XRDisplay.NEW_WORLD_ANCHOR = 'world-anchor';
 XRDisplay.UPDATE_WORLD_ANCHOR = 'update-world-anchor';
 XRDisplay.REMOVE_WORLD_ANCHOR = 'remove-world-anchor';
@@ -2956,6 +2958,7 @@ var XRSession = function (_EventHandlerBase) {
 		_this._tempMatrix = _MatrixMath2.default.mat4_generateIdentity();
 		_this._tempMatrix2 = _MatrixMath2.default.mat4_generateIdentity();
 
+		_this._display.addEventListener(_XRDisplay2.default.TRACKING_CHANGED, _this._handleTrackingChanged.bind(_this));
 		_this._display.addEventListener(_XRDisplay2.default.NEW_WORLD_ANCHOR, _this._handleNewWorldAnchor.bind(_this));
 		_this._display.addEventListener(_XRDisplay2.default.REMOVE_WORLD_ANCHOR, _this._handleRemoveWorldAnchor.bind(_this));
 		_this._display.addEventListener(_XRDisplay2.default.UPDATE_WORLD_ANCHOR, _this._handleUpdateWorldAnchor.bind(_this));
@@ -3237,6 +3240,18 @@ var XRSession = function (_EventHandlerBase) {
 			}
 		}
 	}, {
+		key: '_handleTrackingChanged',
+		value: function _handleTrackingChanged(event) {
+			try {
+				this.dispatchEvent(new CustomEvent(XRSession.TRACKING_CHANGED, {
+					source: this,
+					detail: event.detail
+				}));
+			} catch (e) {
+				console.error('TRACKING_CHANGED event error', e);
+			}
+		}
+	}, {
 		key: 'getWorldMap',
 		value: function getWorldMap() {
 			return this.reality._getWorldMap();
@@ -3325,6 +3340,8 @@ XRSession.REALITY = 'reality';
 XRSession.AUGMENTATION = 'augmentation';
 
 XRSession.TYPES = [XRSession.REALITY, XRSession.AUGMENTATION];
+
+XRSession.TRACKING_CHANGED = 'tracking-changed';
 
 XRSession.NEW_WORLD_ANCHOR = 'world-anchor';
 XRSession.UPDATE_WORLD_ANCHOR = 'update-world-anchor';
@@ -11001,13 +11018,21 @@ var FlatDisplay = function (_XRDisplay) {
 			// #define WEB_AR_TRACKING_STATE_LIMITED_FEATURES     @"ar_tracking_limited_insufficient_features"
 			// #define WEB_AR_TRACKING_STATE_NOT_AVAILABLE        @"ar_tracking_not_available"
 			// #define WEB_AR_TRACKING_STATE_RELOCALIZING 	 	  @"ar_tracking_relocalizing"
+			try {
+				this.dispatchEvent(new CustomEvent(_XRDisplay3.default.TRACKING_CHANGED, {
+					source: this,
+					detail: ev.detail
+				}));
+			} catch (e) {
+				console.error('trackingChanged callback error', e);
+			}
 		}
 	}, {
 		key: '_handleComputerVisionData',
 		value: function _handleComputerVisionData(ev) {
 			// Do whatever is needed with the image buffers here
 			try {
-				this.dispatchEvent(new CustomEvent("videoFrame", {
+				this.dispatchEvent(new CustomEvent(_XRDisplay3.default.VIDEO_FRAME, {
 					source: this,
 					detail: ev.detail
 				}));
