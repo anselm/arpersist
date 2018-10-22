@@ -2558,7 +2558,7 @@ var Reality = function (_EventHandlerBase) {
 	}, {
 		key: '_start',
 		value: function _start(parameters) {
-			throw new Error('Exending classes should implement _start');
+			throw new Error('Extending classes should implement _start');
 		}
 
 		/*
@@ -2568,7 +2568,7 @@ var Reality = function (_EventHandlerBase) {
 	}, {
 		key: '_stop',
 		value: function _stop() {
-			throw new Error('Exending classes should implement _stop');
+			throw new Error('Extending classes should implement _stop');
 		}
 
 		/*
@@ -2606,7 +2606,7 @@ var Reality = function (_EventHandlerBase) {
 		key: '_addAnchor',
 		value: function _addAnchor(anchor, display) {
 			// returns DOMString anchor UID
-			throw new Error('Exending classes should implement _addAnchor');
+			throw new Error('Extending classes should implement _addAnchor');
 		}
 
 		/*
@@ -2618,17 +2618,17 @@ var Reality = function (_EventHandlerBase) {
 	}, {
 		key: '_findAnchor',
 		value: function _findAnchor(normalizedScreenX, normalizedScreenY, display) {
-			throw new Error('Exending classes should implement _findAnchor');
+			throw new Error('Extending classes should implement _findAnchor');
 		}
 	}, {
 		key: '_createImageAnchor',
 		value: function _createImageAnchor(uid, buffer, width, height, physicalWidthInMeters) {
-			throw new Error('Exending classes should implement _createImageAnchor');
+			throw new Error('Extending classes should implement _createImageAnchor');
 		}
 	}, {
 		key: 'activateDetectionImage',
 		value: function activateDetectionImage(uid, display) {
-			throw new Error('Exending classes should implement _activateDetectionImage');
+			throw new Error('Extending classes should implement _activateDetectionImage');
 		}
 
 		/*
@@ -2641,7 +2641,7 @@ var Reality = function (_EventHandlerBase) {
 		value: function _findFloorAnchor(display) {
 			var uid = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
 
-			throw new Error('Exending classes should implement _findFloorAnchor');
+			throw new Error('Extending classes should implement _findFloorAnchor');
 		}
 	}, {
 		key: '_getAnchor',
@@ -2652,27 +2652,27 @@ var Reality = function (_EventHandlerBase) {
 		key: '_removeAnchor',
 		value: function _removeAnchor(uid) {
 			// returns void
-			throw new Error('Exending classes should implement _removeAnchor');
+			throw new Error('Extending classes should implement _removeAnchor');
 		}
 	}, {
 		key: '_hitTestNoAnchor',
 		value: function _hitTestNoAnchor(normalizedScreenX, normalizedScreenY, display) {
-			throw new Error('Exending classes should implement _hitTestNoAnchor');
+			throw new Error('Extending classes should implement _hitTestNoAnchor');
 		}
 	}, {
 		key: '_getLightAmbientIntensity',
 		value: function _getLightAmbientIntensity() {
-			throw new Error('Exending classes should implement _getLightAmbientIntensity');
+			throw new Error('Extending classes should implement _getLightAmbientIntensity');
 		}
 	}, {
 		key: '_getWorldMap',
 		value: function _getWorldMap() {
-			throw new Error('Exending classes should implement _getWorldMap');
+			throw new Error('Extending classes should implement _getWorldMap');
 		}
 	}, {
 		key: '_setWorldMap',
 		value: function _setWorldMap(worldMap) {
-			throw new Error('Exending classes should implement _setWorldMap');
+			throw new Error('Extending classes should implement _setWorldMap');
 		}
 
 		// attribute EventHandler onchange;
@@ -3019,7 +3019,7 @@ var XRSession = function (_EventHandlerBase) {
 			// new anchor each minute
 			if (this._frameAnchors.length == 0 || this._frameAnchors[0].timestamp + 60000 < frame.timestamp) {
 				var headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.EYE_LEVEL);
-				var anchorUID = frame.addAnchor(headCoordinateSystem, [0, -1, 0]);
+				var anchorUID = frame.addAnchor(headCoordinateSystem, [0, -1, 0], [0, 0, 0, 1], 'cameraAnchor-' + new Date().getTime() + '-' + Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
 				var anchor = frame.getAnchor(anchorUID);
 				anchor.timestamp = frame.timestamp;
 				this._frameAnchors.unshift(anchor);
@@ -3200,13 +3200,17 @@ var XRSession = function (_EventHandlerBase) {
 			var xrAnchor = event.detail;
 			//console.log(`New world anchor: ${JSON.stringify(xrAnchor)}`)
 
-			try {
-				this.dispatchEvent(new CustomEvent(XRSession.NEW_WORLD_ANCHOR, {
-					source: this,
-					detail: xrAnchor
-				}));
-			} catch (e) {
-				console.error('NEW_WORLD_ANCHOR event error', e);
+			if (!xrAnchor.uid.startsWith('cameraAnchor-')) {
+				try {
+					this.dispatchEvent(new CustomEvent(XRSession.NEW_WORLD_ANCHOR, {
+						source: this,
+						detail: xrAnchor
+					}));
+				} catch (e) {
+					console.error('NEW_WORLD_ANCHOR event error', e);
+				}
+			} else {
+				console.log('not passing NEW_WORLD_ANCHOR event to app for ', xrAnchor.uid);
 			}
 		}
 	}, {
@@ -9930,13 +9934,14 @@ var XRPresentationFrame = function () {
 		value: function addAnchor(coordinateSystem) {
 			var position = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [0, 0, 0];
 			var orientation = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : [0, 0, 0, 1];
+			var uid = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : null;
 
 			//DOMString? addAnchor(XRCoordinateSystem, position, orientation);
 			var poseMatrix = _MatrixMath2.default.mat4_fromRotationTranslation(new Float32Array(16), orientation, position);
 			_MatrixMath2.default.mat4_multiply(poseMatrix, coordinateSystem.getTransformTo(this._session._display._trackerCoordinateSystem), poseMatrix);
 			var anchorCoordinateSystem = new XRCoordinateSystem(this._session._display, XRCoordinateSystem.TRACKER);
 			anchorCoordinateSystem._relativeMatrix = poseMatrix;
-			return this._session.reality._addAnchor(new _XRAnchor2.default(anchorCoordinateSystem), this._session.display);
+			return this._session.reality._addAnchor(new _XRAnchor2.default(anchorCoordinateSystem, uid), this._session.display);
 		}
 
 		// normalized screen x and y are in range 0..1, with 0,0 at top left and 1,1 at bottom right

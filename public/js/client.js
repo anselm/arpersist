@@ -29,6 +29,15 @@ class ARAnchorGPSTest extends XRExampleBase {
 		//	this.el.addEventListener('touchstart', this._onTouchStart.bind(this), false)
 	}
 
+	msg(msg) {
+		if(!this.msgs) this.msgs = []
+		console.log(msg)
+		let div = document.getElementById("ux_help")
+		if(!div) return
+		this.msgs.unshift(msg)
+		div.innerHTML = this.msgs.slice(0,5).join("<br/>")
+	}
+
 	/*
 	_onTouchStart(ev){
 		// Save screen taps as normalized coordinates for use in this.updateScene
@@ -124,24 +133,29 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 	gpsInitialize() {
 		this.gps = 0;
-
+		this.gpsEnabled = 0
 		if ("geolocation" in navigator) {
 			try {
 				navigator.geolocation.watchPosition((position) => {
 					this.gps = position;
+					this.gpsEnabled = 1
+					this.msg("gps: latitude="+position.latitude+" longitude="+position.longitude)
+
 				});
 			} catch(e) {
 				console.error(e)
+				this.gpsEnabled = 0
 			}
 		}
 	}
 
 	gpsGet() {
-return { latitude: 0, longitude: 0, altitude: 0 } // localhost debugging
-
-		let scratch = this.gps;
-		this.gps = 0;
-		return scratch;
+		if (this.gpsEnabled && "geolocation" in navigator) {
+			let scratch = this.gps;
+			this.gps = 0;
+			return scratch;
+		}
+		return { latitude: 0, longitude: 0, altitude: 0 }
 	}
 
 	//////////////////////////////////////////////////
@@ -150,9 +164,7 @@ return { latitude: 0, longitude: 0, altitude: 0 } // localhost debugging
 
 	mapCallbackAnchor(event) {
 		let anchor = event.detail
-		console.log("map reconstruction - got an event")
-		console.log(event)
-		console.log(anchor)
+		this.msg("mapCallbackAnchor: uid=" + anchor.uid)
 		if (anchor.uid.startsWith('anchor-')) {
 			// it's an anchor we created last time
 			//this.addAnchoredNode(new XRAnchorOffset(anchor.uid), this._createSceneGraphNode())
@@ -167,13 +179,12 @@ return { latitude: 0, longitude: 0, altitude: 0 } // localhost debugging
 		if (!this.mapListenerSetupLatched) {
 			this.mapListenerSetupLatched = true
 			this.session.addEventListener(XRSession.NEW_WORLD_ANCHOR, this.mapCallbackAnchor.bind(this))
-			console.log("latched listener")
 		}
 
 		fetch("uploads/"+zone).then((response) => { return response.text() }).then( (data) => {
-			console.log("got a file " + zone)
 			this.session.setWorldMap({worldMap:data}).then(results => {
-				console.log("results status from loading is good")
+				this.msg("mapLoad: succeeded")
+				console.log(results)
 			})
 		})
 	}
@@ -181,14 +192,13 @@ return { latitude: 0, longitude: 0, altitude: 0 } // localhost debugging
 	mapSave(zone) {
 
 		this.session.getWorldMap().then(results => {
-			console.log(results)
 			const data = new FormData()
 			let blob = new Blob([results.worldMap], { type: "text/html"} );
 			data.append('blob',blob)
 			data.append('zone',zone)
-			fetch('/api/map/save', { method: 'POST', body: data }).then(r => r.json()).then(status => {
-				console.log("results status from saving a map was")
-				console.log(status)
+			fetch('/api/map/save', { method: 'POST', body: data }).then(r => r.json()).then(results2 => {
+				this.msg("mapSave: succeeded")
+				console.log(results2)
 			})
 		})
 
@@ -255,7 +265,7 @@ return { latitude: 0, longitude: 0, altitude: 0 } // localhost debugging
 			anchorOffset: anchorOffset,
 			anchor: anchor
 		}
-		console.log("made an anchor")
+		this.msg("mapAnchor: created uid="+anchorUID)
 		console.log(anchorUID)
 		console.log(anchorOffset.anchorUID)
 		console.log(thing)
@@ -280,7 +290,7 @@ return { latitude: 0, longitude: 0, altitude: 0 } // localhost debugging
 
 	entityPublish(entity) {
 		if(!entity.uuid) {
-			console.error("entityPublish: Invalid entity no uuid")
+			this.msg("entityPublish: Invalid entity no uuid")
 			return 0
 		}
 		if(!this.socket) {
@@ -310,7 +320,6 @@ return { latitude: 0, longitude: 0, altitude: 0 } // localhost debugging
 
 			// add a visual scene node if needed and it doesn't have one
 			if(!entity.node && this.scene) {
-				console.log("entityVisit: adding entity to display")
 				entity.node = this.createSceneGraphNode(entity.style)
 				this.scene.add(entity.node)
 			}
@@ -339,7 +348,7 @@ return { latitude: 0, longitude: 0, altitude: 0 } // localhost debugging
 	entityAuthor(frame) {
 
 		if(!this.entityGPSUpdate(frame)) {
-			console.error("entityAdd: No world anchor (camera pose + gps) yet")
+			this.msg("entityAdd: No world anchor (camera pose + gps) yet")
 			// TODO could provide better messaging such as on screen pop ups to be more helpful for end user
 			return
 		}
@@ -365,7 +374,7 @@ return { latitude: 0, longitude: 0, altitude: 0 } // localhost debugging
 
 		// get a special gps associated anchor or fail - this will be used as a starting point for all subsequent objects
 		if(!this.entityGPSUpdate(frame)) {
-			console.error("entityAdd: No world anchor (camera pose + gps) yet")
+			this.msg("entityAdd: No world anchor (camera pose + gps) yet")
 			// TODO could provide better messaging such as on screen pop ups to be more helpful for end user
 			return
 		}
@@ -406,12 +415,6 @@ return { latitude: 0, longitude: 0, altitude: 0 } // localhost debugging
 		if(!gps) {
 			return 0
 		}
-
-		console.log("entityGPSUpdate: has a fresh GPS")
-		console.log(gps)
-
-		// make an anchor here
-		let anchor = this.mapAnchor(frame)
 
 		if(!this.entityGPS) {
 			let m = this.mapAnchor(frame)
@@ -513,13 +516,13 @@ return { latitude: 0, longitude: 0, altitude: 0 } // localhost debugging
 		}
 
 		if(!this.entityGPS) {
-			console.error("entityToCartesian: World Anchor not yet set")
+			this.msg("entityToCartesian: World Anchor not yet set")
 			return
 		}
 
 		// all entities that intend to be promoted to cartesian coordinates should have anchors by now
 		if(!entity.anchorOffset) {
-			console.error("entityToCartesian: Entity has no anchor")
+			this.msg("entityToCartesian: Entity has no anchor")
 			return
 		}
 
@@ -579,15 +582,15 @@ return { latitude: 0, longitude: 0, altitude: 0 } // localhost debugging
 			let carto  = Cesium.Ellipsoid.WGS84.cartesianToCartographic(entity.cartesian);
 			let lon = Cesium.Math.toDegrees(carto.longitude);
 			let lat = Cesium.Math.toDegrees(carto.latitude);
-			console.log("entityAdd: World is at lon="+this.entityGPS.gps.longitude+" lat="+this.entityGPS.gps.latitude );
-			console.log("entityAdd: Entity is at lon"+lon + " lat"+lat)
+			this.msg("entityAdd: World is at lon="+this.entityGPS.gps.longitude+" lat="+this.entityGPS.gps.latitude );
+			this.msg("entityAdd: Entity="+entity.uuid+" lon"+lon + " lat"+lat)
 		}
 	}
 
 	entityToLocal(frame,entity) {
 
 		if(!this.entityGPS) {
-			console.error("entityToLocal: World Anchor not yet set")
+			this.msg("entityToLocal: World Anchor not yet set")
 			return
 		}
 
@@ -600,21 +603,18 @@ return { latitude: 0, longitude: 0, altitude: 0 } // localhost debugging
 		// transform the entity from ECEF to be relative to gps anchor
 		let v = Cesium.Matrix4.multiplyByPoint(inv, new Cesium.Cartesian3(entity.cartesian.x,entity.cartesian.y,entity.cartesian.z), new Cesium.Cartesian3());
 
-		if(!entity.pose) {
-			console.log("entityUpdate: relatively locally at : ")
-			console.log(v)
-		}
-
 		// although is now in arkit relative space, there is still a displacement to correct relative to the actual arkit origin, also fix axes
-		v = entity.pose = {
+		v = {
 			x:    v.x + wt[12],
 			y:    v.z + wt[13],
 			z:  -(v.y + wt[14]),
 		}
+
 		if(!entity.pose) {
-			console.log("entityToLocal: entity has arkit pose : ")
-			console.log(entity)
+			this.msg("entityToLocal: new entity="+entity.uuid+" x="+v.x+" y="+v.y+" z="+v.z)
 		}
+
+		entity.pose = v
 	}
 
 	/*
