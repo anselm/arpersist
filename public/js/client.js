@@ -1,4 +1,58 @@
 
+
+
+//////////////////////////////////////////////////////////////////////////////
+// map correction widget
+
+var map
+var infoWindow
+var markerCenter
+
+function mapMarker(pos) {
+  let c = map.getCenter()
+   if(!markerCenter) {
+    markerCenter = new google.maps.Marker({position: pos, map: map});
+  } else {
+    markerCenter.setPosition( pos );
+  }
+}
+
+function mapError(message, infoWindow, pos) {
+  infoWindow.setPosition(pos)
+  infoWindow.setContent(message)
+  infoWindow.open(map)
+}
+
+function mapInit() {
+  
+  map = new google.maps.Map(document.getElementById('map'), {
+    center: {lat: 45.397, lng: 120.644},
+    zoom: 23,
+    mapTypeId: 'satellite'
+  })
+
+  infoWindow = new google.maps.InfoWindow
+
+  map.addListener('center_changed', function(e) {
+    mapMarker(map.getCenter())
+  })
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function(position) {
+      let pos = { lat: position.coords.latitude, lng: position.coords.longitude }
+      map.setCenter(pos)
+      mapMarker(pos)
+    }, function() {
+      mapError('Error: The Geolocation service failed.', infoWindow, map.getCenter())
+    })
+  } else {
+    mapError('Error: Your browser does not support geolocation.', infoWindow, map.getCenter())
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+
 class ARAnchorGPSTest extends XRExampleBase {
 
 	constructor(args,params) {
@@ -130,9 +184,10 @@ class ARAnchorGPSTest extends XRExampleBase {
 		if ("geolocation" in navigator) {
 			try {
 				navigator.geolocation.watchPosition((position) => {
-					this.gps = position;
+					this.gps = position.coords;
 					this.gpsEnabled = 1
 					this.msg("gps: latitude="+position.latitude+" longitude="+position.longitude)
+					console.log(position)
 
 				});
 			} catch(e) {
