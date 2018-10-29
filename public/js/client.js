@@ -3,7 +3,8 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 	constructor(args,params) {
 
-		super(args, false)
+		// init parent
+        super(args, false, true, false, true)
 
 		// zone concept - this is a temporary hack to break traffic up into zones so that different developers can playtest against the same server
 		this.zone = params.zone || "azurevidian"
@@ -21,12 +22,10 @@ class ARAnchorGPSTest extends XRExampleBase {
 	    document.getElementById("ux_save").onclick = (ev) => { this.command = ev.srcElement.id }
 	    document.getElementById("ux_load").onclick = (ev) => { this.command = ev.srcElement.id }
 	    document.getElementById("ux_wipe").onclick = (ev) => { this.command = ev.srcElement.id }
+	    document.getElementById("ux_gps").onclick = (ev) => { this.command = ev.srcElement.id }
 	    document.getElementById("ux_make").onclick = (ev) => { this.command = ev.srcElement.id }
 	    document.getElementById("ux_self").onclick = (ev) => { this.command = ev.srcElement.id }
 
-		// unused - tap to indicate that user wants to interact (make an object etc) - disabled for now - will reactivate with edit/manipulate operations
-		// this._tapEventData = null 
-		//	this.el.addEventListener('touchstart', this._onTouchStart.bind(this), false)
 	}
 
 	msg(msg) {
@@ -38,60 +37,52 @@ class ARAnchorGPSTest extends XRExampleBase {
 		div.innerHTML = this.msgs.slice(0,5).join("<br/>")
 	}
 
-	/*
-	_onTouchStart(ev){
-		// Save screen taps as normalized coordinates for use in this.updateScene
-		if (!ev.touches || ev.touches.length === 0) {
-			console.error('No touches on touch event', ev)
-			return
-		}
-		//save screen coordinates normalized to -1..1 (0,0 is at center and 1,1 is at top right)
-		this._tapEventData = [
-			ev.touches[0].clientX / window.innerWidth,
-			ev.touches[0].clientY / window.innerHeight
-		]
-		console.log(ev.touches)
-	}
-	*/
-
 	///////////////////////////////////////////////
 	// scene geometry and update callback
 	///////////////////////////////////////////////
 
 	initializeScene() {
-		// called from parent scope - dress the stage
-
-		let box = new THREE.Mesh(
-			new THREE.BoxBufferGeometry(0.1, 0.1, 0.1),
-			new THREE.MeshPhongMaterial({ color: '#DDFFDD' })
-		)
-		box.position.set(0, 0.05, 0)
-        this.floorGroup.add( this.AxesHelper( 0.2 ) );
-		this.floorGroup.add(box)
-
-		this.scene.add(new THREE.AmbientLight('#FFF', 0.2))
-		let directionalLight = new THREE.DirectionalLight('#FFF', 0.6)
-		directionalLight.position.set(0, 10, 0)
-		this.scene.add(directionalLight)
+		this.listenerSetup = false
 	}
+
+	///
+	/// Called once per frame by base class, before render, to give the app a chance to update this.scene
+	///
 
 	updateScene(frame) {
 
-		// Called once per frame, before render, to give the app a chance to update this.scene
+		if (!this.listenerSetup) {
+
+			// Add an anchor listener for any new anchors
+			this.listenerSetup = true
+			this.session.addEventListener(XRSession.NEW_WORLD_ANCHOR, this.mapCallbackAnchor.bind(this))
+
+			// add some light
+			this.scene.add(new THREE.AmbientLight('#FFF', 0.2))
+			let directionalLight = new THREE.DirectionalLight('#FFF', 0.6)
+			directionalLight.position.set(0, 10, 0)
+			this.scene.add(directionalLight)
+
+			// attach something to 0,0,0 (although 0,0,0 doesn't mean a lot since arkit can update anchor positions)
+	        this.scene.add( this.AxesHelper( 0.2 ) );
+		}
 
 		// resolve frame related chores synchronously with access to 'frame'
 		let command = this.command
 		this.command = 0
+		if(command)	this.msg("updateScene: command="+command)
 		switch(command) {
 			case "ux_save": this.mapSave(this.zone); break
 			case "ux_load": this.mapLoad(this.zone); break
 			case "ux_wipe": break
-			case "ux_make": this.entityAuthor(frame); break
-			case "ux_self": this.entityParticipantUpdate(frame); break
+			case  "ux_gps": this.entityAddGPS(frame); break
+			case "ux_make": this.entityAddArt(frame); break
+			case "ux_self": this.entityAddParticipant(frame); break
 			default: break
 		}
 
 		// resolve any changes on a per frame basis that may be needed such as arkit anchors updating
+
 		this.entityVisitAll(frame)
 	}
 
@@ -119,12 +110,14 @@ class ARAnchorGPSTest extends XRExampleBase {
 		switch(args) {
 			default: geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1); break;
 			case "cylinder": geometry = new THREE.CylinderGeometry( 0.1, 0.1, 0.1, 32 ); break;
-			case "sphere": geometry = new THREE.SphereGeometry( 0.07, 32, 32 ); break;
-			case "box": geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1); break;
-
+			case "sphere":   geometry = new THREE.SphereGeometry( 0.07, 32, 32 ); break;
+			case "box":      geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1); break;
 		}
 		let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
-		return new THREE.Mesh(geometry, material)
+		let mesh = new THREE.Mesh(geometry, material)
+		let group = new THREE.Group()
+		group.add(mesh)
+		return group
 	}
 
 	///////////////////////////////////////////////
@@ -167,86 +160,38 @@ class ARAnchorGPSTest extends XRExampleBase {
 		this.msg("mapCallbackAnchor: uid=" + anchor.uid)
 		if (anchor.uid.startsWith('anchor-')) {
 			// it's an anchor we created last time
-			//this.addAnchoredNode(new XRAnchorOffset(anchor.uid), this._createSceneGraphNode())
-			console.log("Handle World Anchor callback : saw an anchor again named " + anchor.uid )
+			this.addAnchoredNode(new XRAnchorOffset(anchor.uid), this.createSceneGraphNode())
+			console.log("Handle Anchor callback : saw an anchor again named " + anchor.uid )
 		}
 	}
 
 	mapLoad(zone) {
-
-		//	const worldCoordinates = frame.getCoordinateSystem(XRCoordinateSystem.TRACKER)
-
-		if (!this.mapListenerSetupLatched) {
-			this.mapListenerSetupLatched = true
-			this.session.addEventListener(XRSession.NEW_WORLD_ANCHOR, this.mapCallbackAnchor.bind(this))
-		}
-
-		fetch("uploads/"+zone).then((response) => { return response.text() }).then( (data) => {
-			this.session.setWorldMap({worldMap:data}).then(results => {
-				this.msg("mapLoad: succeeded")
-				console.log(results)
+		try {
+			fetch("uploads/"+zone).then((response) => { return response.text() }).then( (data) => {
+				this.session.setWorldMap({worldMap:data}).then(results => {
+					this.msg("mapLoad: succeeded")
+					console.log(results)
+				})
 			})
-		})
+		} catch(err) {
+			this.msg(err)
+		}
 	}
 
 	mapSave(zone) {
-
-		this.session.getWorldMap().then(results => {
-			const data = new FormData()
-			let blob = new Blob([results.worldMap], { type: "text/html"} );
-			data.append('blob',blob)
-			data.append('zone',zone)
-			fetch('/api/map/save', { method: 'POST', body: data }).then(r => r.json()).then(results2 => {
-				this.msg("mapSave: succeeded")
-				console.log(results2)
+		try {
+			this.session.getWorldMap().then(results => {
+				const data = new FormData()
+				let blob = new Blob([results.worldMap], { type: "text/html"} );
+				data.append('blob',blob)
+				data.append('zone',zone)
+				fetch('/api/map/save', { method: 'POST', body: data }).then(r => r.json()).then(results2 => {
+					this.msg("mapSave: succeeded")
+				})
 			})
-		})
-
-		/* async way
-		(async () => {
-		  const rawResponse = await fetch('/api/save', {
-		    method: 'POST',
-		    headers: {
-		      'Accept': 'application/json',
-		      'Content-Type': 'application/json'
-		    },
-		    body: JSON.stringify(hash)
-		  });
-		  const content = await rawResponse.json();
-
-		  console.log(content);
-		})();
-		*/
-
-		/*
-		// as a form field for multipart
-		var data = new FormData();
-		data.append( "json", JSON.stringify(json) );
-		fetch("/api/save", {
-		    method: "POST",
-		    body: data
-		})
-		.then(function(res){ return res.json(); })
-		.then(function(data){ alert( JSON.stringify( data ) ) })
-		*/
-
-		/*
-
-		let data = JSON.stringify(hash)
-		console.log("saving")
-		console.log(data)
-		postDataHelper('/api/map/save',data).then(result => {
-			console.log("got result")
-			console.log(result)
-			if(!result || !result.uuid) {
-				console.error("entityBroadcast: failed to save to server")
-			} else {
-				// could save locally if network returns it to us ( we don't need to do this here but can wait for busy poll for now )
-				// this.entities[result.uuid] = result
-			}
-		})
-		*/
-
+		} catch(err) {
+			this.msg(err)
+		}
 	}
 
 	///
@@ -255,21 +200,21 @@ class ARAnchorGPSTest extends XRExampleBase {
 	/// TODO allow custom setting fo the anchorUID
 	///
 
-	mapAnchor(frame,projection = [0,0,0],uid = 0) {
-		let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
-		let anchorUID = frame.addAnchor(headCoordinateSystem,projection)
-		let anchorOffset = new XRAnchorOffset(anchorUID)
-		let anchor = frame.getAnchor(anchorOffset.anchorUID)
-		let thing = {
-			anchorUID: anchorUID,
-			anchorOffset: anchorOffset,
-			anchor: anchor
-		}
-		this.msg("mapAnchor: created uid="+anchorUID)
-		console.log(anchorUID)
-		console.log(anchorOffset.anchorUID)
-		console.log(thing)
-		return thing
+	anchorFromOffset(frame,anchorOffset) {
+		// get an anchor at the target position that is indicated by a given anchor+anchorOffset
+		var anchor = frame.getAnchor(anchorOffset.anchorUID)
+		this.tempMat = new THREE.Matrix4();
+		this.tempScale = new THREE.Vector3();
+		this.tempPos = new THREE.Vector3();
+		this.tempQuaternion = new THREE.Quaternion();
+		this.tempMat.fromArray(anchorOffset.getOffsetTransform(anchor.coordinateSystem))
+		this.tempMat.decompose(this.tempPos,this.tempQuaternion, this.tempScale); 
+		const worldCoordinates = frame.getCoordinateSystem(XRCoordinateSystem.TRACKER)
+		const anchorUID = frame.addAnchor(worldCoordinates, [this.tempPos.x, this.tempPos.y, this.tempPos.z], [this.tempQuaternion.x, this.tempQuaternion.y, this.tempQuaternion.z, this.tempQuaternion.w])
+		this.addAnchoredNode(new XRAnchorOffset(anchorUID), this.createSceneGraphNode() )
+		console.log("test: created anchor with uid=", anchorUID)
+		let newAnchorOffset = new XRAnchorOffset(anchorUID)
+		return newAnchorOffset
 	}
 
 	//////////////////////////////////////////////////////////
@@ -282,13 +227,12 @@ class ARAnchorGPSTest extends XRExampleBase {
 		this.socket.on('publish', this.entityCRUD.bind(this) )
 	}
 
-	///
-	/// Publish state change on an entity to network - acts may also include events like 'delete'
-	/// TODO There is no concept of an access control list - anybody can change anything
-	/// TODO There is no sanitization (server should do it anyway)
-	///
-
 	entityPublish(entity) {
+
+		console.log("entityCRUD: created entity and published to net")
+		console.log(entity)
+return
+
 		if(!entity.uuid) {
 			this.msg("entityPublish: Invalid entity no uuid")
 			return 0
@@ -301,7 +245,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 			uuid:entity.uuid,
 			anchorUID: ( entity.anchorUID || 0 ),
 			cartesian: ( entity.cartesian || 0 ),
-			style: (entity.style || 0),
+			art: (entity.art || 0),
 			zone: (entity.zone || this.zone || 0 ),
 			participant: (entity.participant || this.participant || 0 ),
 			act: (entity.act || 0)
@@ -309,132 +253,141 @@ class ARAnchorGPSTest extends XRExampleBase {
 		this.socket.emit('publish',blob);
 	}
 
-
-	///
-	/// Iterate through all entities and do any per frame related work that may be required - such as associating art with network inbound entities
-	///
-
 	entityVisitAll(frame) {
+
 		for(let uuid in this.entities) {
 			let entity = this.entities[uuid]
 
-			// add a visual scene node if needed and it doesn't have one
-			if(!entity.node && this.scene) {
-				entity.node = this.createSceneGraphNode(entity.style)
+			// wire up visual representation
+			if(!entity.node) {
+				entity.node = this.createSceneGraphNode(entity.art)
 				this.scene.add(entity.node)
+				// test
+				// if(entity.anchorOffset) this.addAnchoredNode(entity.anchorOffset, entity.node )
 			}
 
 			// re-transform an entity to the local coordinate system
 			this.entityToLocal(frame,entity)
 
-			// wire the scene graph node to the entity arkit anchor if any
-			if(entity.anchor && entity.node) {
-				entity.node.matrixAutoUpdate = false
-				entity.node.matrix.fromArray(entity.anchorOffset.getOffsetTransform(entity.anchor.coordinateSystem))
-				entity.node.updateMatrixWorld(true)
-			}
+			// don't do this anymore - detach entities from anchors ... used to wire the scene graph node to the entity arkit anchor if any
+			//if(entity.anchor) {
+			//	entity.node.matrixAutoUpdate = false
+			//	entity.node.matrix.fromArray(entity.anchorOffset.getOffsetTransform(entity.anchorCoordinateSystem))
+			//	entity.node.updateMatrixWorld(true)
+			//} else
 
 			// if there is a position rather than an anchor then use that
-			else if(entity.pose && entity.node) {
+			if(entity.pose && entity.node) {
 				entity.node.position.set(entity.pose.x,entity.pose.y,entity.pose.z)
 			}
 		}
+	}
+
+
+	///
+	/// Make a gps entity from an anchor with various hints
+	///
+	/// NOTE A plurality of these is allowed for now (later will probably only allow one)
+	/// NOTE These are networked for now as well (later will probably not network these)
+	/// NOTE The first one acts as an anchor to contextually geo-locate non geo-located entities
+	///
+
+	async entityAddGPS(frame) {
+		let gps = this.gpsGet();
+		if(!gps) {
+			this.msg("entityAddGSP: no gps")
+			return 0
+		}
+		//	const anchorUID = frame.addAnchor(headCoordinateSystem, [0,-1,0]) <- should actually do this instead
+		let anchorOffsetProbe = await frame.findAnchor(0.5,0.5)
+		if(!anchorOffsetProbe) {
+			this.msg("entityAddGPS: anchor failed")
+			return 0
+		}
+		let anchorOffset = this.anchorFromOffset(frame,anchorOffsetProbe)
+		let anchorUID = anchorOffset.anchorUID
+		let anchor = frame.getAnchor(anchorUID)
+		let anchorCoordinateSystem = anchor.coordinateSystem
+		let anchorTransform = anchorOffset.getOffsetTransform(anchorCoordinateSystem)
+		let entity = this.entityCRUD({
+			uuid: 0,
+			name: "gps",
+			art: "cylinder",
+			anchorOffset: anchorOffset, // may as well hold onto this to regenerate transform on demand more easily
+			anchorCoordinateSystem: anchorCoordinateSystem,
+			gps: gps
+		})
+		this.entityToCartesian(entity,0,0)
+		this.entityGPS = entity
+		return entity
 	}
 
 	///
 	/// Create an entity as per the users request
 	///
 
-	entityAuthor(frame) {
-
-		if(!this.entityGPSUpdate(frame)) {
-			this.msg("entityAdd: No world anchor (camera pose + gps) yet")
-			// TODO could provide better messaging such as on screen pop ups to be more helpful for end user
-			return
+	async entityAddArt(frame) {
+		if(!this.entityGPS) {
+			this.msg("entityAdd: failed due to gps anchor yet")
+			return 0
 		}
-
-		let m = this.mapAnchor(frame)
-
-		this.entityCRUD({
+		let anchorOffsetProbe = await frame.findAnchor(0.5,0.5)
+		if(!anchorOffsetProbe) {
+			this.msg("entityAddArt: anchor failed")
+			return 0
+		}
+		let anchorOffset = this.anchorFromOffset(frame,anchorOffsetProbe)
+		let anchorUID = anchorOffset.anchorUID
+		let anchor = frame.getAnchor(anchorUID)
+		let anchorCoordinateSystem = anchor.coordinateSystem
+		let anchorTransform = anchorOffset.getOffsetTransform(anchorCoordinateSystem)
+		let entity = this.entityCRUD({
 			uuid: 0,
 			name: "box",
-			style: "box",
-			anchor: m.anchor,
-			anchorUID: m.anchorUID,
-			anchorOffset: m.anchorOffset,
+			art: "box",
+			anchorUID: anchorUID,
 			gps: 0
 		})
+		let gpsTransform = this.entityGPS.anchorOffset.getOffsetTransform(this.entityGPS.anchorCoordinateSystem)
+		this.entityToCartesian(entity,gpsTransform,anchorTransform)
+		return entity
 	}
 
 	///
 	/// Create or update a participants position
 	///
 
-	entityParticipantUpdate(frame) {
-
-		// get a special gps associated anchor or fail - this will be used as a starting point for all subsequent objects
-		if(!this.entityGPSUpdate(frame)) {
-			this.msg("entityAdd: No world anchor (camera pose + gps) yet")
-			// TODO could provide better messaging such as on screen pop ups to be more helpful for end user
-			return
-		}
-
-		if(!this.entityParticipant) {
-			let m = this.mapAnchor(frame)
-			this.entityParticipant = this.entityCRUD({
-				uuid: 0,
-				name: "participant",
-				style: "cylinder",
-				anchor: m.anchor,
-				anchorUID: m.anchorUID,
-				anchorOffset: m.anchorOffset,
-				gps: 0
-			})
-		} else {
-			// TODO actually moving isn't supported yet
-			this.entityCRUD(this.entityParticipant)
-		}
-
-		return this.entityParticipant
-	}
-
-	///
-	/// Get or create a handle on a special entity which marks a gps location and an associated arkit anchor
-	/// TODO it may make sense to update this based on when a good gps reading shows up rather than once only
-	///
-
-	entityGPSUpdate(frame) {
-
-		// for now just return any valid entityGPS I ever got - never try get it again - arguably this could be refetched if a nice gps reading flys past
-		if(this.entityGPS) {
-			return this.entityGPS
-		}
-
-		// given a frame pose attempt to associate this with an anchor to bind an arkit pose to a gps coordinate
-		let gps = this.gpsGet();
-		if(!gps) {
+	async entityParticipantUpdate(frame) {
+		if(!this.entityGPS) {
+			this.msg("entityParticipantUpdate: failed due to no gps anchor yet")
 			return 0
 		}
-
-		if(!this.entityGPS) {
-			let m = this.mapAnchor(frame)
-			this.entityGPS = this.entityCRUD({
-				uuid: 0,
-				name: "world",
-				style: "cylinder",
-				anchor: m.anchor,
-				anchorUID: m.anchorUID,
-				anchorOffset: m.anchorOffset,
-				gps: gps
-			})
-		} else {
-			// TODO note this wouldn't actually update the GPS - needs work still
-			this.entityCRUD(this.entityGPS)
+		if(this.entityParticipant) {
+			// TODO does not move it - fix
+			return this.entityParticipant
 		}
-
-		return this.entityGPS
+		let anchorOffsetProbe = await frame.findAnchor(0.5,0.5)
+		if(!anchorOffsetProbe) {
+			this.msg("entityAddArt: anchor failed")
+			return 0
+		}
+		let anchorOffset = this.anchorFromOffset(frame,anchorOffsetProbe)
+		let anchorUID = anchorOffset.anchorUID
+		let anchor = frame.getAnchor(anchorUID)
+		let anchorCoordinateSystem = anchor.coordinateSystem
+		let anchorTransform = anchorOffset.getOffsetTransform(anchorCoordinateSystem)
+		let entity = this.entityCRUD({
+			uuid: 0,
+			name: "participant",
+			art: "cylinder",
+			anchorUID: anchorUID,
+			gps: 0
+		})
+		let gpsTransform = this.entityGPS.anchorOffset.getOffsetTransform(this.entityGPS.anchorCoordinateSystem)
+		this.entityToCartesian(entity,gpsTransform,anchorTransform)
+		this.entityParticipant = entity
+		return entity
 	}
-
 
 	///
 	/// Create/Revise/Update/Delete an entity
@@ -464,17 +417,11 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 		if(locally_new) {
 
-			// generate cartesian coordinates
-			this.entityToCartesian(entity)
-
 			// saving locally isn't strictly necessary because network will echo this back - but if doing so then so do before publishing
 			this.entities[entity.uuid] = entity
 
 			// publish entity to network - network will also echo this back to us shortly as well (and echo will be largely ignored atm)
 			this.entityPublish(entity)
-
-			console.log("entityCRUD: created entity and published to net")
-			console.log(entity)
 		}
 
 		else {
@@ -483,7 +430,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 			let previous = this.entities[entity.uuid]
 			if(previous) {
-				previous.cartesian = entity.cartesian
+///				previous.cartesian = entity.cartesian
 				entity = previous
 				console.log("entityCrud: remote entity found again and updated")
 				console.log(entity)
@@ -504,10 +451,11 @@ class ARAnchorGPSTest extends XRExampleBase {
 	}
 
 	///
-	/// Generate or regenerate cartesian coordinates relative to GPS Anchor (or in case of GPS Anchor simply use GPS coordinates)
+	/// Generate cartesian coordinates from relative transforms
+	/// TODO isolate as a standalone method without dependencies on entity
 	///
 
-	entityToCartesian(entity) {
+	entityToCartesian(entity,gpsTransform=0,entityTransform=0) {
 
 		// if the anchor has a gps location then go directly to cartesian and get out now - this supercedes any other evaluation
 		if(entity.gps) {
@@ -515,39 +463,26 @@ class ARAnchorGPSTest extends XRExampleBase {
 			return
 		}
 
-		if(!this.entityGPS) {
-			this.msg("entityToCartesian: World Anchor not yet set")
-			return
-		}
-
-		// all entities that intend to be promoted to cartesian coordinates should have anchors by now
-		if(!entity.anchorOffset) {
-			this.msg("entityToCartesian: Entity has no anchor")
-			return
-		}
-
 		// inverse notes
 		//		let wti = MatrixMath.mat4_generateIdentity()
 		//		MatrixMath.mat4_invert(wt,wit)
 
-		// where is the gps anchor right now?
-		let wt = this.entityGPS.anchorOffset.getOffsetTransform(this.entityGPS.anchor.coordinateSystem)
+		// where is the gps anchor right now in arkit coords?
+		let wt = gpsTransform
 		console.log("entityToCartesian: we believe the arkit pose for the gps anchor is at: ")
 		console.log(wt)
 
-		// where is the entity?
-		let et = entity.anchorOffset.getOffsetTransform(entity.anchor.coordinateSystem)
+		// where is the entity in arkit coords?
+		// entities don't keep their anchors in the current design so do not do entity.anchorOffset.getOffsetTransform(entity.anchor.coordinateSystem)
+		let et = entityTransform
 		console.log("entityToCartesian: entity in arkit frame of reference is at : ")
 		console.log(et)
 
 		// where is entity relative to gps anchor?
+		// (subtract rather than transform because as far as concerned is in EUS and do not want any orientation to mar that)
 		let ev = { x: et[12]-wt[12], y: et[13]-wt[13], z: et[14]-wt[14] }
-		console.log("entityToCartesian: relative to world anchor in arkit is at ")
+		console.log("entityToCartesian: relative to gps anchor in arkit is at ")
 		console.log(ev)
-
-		// TODO I could get the relative transformation of the entity in ARKit space (even by just subtracting the gps position)
-		// and then concatenate that matrix onto the end of the worldMatrix ... 
-		// arguably - I could even just ship both matrices...
 
 		//
 		// form a relative vector to the gps anchor - in cartesian coordinates - this only works for points "NEAR" the gps anchor
@@ -570,10 +505,12 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 		// Get a matrix that describes the orientation and displacement of a place on earth and multiply the relative cartesian by it
 
-		let worldMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(this.entityGPS.cartesian)
-		entity.cartesian = Cesium.Matrix4.multiplyByPoint( worldMatrix, ev2, new Cesium.Cartesian3() )
+		let gpsMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(this.entityGPS.cartesian)
+		entity.cartesian = Cesium.Matrix4.multiplyByPoint( gpsMatrix, ev2, new Cesium.Cartesian3() )
 
-		console.log("absolutely in ecef at")
+		console.log("debug - absolutely in ecef at")
+		console.log(this.entityGPS.cartesian)
+		console.log(gpsMatrix)
 		console.log(entity.cartesian)
 		console.log(ev2)
 
@@ -582,7 +519,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 			let carto  = Cesium.Ellipsoid.WGS84.cartesianToCartographic(entity.cartesian);
 			let lon = Cesium.Math.toDegrees(carto.longitude);
 			let lat = Cesium.Math.toDegrees(carto.latitude);
-			this.msg("entityAdd: World is at lon="+this.entityGPS.gps.longitude+" lat="+this.entityGPS.gps.latitude );
+			this.msg("entityAdd: gps entity is at lon="+this.entityGPS.gps.longitude+" lat="+this.entityGPS.gps.latitude );
 			this.msg("entityAdd: Entity="+entity.uuid+" lon"+lon + " lat"+lat)
 		}
 	}
@@ -590,12 +527,12 @@ class ARAnchorGPSTest extends XRExampleBase {
 	entityToLocal(frame,entity) {
 
 		if(!this.entityGPS) {
-			this.msg("entityToLocal: World Anchor not yet set")
+			this.msg("entityToLocal: don't know where we are yet")
 			return
 		}
 
 		// where is the gps anchor right now?
-		let wt = this.entityGPS.anchorOffset.getOffsetTransform(this.entityGPS.anchor.coordinateSystem)
+		let wt = this.entityGPS.anchorOffset.getOffsetTransform(this.entityGPS.anchorCoordinateSystem)
 
 		// make an inverse transform that will go from ECEF to be relative to the gps anchor
 		let inv = Cesium.Matrix4.inverseTransformation(Cesium.Transforms.eastNorthUpToFixedFrame(this.entityGPS.cartesian), new Cesium.Matrix4())
@@ -611,69 +548,19 @@ class ARAnchorGPSTest extends XRExampleBase {
 		}
 
 		if(!entity.pose) {
-			this.msg("entityToLocal: new entity="+entity.uuid+" x="+v.x+" y="+v.y+" z="+v.z)
+			this.msg("entityToLocal: new entity="+entity.uuid+" is at arkit pose x="+v.x+" y="+v.y+" z="+v.z)
 		}
 
 		entity.pose = v
 	}
 
-	/*
-	///
-	/// UNUSED - Remove sticky elements from an entity prior to being removed from local database
-	///
+	async test(frame) {
 
-	entityFlush(entity) {
-		if(entity.anchor) {
-			frame.removeAnchor(entity.anchor)
-			entity.anchor = 0
-		}
+		// add test gps anchor
+		let gps = { longitude:0, latitude:0, altitude:0 }
+		let gpsAnchor = await this.entityAddGPS(frame,gps)
+
 	}
-
-	///
-	/// UNUSED - for debugging
-	///
-
-	entityClone(entity) {
-		// this is a hack
-		// as a test the object can be made immediately - the approach is is to move it out of the colliding uuid
-		// the network will return a second copy of the same object in a moment
-		// (in the entitiesupdate this object will get a visible scene graph node if it doesn't have one yet)
-		entity.uuid = this.entitycounter = this.entityCounter ? this.entityCounter + 1 : 1
-		entity.style = "sphere"
-		this.entityCRUD(entity)
-	}
-
-	entityBusyPoll() {
-
-		function postDataHelper(url,data) {
-		    return fetch(url, {
-		        method: "POST",
-		        mode: "cors", // no-cors, cors, *same-origin
-		        cache: "no-cache",
-		        credentials: "same-origin", // include, same-origin, *omit
-		        headers: { "Content-Type": "application/json; charset=utf-8", },
-		        referrer: "no-referrer", // no-referrer, *client
-		        body: data,
-		    }).then(response => response.json())
-		}
-
-		var d = new Date()
-		var n = d.getTime()
-		console.log("Busy polling server at time " + n )
-		let scope = this
-		let data = JSON.stringify({time:n})
-		postDataHelper('/api/entity/sync',data).then(results => {
-			for(let uuid in results) {
-				let entity = results[uuid]
-				if(entity.uuid && !scope.entities[entity.uuid]) {
-					scope.entities[entity.uuid] = entity
-				}
-			}
-			setTimeout( function() { scope.entityBusyPoll() },1000)
-		})
-	}
-
-	*/
 
 }
 
@@ -688,9 +575,58 @@ window.addEventListener('DOMContentLoaded', () => {
 	}, 1000)
 })
 
-// todo
-// 	- server - must ask server for all initial objects and must partition by zone
-//	- server - server could actually grant a uuid root to me
-//	- truly transform rather than translate
+
+/*
+
+test suite
+
+	- make a gps anchor 
+	- await the result
+
+	- make an ordinary entity
+	- check displacement
+
+
+chores
+	- startup time needs to ask server for entities in zone
+	- truly transform; may want to just rewrite not using cesium for clarity; hard to grok cesium reference frames
+
+	- general comments on anchors
+
+		- translation
+		- if we place an anchor then that indicates a computed position relative to a local world origin
+		- it's possible that arkit could say rotate the frame of reference; in which case the anchor would move
+		- if the anchor that was placed was a gps anchor then it's possible that the gps anchor translation could change
+		- so, when estimating where anchors are absolutely, it's important to know if an anchor position has changed, or the gps anchor
+		- and overall it may be best to compute where an anchor is in cartesian coordinates every frame and publish any changes
+		- also a philosophy around 'letting go' of an anchor may be needed; or philosophically we should immediately 'let go' of an anchor
+		- if we immediately 'let go' then we don't need anchors - we just use the cartesian coordinates to reconstitute the local position
+
+		- orientation
+		- we're always definitely going to want to render in a local frame of reference so that 0,0,0 is near us
+		- features should be rotated as a function of their relative orientation and absolute longitude and latitude to ECEF coordinates
+		- any feature I wish to paint should always be transformed from world coordinates back to local coordinates
+		- as a test i would like a tiny earth
+
+	- user experience improvement for placement
+		* small map shows where it thinks you are - works well
+		* you can slide the map around and a little marker stays centered; this indicates where you actually are
+		* i could instead make it that you drag the marker to where you want it to be
+		- so now, there is a mode that you can go to, and adjust the gps location of any gps point
+		- and i would like you to be able to add gps points at random as you wish
+
+- user experience
+
+	+ currently you can startup the app
+	+ currently you can place a single map anchor - I would like to let you place multiple of them
+	- I would like a concept of selecting an object on the screen and then fiddling with it
+	- I would like to have a page where you can adjust your map position of the currently selected map anchor
+	- when I save a world map to the server I would like to ALSO let you save the gps associated with the anchors that you chose
+
+
+*/
+
+
+
 
 
