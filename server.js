@@ -87,6 +87,13 @@ app.post('/api/map/save', upload.single('blob'), (request, response) => {
     response.json({status:"error"})
   }
 
+  fs.writeFileSync("public/uploads/" + request.body.zone + ".inf",JSON.stringify({
+    latitude:request.body.latitude,
+    longitude:request.body.longitude,
+    altitude:request.body.altitude,
+    anchor:request.body.anchor
+  }))
+
 });
 
 app.use(express.static('public'))
