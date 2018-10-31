@@ -215,28 +215,36 @@ class ARAnchorGPSTest extends XRExampleBase {
 		}
 	}
 
-	mapLoad(zone) {
-		try {
-			// first fetch some extended info and make an entity that represents the gps location (it will not resolve its anchor yet)
-			fetch("uploads/"+zone+".inf").then((response) => { return response.json() }).then( (json) => {
-				console.log("mapLoad: got extra details")
-				console.log(json)
-				if(json.anchor) {
-					let gps = { latitude: parseFloat(json.latitude), longitude: parseFloat(json.longitude), altitude: parseFloat(json.altitude) }
-					this.entityAdd(json.anchor,"gps","cylinder",gps)
-				}
+	async mapLoad(zone) {
 
-				// then fetch the map - TODO could combine these both into one file...
-				fetch("uploads/"+zone).then((response) => { return response.text() }).then( (data) => {
-					this.session.setWorldMap({worldMap:data}).then(results => {
-						this.msg("mapLoad: succeeded")
-						console.log(results)
-					})
-				})
-			})
-		} catch(err) {
-			this.msg(err)
+		let response = 0
+		let json = 0
+
+		// fetch all entities in this zone
+		response = await fetch("/api/entity/sync",{ method: 'POST', body: zone })
+		json = await response.json()
+		console.log(json)
+		for(let i = 0; i < json.length; i++) {
+			let entity = json[i]
+			this.entityAdd(entity.anchorUID,entity.kind,entity.art,entity.gps,1)
 		}
+
+		// fetch entity with gps and anchor - this isn't technically needed due to the line above
+		// TODO this could all be pushed below entity level
+		//response = await fetch("uploads/"+zone+".inf")
+		//json = await response.json()
+		//if(json.anchor) {
+		//	let gps = { latitude: parseFloat(json.latitude), longitude: parseFloat(json.longitude), altitude: parseFloat(json.altitude) }
+		//	this.entityAdd(json.anchor,"gps","cylinder",gps,1)
+		//}
+
+		// fetch map itself - which will eventually resolve the anchor loaded above
+
+		response = await fetch("uploads/"+zone)
+		let data = await response.text()
+		let results = await this.session.setWorldMap({worldMap:data})
+		this.msg("mapLoad: succeeded")
+		console.log(results)
 	}
 
 	mapSaveGPS(gps,anchorUID) {
@@ -386,7 +394,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 			let carto  = Cesium.Ellipsoid.WGS84.cartesianToCartographic(cartesian);
 			let lon = Cesium.Math.toDegrees(carto.longitude);
 			let lat = Cesium.Math.toDegrees(carto.latitude);
-			this.msg("toCartesian: lon"+lon + " lat"+lat)
+			this.msg("toCartesian: lon="+lon + " lat="+lat)
 		}
 
 		return cartesian
@@ -413,7 +421,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 	entityInitialize() {
 		this.entities = {}
-		//this.entityNetwork()
+		this.entityNetwork()
 	}
 
 	entityUpdateAll(frame) {
@@ -479,8 +487,9 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 		// publish to network if needed
 		if(entity.cartesian && entity.remote == 0 && entity.published == 0) {
-			entity.published = 1
+	console.log("publisged")
 			this.entityPublish(entity)
+			entity.published = 1
 		}
 	}
 
@@ -550,7 +559,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 	/// Philosophically the system uses a multi-pass approach where details are refined afterwards
 	///
 
-	entityAdd(anchorUID,kind,art,gps=0) {
+	entityAdd(anchorUID,kind,art,gps=0,published=0) {
 
 		// uuid has to be deterministic yet unique for all client instances so build it out of known parts and hope for best
 		let uuid = this.zone + "_" + this.participant + "_" + anchorUID
@@ -561,18 +570,18 @@ class ARAnchorGPSTest extends XRExampleBase {
 			       kind: kind,
 			        art: art,
 			       zone: this.zone,
-			participant: this.particpant,
+			participant: this.participant,
 			        act: "exist",
 			  cartesian: 0,
 			        gps: gps,
 			  anchorUID: anchorUID,
-			  published: 0,
+			  published: published,
 			     remote: 0,
 		}
 
 		this.entities[entity.uuid] = entity
 
-		console.log("entityAdd: " + entity.uuid)
+		console.log("entityAdd: ********")
 		console.log(entity)
 
 		return entity
@@ -634,7 +643,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 			       zone: entity.zone,
 			participant: entity.participant,
 			        act: entity.act,
-			  cartesian: entity.cartesian,
+			  cartesian: entity.cartesian ? { x:entity.cartesian.x, y:entity.cartesian.y, z:entity.cartesian.z } : 0,
 			        gps: entity.gps,
 			  anchorUID: entity.anchorUID,
 			  published: 1,

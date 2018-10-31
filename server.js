@@ -34,8 +34,8 @@ function entity_filter(args) {
   // TODO replace sloppy code with map
   let results = []
   for(let uuid in entities) {
-    let entity = this.entities[uuid]
-    if(entity.zone != args.zone) continue
+    let entity = entities[uuid]
+    //if(entity.zone != args.zone) continue
     results.push(entity)
   }
   return results
@@ -100,6 +100,8 @@ app.use(express.static('public'))
 
 io.on('connection', function(socket){
   socket.on('publish', function(msg){
+    console.log(msg)
+    entity_save(msg)
     // TODO filter traffic to channels based on what those channels have reported is their zoone
     io.emit('publish', msg)
   })
