@@ -114,29 +114,6 @@ class ARAnchorGPSTest extends XRExampleBase {
 	///
 
 	updateScene(frame) {
-
-		if (!this.listenerSetup) {
-			// Add an anchor listener for any new anchors
-			this.listenerSetup = true
-			this.session.addEventListener(XRSession.NEW_WORLD_ANCHOR, this.mapCallbackAnchor.bind(this))
-		}
-
-		// resolve frame related chores synchronously with access to 'frame'
-		let command = this.command
-		this.command = 0
-		if(command)	this.msg("updateScene: command="+command)
-		switch(command) {
-			case "ux_save": this.mapSave(this.zone); break
-			case "ux_load": this.mapLoad(this.zone); break
-			case "ux_wipe": break
-			case  "ux_gps": this.entityAddGPS(frame); break
-			case "ux_make": this.entityAddArt(frame); break
-			case "ux_self": this.entityAddParticipant(frame); break
-			default: break
-		}
-
-		// resolve any changes on a per frame basis that may be needed such as arkit anchors updating
-
 		this.entityUpdateAll(frame)
 	}
 
@@ -204,76 +181,8 @@ class ARAnchorGPSTest extends XRExampleBase {
 	}
 
 	//////////////////////////////////////////////////
-	// 3d reconstruction maps and anchors
+	// utils
 	/////////////////////////////////////////////////
-
-	mapCallbackAnchor(event) {
-		let anchor = event.detail
-		if (anchor.uid.startsWith('anchor-')) {
-			// can basically ignore because anchor uids are loaded from our own persistence layer separate from this
-			console.log("mapCallbackAnchor: saw anchor again named " + anchor.uid )
-		}
-	}
-
-	async mapLoad(zone) {
-
-		let response = 0
-		let json = 0
-
-		// fetch all entities in this zone
-		response = await fetch("/api/entity/sync",{ method: 'POST', body: zone })
-		json = await response.json()
-		console.log(json)
-		for(let i = 0; i < json.length; i++) {
-			let entity = json[i]
-			this.entityAdd(entity.anchorUID,entity.kind,entity.art,entity.gps,1)
-		}
-
-		// fetch entity with gps and anchor - this isn't technically needed due to the line above
-		// TODO this could all be pushed below entity level
-		//response = await fetch("uploads/"+zone+".inf")
-		//json = await response.json()
-		//if(json.anchor) {
-		//	let gps = { latitude: parseFloat(json.latitude), longitude: parseFloat(json.longitude), altitude: parseFloat(json.altitude) }
-		//	this.entityAdd(json.anchor,"gps","cylinder",gps,1)
-		//}
-
-		// fetch map itself - which will eventually resolve the anchor loaded above
-
-		response = await fetch("uploads/"+zone)
-		let data = await response.text()
-		let results = await this.session.setWorldMap({worldMap:data})
-		this.msg("mapLoad: succeeded")
-		console.log(results)
-	}
-
-	mapSaveGPS(gps,anchorUID) {
-		// test - save the gps to the map itself in a way that it can be recovered with the associated anchor
-		this.mapGPS = gps
-		this.mapUID = anchorUID
-	}
-
-	mapSave(zone) {
-		try {
-			this.session.getWorldMap().then(results => {
-				const data = new FormData()
-				let blob = new Blob([results.worldMap], { type: "text/html"} );
-				data.append('blob',blob)
-				data.append('zone',zone)
-				if(this.mapGPS) {
-					data.append('latitude',this.mapGPS.latitude)
-					data.append('longitude',this.mapGPS.longitude)
-					data.append('altitude',this.mapGPS.altitude)
-					data.append('anchor',this.mapUID)
-				}
-				fetch('/api/map/save', { method: 'POST', body: data }).then(r => r.json()).then(results2 => {
-					this.msg("mapSave: succeeded")
-				})
-			})
-		} catch(err) {
-			this.msg(err)
-		}
-	}
 
 	///
 	/// Get an anchor
@@ -282,7 +191,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 	async mapAnchor(frame,x=0.5,y=0.5) {
 
 		// If no screen space position supplied then return an anchor at the head
-
+x=y=0
 		if(!x && !y) {
 			// TODO verify that the anchor that is created ends up with XRCoordinateSystem.TRACKER
 			let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
@@ -293,9 +202,9 @@ class ARAnchorGPSTest extends XRExampleBase {
 		// Otherwise probe for an anchor
 
 		// TODO are these both the same?
-		// let anchorOffset = await frame.findAnchor(x,y)
+		let anchorOffset = await frame.findAnchor(x,y)
 
-		let anchorOffset = await this.session.hitTest(x,y)
+		//let anchorOffset = await this.session.hitTest(x,y)
 		if(!anchorOffset) {
 			return 0
 		}
@@ -320,23 +229,6 @@ class ARAnchorGPSTest extends XRExampleBase {
 		frame.removeAnchor(anchor); anchor = 0
 
 		return anchorUID
-	}
-
-	///
-	/// A cartesian point is used (in combination with an anchor) to position features globally
-	///
-
-	setCartesian(gps) {
-		// get cartesian coordinates for current gps
-		this.gpsCartesian = Cesium.Cartesian3.fromDegrees(gps.longitude, gps.latitude, gps.altitude )
-		// get a matrix that can transform rays from local arkit space to ECEF world space cartesian coordinates
-		this.gpsFixed = Cesium.Transforms.eastNorthUpToFixedFrame(this.gpsCartesian)
-		// get an inverse matrix that can go from ECEF to arkit relative space
-		this.gpsInverse = Cesium.Matrix4.inverseTransformation(this.gpsFixed, new Cesium.Matrix4())
-		console.log("************** gps helpers are *********** ")
-		console.log(this.gpsCartesian)
-		console.log(this.gpsFixed)
-		return this.gpsCartesian
 	}
 
 	///
@@ -425,6 +317,21 @@ class ARAnchorGPSTest extends XRExampleBase {
 	}
 
 	entityUpdateAll(frame) {
+
+		// resolve frame related chores synchronously with access to 'frame'
+		let command = this.command
+		this.command = 0
+		if(command)	this.msg("updateScene: command="+command)
+		switch(command) {
+			case "ux_save": this.save(this.zone); break
+			case "ux_load": this.load(this.zone); break
+			case "ux_wipe": break
+			case  "ux_gps": this.entityAddGPS(frame); break
+			case "ux_make": this.entityAddArt(frame); break
+			case "ux_self": this.entityAddParticipant(frame); break
+			default: break
+		}
+
 		for(let uuid in this.entities) {
 			this.entityUpdate(frame,this.entities[uuid])
 		}
@@ -432,42 +339,41 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 	entityUpdate(frame,entity) {
 
-		// keep watching entities until one shows up with enough information to establish a gps anchor
-		if(!this.gpsAnchor && entity.gps) {
-			// has the map relocalized?
-			this.gpsAnchor = frame.getAnchor(entity.anchorUID)
-			if(this.gpsAnchor) {
-				this.gpsAnchorOffset = new XRAnchorOffset(entity.anchorUID)
-				this.setCartesian(entity.gps)
-				this.mapSaveGPS(entity.gps,entity.anchorUID)
-				this.msg("map relocalized")
+		// busy poll till a gps and associated anchor show up and then build coordinate systems around it
+		if(!this.entityGPS && entity.kind == "gps") {
+			entity.anchor = frame.getAnchor(entity.anchorUID)
+			if(!entity.anchor) {
+				return
 			}
+			entity.offset = new XRAnchorOffset(entity.anchorUID)
+			entity.fixed = Cesium.Transforms.eastNorthUpToFixedFrame(entity.cartesian)
+			entity.inverse = Cesium.Matrix4.inverseTransformation(entity.fixed, new Cesium.Matrix4())
+			entity.published = 0
+			this.entityGPS = entity
+			this.msg("map relocalized")
 		}
 
 		// not a lot to do before a gps anchor shows up
-		if(!this.gpsAnchor) {
+		if(!this.entityGPS) {
 			return
 		}
 
-		// where is the gpsAnchor in arkit space on this frame?
-		// TODO this can't be right?
-		this.gpsTransform = this.gpsAnchorOffset.getOffsetTransform(this.gpsAnchor.coordinateSystem)
+		this.entityGPS.transform = this.entityGPS.offset.getOffsetTransform(this.entityGPS.anchor.coordinateSystem)
 
-		// get cartesian pose of locally created entities - do it once for now - could throw away the anchor too
-		if(entity.remote == 0 && !entity.cartesian) {
-			let anchor = frame.getAnchor(entity.anchorUID)
-			if(anchor) {
-				// TODO this can't be right?
-				let anchorOffset = new XRAnchorOffset(entity.anchorUID)
-				let anchorTransform = anchorOffset.getOffsetTransform(anchor.coordinateSystem)
-				entity.cartesian = this.toCartesian(anchorTransform,this.gpsTransform,this.gpsFixed)
+		// busy poll till grant cartesian coordinates if none yet (these objects should be local and an anchor should eventually show up)
+		if(!entity.cartesian) {
+			entity.anchor = frame.getAnchor(entity.anchorUID)
+			if(!entity.anchor) {
+				return
 			}
+			entity.offset = new XRAnchorOffset(entity.anchorUID)
+			entity.transform = entity.offset.getOffsetTransform(entity.anchor.coordinateSystem)
+			entity.cartesian = this.toCartesian(entity.transform,this.entityGPS.transform,this.entityGPS.fixed)
+			entity.published = 0
 		}
 
-		// get render pose
-		if(entity.cartesian) {
-			entity.pose = this.toLocal(entity.cartesian,this.gpsInverse,this.gpsTransform)
-		}
+		// update pose
+		entity.pose = this.toLocal(entity.cartesian,this.entityGPS.inverse,this.entityGPS.transform)
 
 		// add art to entities if needed
 		if(!entity.node) {
@@ -476,33 +382,99 @@ class ARAnchorGPSTest extends XRExampleBase {
 		}
 
 		// update entity rendering position
-		if(entity.pose && entity.node) {
-			entity.node.position.set(entity.pose.x,entity.pose.y,entity.pose.z)
-		}
+		entity.node.position.set(entity.pose.x,entity.pose.y,entity.pose.z)
 
 		// given an anchor it is possible to directly set the node from that
 		//	entity.node.matrixAutoUpdate = false
 		//	entity.node.matrix.fromArray(entity.anchorOffset.getOffsetTransform(entity.anchorCoordinateSystem))
 		//	entity.node.updateMatrixWorld(true)
 
-		// publish to network if needed
-		if(entity.cartesian && entity.remote == 0 && entity.published == 0) {
-	console.log("publisged")
+		// publish changes?
+		if(entity.published == 0) {
 			this.entityPublish(entity)
 			entity.published = 1
 		}
 	}
 
+	async save(zone) {
+		let results = await this.session.getWorldMap()
+		if(results) {
+			const data = new FormData()
+			let blob = new Blob([results.worldMap], { type: "text/html"} );
+			data.append('blob',blob)
+			data.append('zone',zone)
+			// associate the gps anchor with the map - this isn't really needed since it comes in via entities on a reload
+			// TODO it would be slightly more consistent to save the cartesian rather than the gps
+			if(this.entityGPS && this.entityGPS.cartesian) {
+				data.append('cartesianx',this.entityGPS.cartesian.x)
+				data.append('cartesiany',this.entityGPS.cartesian.y)
+				data.append('cartesianz',this.entityGPS.cartesian.z)
+				data.append('anchor',this.entityGPS.anchorUID)
+			}
+			fetch('/api/map/save', { method: 'POST', body: data }).then(r => r.json()).then(results2 => {
+				this.msg("mapSave: succeeded")
+			})
+		}
+	}
+
+	async load(zone) {
+
+		// flush all entities
+		for(let uuid in this.entities) {
+			let entity = this.entities[uuid]
+			if(entity.node) {
+				this.scene.remove(entity.node)
+				entity.node = 0
+			}
+		}
+		this.entities = {}
+
+		// fetch all entities
+		let response = await fetch("/api/entity/sync",{ method: 'POST', body: zone })
+		let json = await response.json()
+		for(let i = 0; i < json.length; i++) {
+			let entity = json[i]
+			this.entities[entity.uuid]=entity
+			entity.remote=0 // TODO debate merits of this
+		}
+
+		// fetch extended anchor + gps information and force create this entity - not really needed since fetch all entities does this
+		//response = await fetch("uploads/"+zone+".inf")
+		//json = await response.json()
+		//if(json.anchor) {
+		//	let cartesian = new Cesium.Cartesian3(parseFloat(json.cartesianx), parseFloat(json.cartesiany), parseFloat(json.cartesianz) )
+		//	this.entityAdd(
+		//		{uuid:this.entityUUID(json.anchor),
+		//		anchorUUID:json.anchor
+		//		kind:"gps",
+		//		art:"cylinder",
+		//		cartesian:cartesian
+		//		zone: this.zone,
+		//		participant: this.participant,
+		//		published:1,
+		//		remote:0
+		//  })
+		//}
+
+		// observe anchors showing up again
+		if (!this.listenerSetup) {
+			this.listenerSetup = true
+			this.session.addEventListener(XRSession.NEW_WORLD_ANCHOR,(event) => {
+				console.log("mapLoad callback - saw an anchor re-appear uid=" + event.detail.uid )
+			})
+		}
+
+		// fetch map itself - which will eventually resolve the anchor loaded above
+		response = await fetch("uploads/"+zone)
+		let data = await response.text()
+		let results = await this.session.setWorldMap({worldMap:data})
+	}
+
 	///
 	/// Make a gps entity from an anchor (is an ordinary entity that has a gps value)
 	///
-	/// Several issues to fix:
-	/// NOTE A plurality of these is allowed for now (later will probably only allow one)
-	/// NOTE These are networked for now as well (seems like this is required to share gps)
-	/// NOTE The first one is the only one I care about
+	/// NOTE A plurality of these is allowed for now (later will probably only allow one) - only the first one is used right now
 	/// NOTE the anchor should be built implicitly at time of GPS - not 'whenever'
-	/// NOTE should not project but use actual location as anchor
-	/// NOTE this should be saved and loaded with the map - including the gps value
 	///
 
 	async entityAddGPS(frame) {
@@ -516,7 +488,18 @@ class ARAnchorGPSTest extends XRExampleBase {
 			this.msg("entityAddGPS: anchor failed")
 			return 0
 		}
-		return this.entityAdd(anchorUID,"gps","cylinder",gps)
+		let entity = {
+			       uuid: this.entityUUID(anchorUID),
+			  anchorUID: anchorUID,
+			       kind: "gps",
+			        art: "cylinder",
+			       zone: this.zone,
+			participant: this.participant,
+			  cartesian: Cesium.Cartesian3.fromDegrees(gps.longitude, gps.latitude, gps.altitude),
+			  published: 1,
+			     remote: 0
+		}
+		this.entities[entity.uuid] = entity
 		return entity
 	}
 
@@ -530,7 +513,19 @@ class ARAnchorGPSTest extends XRExampleBase {
 			this.msg("entityAddArt: anchor failed")
 			return 0
 		}
-		return this.entityAdd(anchorUID,"content","box",0)
+		let entity = {
+			       uuid: this.entityUUID(anchorUID),
+			  anchorUID: anchorUID,
+			       kind: "content",
+			        art: "box",
+			       zone: this.zone,
+			participant: this.participant,
+			  cartesian: 0,
+			  published: 1,
+			     remote: 0
+		}
+		this.entities[entity.uuid] = entity
+		return entity
 	}
 
 	///
@@ -548,43 +543,26 @@ class ARAnchorGPSTest extends XRExampleBase {
 			this.entityParticipant.anchorUID = anchorUID
 			this.entityParticipant.cartesian = 0
 			this.entityParticipant.published = 0
-		} else {
-			this.entityParticipant = this.entityAdd(anchorUID,"participant","cylinder",0)
+			return this.entityParticipant
 		}
-		return this.entityParticipant
-	}
-
-	///
-	/// Add an entity to the local database
-	/// Philosophically the system uses a multi-pass approach where details are refined afterwards
-	///
-
-	entityAdd(anchorUID,kind,art,gps=0,published=0) {
-
-		// uuid has to be deterministic yet unique for all client instances so build it out of known parts and hope for best
-		let uuid = this.zone + "_" + this.participant + "_" + anchorUID
-
-		// entity to store
-		let entity = {
-			       uuid: uuid,
-			       kind: kind,
-			        art: art,
+		let entity = this.entityParticipant = {
+			       uuid: this.entityUUID(anchorUID),
+			  anchorUID: anchorUID,
+			       kind: "participant",
+			        art: "cylinder",
 			       zone: this.zone,
 			participant: this.participant,
-			        act: "exist",
 			  cartesian: 0,
-			        gps: gps,
-			  anchorUID: anchorUID,
-			  published: published,
-			     remote: 0,
+			  published: 1,
+			     remote: 0
 		}
-
 		this.entities[entity.uuid] = entity
-
-		console.log("entityAdd: ********")
-		console.log(entity)
-
 		return entity
+	}
+
+	entityUUID(id) {
+		// uuid has to be deterministic yet unique for all client instances so build it out of known parts and hope for best
+		return this.zone + "_" + this.participant + "_" + id
 	}
 
 	//////////////////////////////////////////////////////////
@@ -638,16 +616,14 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 		let blob = {
 			       uuid: entity.uuid,
+			  anchorUID: entity.anchorUID,
 			       kind: entity.kind,
 			        art: entity.art,
 			       zone: entity.zone,
 			participant: entity.participant,
-			        act: entity.act,
-			  cartesian: entity.cartesian ? { x:entity.cartesian.x, y:entity.cartesian.y, z:entity.cartesian.z } : 0,
-			        gps: entity.gps,
-			  anchorUID: entity.anchorUID,
-			  published: 1,
-			     remote: 1
+			  cartesian: entity.cartesian,
+			  published: entity.published,
+			     remote: entity.remote
 		}
 
 		this.socket.emit('publish',blob);
@@ -665,3 +641,6 @@ window.addEventListener('DOMContentLoaded', () => {
 		window.myapp = new ARAnchorGPSTest(document.getElementById('target'),getUrlParams())
 	}, 1000)
 })
+
+
+

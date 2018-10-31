@@ -88,9 +88,9 @@ app.post('/api/map/save', upload.single('blob'), (request, response) => {
   }
 
   fs.writeFileSync("public/uploads/" + request.body.zone + ".inf",JSON.stringify({
-    latitude:request.body.latitude,
-    longitude:request.body.longitude,
-    altitude:request.body.altitude,
+    cartesianx:request.body.cartesianx,
+    cartesiany:request.body.cartesiany,
+    cartesianz:request.body.cartesianz,
     anchor:request.body.anchor
   }))
 
