@@ -222,7 +222,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 				console.log("mapLoad: got extra details")
 				console.log(json)
 				if(json.anchor) {
-					let gps = { latitude: json.latitude, longitude: json.longitide, altitude: json.altitude }
+					let gps = { latitude: parseFloat(json.latitude), longitude: parseFloat(json.longitude), altitude: parseFloat(json.altitude) }
 					this.entityAdd(json.anchor,"gps","cylinder",gps)
 				}
 
@@ -252,7 +252,6 @@ class ARAnchorGPSTest extends XRExampleBase {
 				let blob = new Blob([results.worldMap], { type: "text/html"} );
 				data.append('blob',blob)
 				data.append('zone',zone)
-				data.append('participant',participant)
 				if(this.mapGPS) {
 					data.append('latitude',this.mapGPS.latitude)
 					data.append('longitude',this.mapGPS.longitude)
@@ -393,10 +392,10 @@ class ARAnchorGPSTest extends XRExampleBase {
 		return cartesian
 	}
 
-	toLocal(inv,wt) {
+	toLocal(cartesian,inv,wt) {
 
 		// transform from ECEF to be relative to gps anchor
-		let v = Cesium.Matrix4.multiplyByPoint(inv, new Cesium.Cartesian3(entity.cartesian.x,entity.cartesian.y,entity.cartesian.z), new Cesium.Cartesian3());
+		let v = Cesium.Matrix4.multiplyByPoint(inv, cartesian, new Cesium.Cartesian3());
 
 		// although is now in arkit relative space, there is still a displacement to correct relative to the actual arkit origin, also fix axes
 		v = {
@@ -419,17 +418,18 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 	entityUpdateAll(frame) {
 		for(let uuid in this.entities) {
-			this.entityUpdate(this.entities[uuid])
+			this.entityUpdate(frame,this.entities[uuid])
 		}
 	}
 
-	entityUpdate(entity) {
+	entityUpdate(frame,entity) {
 
 		// keep watching entities until one shows up with enough information to establish a gps anchor
 		if(!this.gpsAnchor && entity.gps) {
 			// has the map relocalized?
 			this.gpsAnchor = frame.getAnchor(entity.anchorUID)
 			if(this.gpsAnchor) {
+				this.gpsAnchorOffset = new XRAnchorOffset(entity.anchorUID)
 				this.setCartesian(entity.gps)
 				this.mapSaveGPS(entity.gps,entity.anchorUID)
 				this.msg("map relocalized")
@@ -443,10 +443,9 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 		// where is the gpsAnchor in arkit space on this frame?
 		// TODO this can't be right?
-		let anchorOffsetTemp = new XRAnchorOffset(this.gpsAnchor.anchorUID)
-		this.gpsTransform = anchorOffsetTemp.getOffsetTransform(this.gpsAnchor.CoordinateSystem)
+		this.gpsTransform = this.gpsAnchorOffset.getOffsetTransform(this.gpsAnchor.coordinateSystem)
 
-		// get cartesian pose of locally created entities - do it once for now - basically could throw away the anchor now
+		// get cartesian pose of locally created entities - do it once for now - could throw away the anchor too
 		if(entity.remote == 0 && !entity.cartesian) {
 			let anchor = frame.getAnchor(entity.anchorUID)
 			if(anchor) {
@@ -459,7 +458,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 
 		// get render pose
 		if(entity.cartesian) {
-			entity.pose = this.toLocal(this.gpsInverse,this.gpsTransform)
+			entity.pose = this.toLocal(entity.cartesian,this.gpsInverse,this.gpsTransform)
 		}
 
 		// add art to entities if needed
@@ -594,6 +593,7 @@ class ARAnchorGPSTest extends XRExampleBase {
 	///
 
 	entityReceive(entity) {
+		entity.cartesian =  new Cesium.Cartesian3(entity.cartesian.x,entity.cartesian.y,entity.cartesian.z)
 		entity.published = 1
 		entity.remote = 1
 		let previous = this.entities[entity.uuid]

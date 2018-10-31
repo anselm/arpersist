@@ -1,6 +1,6 @@
 # About
 
-This is an exploration of persistent AR in the browser leveraging ARKit. The idea is to pretend that we have extremely accurate GPS and build up a higher level developer API as if that were the case. Underneath we use ARKit + GPS to provide a feeling of accurate GPS.
+This is an exploration of persistent AR in the browser leveraging ARKit. The idea is to pretend there is centimeter accurate GPS. Underneath ARKit + GPS to provide a feeling of accurate GPS.
 
 # Approach
 
