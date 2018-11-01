@@ -161,7 +161,8 @@ class ARAnchorGPSTest extends XRExampleBase {
 		if ("geolocation" in navigator) {
 			try {
 				navigator.geolocation.watchPosition((position) => {
-					this.gps = position.coords;
+					console.log(position.coords)
+					this.gps = position.coords
 					this.gpsDiscovered = 1
 				});
 			} catch(e) {
@@ -172,10 +173,13 @@ class ARAnchorGPSTest extends XRExampleBase {
 	}
 
 	gpsGetLatest() {
-		if (this.gpsDiscovered) {
-			let scratch = this.gps;
-			this.gps = 0;
-			return scratch;
+		if ("geolocation" in navigator) {
+			if (this.gpsDiscovered) {
+				let scratch = this.gps
+				this.gps = 0
+				return scratch
+			}
+			return 0
 		}
 		return { latitude: 0, longitude: 0, altitude: 0 }
 	}
