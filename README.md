@@ -2,6 +2,19 @@
 
 This is an exploration of persistent AR in the browser leveraging ARKit. The idea is to pretend there is centimeter accurate GPS. Underneath ARKit + GPS to provide a feeling of accurate GPS.
 
+# Usage
+
+You need webxr-ios to view this page - build the develop branch at : https://github.com/mozilla-mobile/webxr-ios
+
+Remember to build the develop branch...
+
+This nodejs app then should be run on a server with https. To test persistence try the instance at https://mud-modem-1.glitch.me/?zone=aword&participant=aname - basically you let it start up and scan for a bit, it's best to hold the phone at 45' and I tend to face north when I initialize. Then hit "gps" to place a gps object - visually appears as a cylinder - which is a special object that ideally you should make before other objects (although it is capable of fixing things up if you do it in reverse order) and then hit "make" to place a piece of art (right now only a box). Then you can hit "save" to save your map - you should save a map after placing a gps object. Then you can quit and restart. Then hit "load" to recover your content and it should be where it was left. Right now "gps" or "make" make objects that get stored in the server. We all share the same server state - so if you make objects in any city, they are technically visible to all other players (I don't filter traffic by distance right now). You do have your own "map" which is specified by the ?zone=uniquename parameter.  Also for fun you have your own name ?participant=name, although I don't do anything with it yet...  
+
+You can run a local copy of the server but if you are not behind https then geolocation will not work... although geolocation isn't really needed - only needed if you are making new maps of new areas:
+
+  npm install
+  npm start
+
 # Approach
 
 1. slam maps
@@ -55,12 +68,6 @@ This is an exploration of persistent AR in the browser leveraging ARKit. The ide
 - provide more notification on when gps is ready, when arkit is ready, when a good time to capture gps is
 - may hide creating maps and placing gps anchors
 - need to do full orientation transform 
-
-# Usage
-
-npm install
-npm start
-then goto the url of the server instance using xrviewer-ios
 
 # Future
 
