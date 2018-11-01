@@ -325,7 +325,7 @@ x=y=0
 		switch(command) {
 			case "ux_save": this.save(this.zone); break
 			case "ux_load": this.load(this.zone); break
-			case "ux_wipe": break
+			case "ux_wipe": this.flushServer(this.zone); break
 			case  "ux_gps": this.entityAddGPS(frame); break
 			case "ux_make": this.entityAddArt(frame); break
 			case "ux_self": this.entityAddParticipant(frame); break
@@ -346,6 +346,7 @@ x=y=0
 				return
 			}
 			entity.offset = new XRAnchorOffset(entity.anchorUID)
+			entity.cartesian = Cesium.Cartesian3.fromDegrees(entity.gps.longitude, entity.gps.latitude, entity.gps.altitude)
 			entity.fixed = Cesium.Transforms.eastNorthUpToFixedFrame(entity.cartesian)
 			entity.inverse = Cesium.Matrix4.inverseTransformation(entity.fixed, new Cesium.Matrix4())
 			entity.published = 0
@@ -415,6 +416,24 @@ x=y=0
 				this.msg("mapSave: succeeded")
 			})
 		}
+	}
+
+	async flushServer(zone) {
+
+		// flush server
+		let response = await fetch("/api/entity/flush",{ method: 'POST', body: zone })
+		console.log("server state after flush")
+		console.log(response)
+
+		// flush all entities locally
+		for(let uuid in this.entities) {
+			let entity = this.entities[uuid]
+			if(entity.node) {
+				this.scene.remove(entity.node)
+				entity.node = 0
+			}
+		}
+		this.entities = {}		
 	}
 
 	async load(zone) {
@@ -495,7 +514,7 @@ x=y=0
 			        art: "cylinder",
 			       zone: this.zone,
 			participant: this.participant,
-			  cartesian: Cesium.Cartesian3.fromDegrees(gps.longitude, gps.latitude, gps.altitude),
+			        gps: gps,
 			  published: 1,
 			     remote: 0
 		}
@@ -621,9 +640,10 @@ x=y=0
 			        art: entity.art,
 			       zone: entity.zone,
 			participant: entity.participant,
-			  cartesian: entity.cartesian,
-			  published: entity.published,
-			     remote: entity.remote
+			  cartesian: entity.cartesian || 0,
+			        gps: entity.gps || 0,
+			  published: entity.published || 0,
+			     remote: entity.remote || 0
 		}
 
 		this.socket.emit('publish',blob);

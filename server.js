@@ -56,6 +56,11 @@ app.post('/api/entity/save', (request, response) => {
   response.json(entity_save(request.body))
 })
 
+app.post('/api/entity/flush', (request, response) => {
+  entities = {}
+  response.json(entities)
+})
+
 app.post('/api/entity/sync', (request, response) => {
   response.json(entity_filter(request.body))
 })
