@@ -2,58 +2,10 @@
 
 
 //////////////////////////////////////////////////////////////////////////////
-// map correction widget
-
-var map
-var infoWindow
-var markerCenter
-
-function mapMarker(pos) {
-  let c = map.getCenter()
-   if(!markerCenter) {
-    markerCenter = new google.maps.Marker({position: pos, map: map});
-  } else {
-    markerCenter.setPosition( pos );
-  }
-}
-
-function mapError(message, infoWindow, pos) {
-  infoWindow.setPosition(pos)
-  infoWindow.setContent(message)
-  infoWindow.open(map)
-}
-
-function mapInit() {
-  
-  map = new google.maps.Map(document.getElementById('map'), {
-    center: {lat: 45.397, lng: 120.644},
-    zoom: 23,
-    mapTypeId: 'satellite'
-  })
-
-  infoWindow = new google.maps.InfoWindow
-
-  map.addListener('center_changed', function(e) {
-    mapMarker(map.getCenter())
-  })
-
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(function(position) {
-      let pos = { lat: position.coords.latitude, lng: position.coords.longitude }
-      map.setCenter(pos)
-      mapMarker(pos)
-    }, function() {
-      mapError('Error: The Geolocation service failed.', infoWindow, map.getCenter())
-    })
-  } else {
-    mapError('Error: Your browser does not support geolocation.', infoWindow, map.getCenter())
-  }
-}
-
+// AR Anchor support
 //////////////////////////////////////////////////////////////////////////////
 
-
-class ARAnchorGPSTest extends XRExampleBase {
+class ARAnchors extends XRExampleBase {
 
 	constructor(args,params) {
 
@@ -655,6 +607,122 @@ x=y=0
 
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// map correction widget
+//////////////////////////////////////////////////////////////////////////////
+
+class UXMap {
+
+	constructor() {
+		this.map = 0
+		this.infoWindow = 0
+		this.markerCenter = 0
+		this.mapInit()
+	}
+
+	mapMarker(pos) {
+		let c = this.map.getCenter()
+		if(!this.markerCenter) {
+			this.markerCenter = new google.maps.Marker({position: pos, map: this.map})
+		} else {
+			this.markerCenter.setPosition( pos )
+		}
+	}
+
+	mapError(message, infoWindow, pos) {
+		infoWindow.setPosition(pos)
+		infoWindow.setContent(message)
+		infoWindow.open(this.map)
+	}
+
+	mapInit() {
+
+		let map = this.map = new google.maps.Map(document.getElementById('map'), {
+			center: {lat: 45.397, lng: -120.644},
+			zoom: 13,
+			mapTypeId: 'satellite'
+		})
+
+		//### Add a button on Google Maps ...
+		var home = document.createElement('button');
+		home.innerHTML = "<< MAIN"
+		home.onclick = function(e) { window.ux.main() }
+		map.controls[google.maps.ControlPosition.LEFT_TOP].push(home);
+
+		let infoWindow = this.infoWindow = new google.maps.InfoWindow
+
+		map.addListener('center_changed', (e) => {
+			this.mapMarker(this.map.getCenter())
+		})
+
+		if (navigator.geolocation) {
+			navigator.geolocation.getCurrentPosition((position) => {
+				let pos = { lat: position.coords.latitude, lng: position.coords.longitude }
+				this.map.setCenter(pos)
+				this.mapMarker(pos)
+			}, function() {
+				mapError('Error: The Geolocation service failed.', infoWindow, map.getCenter())
+			})
+		} else {
+			mapError('Error: Your browser does not support geolocation.', infoWindow, map.getCenter())
+		}
+	}
+}
+
+function initMap() {
+	console.log("weird")
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// UX controls for our specific app and some general purpose UX help
+//////////////////////////////////////////////////////////////////////////////
+
+class UX {
+
+	constructor(name) {
+		this.show(name)
+	}
+
+	show(name) {
+		console.log(name)
+		this.hide(this.current)
+		this.current = name
+		document.getElementById(name).style.display = "block"
+	}
+
+	hide(name) {
+		if(!name) return
+		document.getElementById(name).style.display = "none"
+	}
+
+	event(event) {
+		console.log(event)
+		alert(event)
+	}
+
+	main() {
+		// go to the main page
+		this.show("main")
+		if(!window.myapp) {
+			window.myapp = new ARAnchors(document.getElementById('target'),getUrlParams())
+		}
+	}
+
+	map() {
+		// go to the map page
+		this.show("map")
+		if(!this.uxmap) this.uxmap = new UXMap("map")
+	}
+
+	login(email,password) {
+		// deal with login
+		console.log(email + " " + password)
+		this.show("main")
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 function getUrlParams(vars={}) {
     window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, (m,key,value) => { vars[key] = value })
     return vars;
@@ -662,9 +730,10 @@ function getUrlParams(vars={}) {
 
 window.addEventListener('DOMContentLoaded', () => {
 	setTimeout(() => {
-		window.myapp = new ARAnchorGPSTest(document.getElementById('target'),getUrlParams())
-	}, 1000)
+		window.ux = new UX("login")
+	}, 100)
 })
+
 
 
 
