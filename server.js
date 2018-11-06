@@ -99,7 +99,7 @@ app.post('/api/map/save', upload.single('blob'), (request, response) => {
     anchor:request.body.anchor
   }))
 
-});
+})
 
 app.use(express.static('public'))
 

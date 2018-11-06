@@ -27,25 +27,28 @@
 </div>
 
 <div class="page" id="map">
-<button id="my_button"  onClick="window.ux.show('main')">home</button>
+</div>
+
+<div class="page" id="edit" style="background-color: purple">
+<button onClick="window.ux.pop()">&larr;&larr; main</button>
 </div>
 
 <div class="page" id="main">
-<div id="target" />
-<div id="description">
-
+<button onClick="window.ux.push('edit')">edit</button>
 <button onClick="window.ux.map()">map</button>
+<div id="target"></div>
+<div id="description"><div id="ux_help"> all systems nominal </div></div>
+</div>
 
+
+<div class="page">
 <button id="ux_save"> Save </button>
 <button id="ux_load"> Load </button>
 <button id="ux_wipe"> Wipe </button>
 <button id="ux_gps"> GPS </button>
 <button id="ux_make"> Make </button>
 <button id="ux_self"> Self </button>
-<div id="ux_help"> all systems nominal </div>
 </div>
-</div>
-
 
 </body>
 </html>

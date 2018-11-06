@@ -645,8 +645,8 @@ class UXMap {
 
 		//### Add a button on Google Maps ...
 		var home = document.createElement('button');
-		home.innerHTML = "<< MAIN"
-		home.onclick = function(e) { window.ux.main() }
+		home.innerHTML = "&larr;&larr;main"
+		home.onclick = function(e) { window.ux.pop() }
 		map.controls[google.maps.ControlPosition.LEFT_TOP].push(home);
 
 		let infoWindow = this.infoWindow = new google.maps.InfoWindow
@@ -681,13 +681,18 @@ class UX {
 
 	constructor(name) {
 		this.show(name)
+		window.onpopstate = (e) => {
+			this.pop()
+			// console.log("location: " + document.location + ", state: " + JSON.stringify(event.state));
+		}
 	}
 
 	show(name) {
-		console.log(name)
+		this.previous = this.current
 		this.hide(this.current)
 		this.current = name
-		document.getElementById(name).style.display = "block"
+		let e = document.getElementById(name)
+		e.style.display = "block"
 	}
 
 	hide(name) {
@@ -700,9 +705,21 @@ class UX {
 		alert(event)
 	}
 
+	push(name) {
+		history.pushState({name:name},name,"#" + name );
+		this.show(name)
+	}
+
+	pop() {
+		//history.popState()
+		if(!this.previous) return
+		this.show(this.previous)
+		this.previous = 0
+	}
+
 	main() {
 		// go to the main page
-		this.show("main")
+		this.push("main")
 		if(!window.myapp) {
 			window.myapp = new ARAnchors(document.getElementById('target'),getUrlParams())
 		}
