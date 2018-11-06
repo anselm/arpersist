@@ -8,38 +8,15 @@ const upload = multer({dest:'public/uploads/'})
 const http = require('http').Server(app)
 const io = require('socket.io')(http)
 const fs = require('fs')
+const shortid = require('shortid')
+
+const DBWrapper = require('./dbwrapper.js')
+const Entity = require('./entity.js')
 
 const port = 3000
 
-//////////////////////////////////////////////////
-// fancy database
-// TODO put this in a class and add persistence
-//////////////////////////////////////////////////
-
-var shortid = require('shortid')
-
-let entities = {}
-
-function entity_save(entity) {
-  // save a blob and return it with a uuid if none
-  if(!entity.uuid) {
-    entity.uuid = shortid.generate()
-    console.log("granted new uuid " + entity.uuid )
-  }
-  entities[entity.uuid] = entity
-  return entity
-}
-
-function entity_filter(args) {
-  // TODO replace sloppy code with map
-  let results = []
-  for(let uuid in entities) {
-    let entity = entities[uuid]
-    //if(entity.zone != args.zone) continue
-    results.push(entity)
-  }
-  return results
-}
+let dbwrapper = new DBWrapper()
+let entities = new Entity(dbwrapper)
 
 //////////////////////////////////////////////////
 // server
@@ -52,17 +29,18 @@ app.get("/", (request, response) => {
 })
 
 app.post('/api/entity/save', (request, response) => {
-  // unused
-  response.json(entity_save(request.body))
+  let results = await entities.save(request.body)
+  response.json(results)
 })
 
 app.post('/api/entity/flush', (request, response) => {
-  entities = {}
-  response.json(entities)
+  let results = await entities.flush(request.body)
+  response.json(results)
 })
 
 app.post('/api/entity/sync', (request, response) => {
-  response.json(entity_filter(request.body))
+  let results = await entities.filter(request.body)
+  response.json(results)
 })
 
 app.post('/api/map/save', upload.single('blob'), (request, response) => {
@@ -99,20 +77,27 @@ app.post('/api/map/save', upload.single('blob'), (request, response) => {
     anchor:request.body.anchor
   }))
 
+  // TODO save an entity for this too for later recovery
+
+})
+
+app.post('/api/map/query', upload.single('blob'), (request, response) => {
+  // TODO
 })
 
 app.use(express.static('public'))
 
-io.on('connection', function(socket){
-  socket.on('publish', function(msg){
+io.on('connection', (socket) => {
+  socket.on('publish', (msg) => {
     console.log(msg)
-    entity_save(msg)
-    // TODO filter traffic to channels based on what those channels have reported is their zoone
-    io.emit('publish', msg)
+    let results = await entities.save(msg)
+    // TODO filter traffic to channels based on what those channels
+    // LET SOCKETS HAVE AREAS OF INTEREST
+    io.emit('publish', results )
   })
 })
 
-http.listen(port, function(){
+http.listen(port, () => {
   console.log('listening on port ' + port )
 })
 
