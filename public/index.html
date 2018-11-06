@@ -10,29 +10,66 @@
 <script src="/js/common.js"></script>
 <script src="/js/Cesium.js"></script>
 <script src="/socket.io/socket.io.js"></script>
+<script src="/js/chance.js"></script>
 <script src="/js/client.js"></script>
 <link href="https://fonts.googleapis.com/css?family=Monofett|Roboto+Mono" rel="stylesheet">
 <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBrirea7OVV4aKJ9Y0UAp6Nbr6-fXtr-50" type="text/javascript"></script>
 </head>
 <body>
 
-<div class="page" id="login">
-<form xxxonsubmit="return window.ux.login(this.elements[0].value,this.elements[1].value)">
-<label for="email">email:</label>
-<input type="email" id="email" name="email"></input>
-<label for="password">password:</label>
-<input type="password" id="password" name="password"></input>
-<button onClick="window.ux.login(); return false;">Login</button>
+<!-- Login page ------------------------------------------------------------------------------------------------->
+<style>
+#login button, input {
+    font-size:18pt;
+    border-radius: 8px;
+    background: #aaaaee;
+    border-style: solid;
+    border-color: #cceeff;
+   	margin: 2px;
+	padding: 2px;
+}
+#login input {
+	width: 80%;
+}
+#login button {
+	width: 60%;
+}
+#login label {
+    font-size:18pt;
+}
+</style>
+<form class="page" id="login">
+<center>
+<br/><label>Please pick a name </label>
+<br/><label>Por favor elige un nombre</label>
+<br/><label>请选择一个名字</label>
+<br/><label>يرجى اختيار الاسم</label>
+<br/><label>בחר שם</label> 
+<br/><input id="login_moniker" placeholder="Pick a handle"></input>
+<br/><button>Join</button>
+</center>
 </form>
-</div>
+<script>
+(function () {
+	let form = document.getElementById("login")
+	form.elements[0].placeholder = window.chance.first() + " " + window.chance.last() + " " + window.chance.animal()
+	form.onsubmit = (e) => {
+		let moniker = e.srcElement.elements[0]; // or form.elements[0]
+		return window.ux.login(moniker.value || moniker.placeholder);
+	}
+})()
+</script>
 
+<!-- Map page ------------------------------------------------------------------------------------------------->
 <div class="page" id="map">
 </div>
 
+<!-- Edit page ------------------------------------------------------------------------------------------------->
 <div class="page" id="edit" style="background-color: purple">
 <button onClick="window.ux.pop()">&larr;&larr; main</button>
 </div>
 
+<!-- Main page ------------------------------------------------------------------------------------------------->
 <div class="page" id="main">
 <button onClick="window.ux.push('edit')">edit</button>
 <button onClick="window.ux.map()">map</button>
@@ -41,6 +78,7 @@
 </div>
 
 
+<!-- Admin page ------------------------------------------------------------------------------------------------->
 <div class="page">
 <button id="ux_save"> Save </button>
 <button id="ux_load"> Load </button>

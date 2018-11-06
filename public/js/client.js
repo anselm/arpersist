@@ -711,7 +711,8 @@ class UX {
 	}
 
 	pop() {
-		//history.popState()
+		// TODO I could actually just rely on the browsers memory here...
+		// huh? this does not work. TODO fix history.back()
 		if(!this.previous) return
 		this.show(this.previous)
 		this.previous = 0
@@ -731,13 +732,16 @@ class UX {
 		if(!this.uxmap) this.uxmap = new UXMap("map")
 	}
 
-	login(email,password) {
-		// deal with login
-		console.log(email + " " + password)
+	login(moniker) {
+		console.log(moniker)
+		this.participant = moniker
 		this.show("main")
+		return false
 	}
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// bootstrap
 //////////////////////////////////////////////////////////////////////////////
 
 function getUrlParams(vars={}) {
