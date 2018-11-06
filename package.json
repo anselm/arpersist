@@ -2,9 +2,9 @@
   "name": "xrgeo",
   "version": "1.0.1",
   "description": "testing arkit anchors",
-  "main": "server.js",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node src/server.js"
   },
   "author": "me",
   "license": "BSD",
