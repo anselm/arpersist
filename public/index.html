@@ -121,20 +121,13 @@ label {
 
 <!-- Main page ------------------------------------------------------------------------------------------------->
 <div class="page" id="main">
-<button class=uxbutton onClick="window.ux.edit()">edit</button>
-<button class=uxbutton onClick="window.ux.map()">map</button>
+<button class=uxbutton onClick="window.ux.edit()">edit</button> <!-- edit TBD - will be an editor for markers -->
+<button class=uxbutton onClick="window.ux.map()">map</button> <!-- see a map mode - TBD will be used to edit markers -->
+<button class=uxbutton onClick="window.arapp.action('make')"> Make </button> <!-- make an art asset - TBD replace with edit -->
+<button class=uxbutton onClick="window.arapp.action('self')"> Self </button> <!-- update participant location -->
+<button class=uxbutton onClick="window.arapp.action('base')"> Base </button> <!-- admin: place a gps anchor -->
+<button class=uxbutton onClick="window.arapp.action('save')"> Save </button> <!-- admin: save the map -->
 <div id="description"><div id="ux_help"> all systems nominal </div></div>
-</div>
-
-
-<!-- Admin page ------------------------------------------------------------------------------------------------->
-<div class="page">
-<button class=uxbutton id="ux_save"> Save </button>
-<button class=uxbutton id="ux_load"> Load </button>
-<button class=uxbutton id="ux_wipe"> Wipe </button>
-<button class=uxbutton id="ux_gps"> GPS </button>
-<button class=uxbutton id="ux_make"> Make </button>
-<button class=uxbutton id="ux_self"> Self </button>
 </div>
 
 </div>

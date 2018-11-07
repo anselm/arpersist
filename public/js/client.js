@@ -29,6 +29,37 @@ class ARPersistComponent extends XRExampleBase {
 	}
 
 	///////////////////////////////////////////////
+	// support for externally driven command messages
+	///////////////////////////////////////////////
+
+	action(command,args) {
+		// some commands can be done now
+		if(command == "load") {
+			this.mapLoad(args)
+			this.command = 0
+			return
+		}
+		// some must be deferred
+		this.command = command
+	}
+
+	actionResolve(frame) {
+		// resolve frame related chores synchronously with access to 'frame'
+		let command = this.command
+		this.command = 0
+		if(command)	this.msg("doing command="+command)
+		switch(command) {
+			//case "load": this.entityLoad(); break
+			//case "wipe": //this.flushServer(); break
+			case "make": this.entityAddArt(frame); break
+			case "self": this.entityAddParticipant(frame); break
+			case "base": this.entityAddGPS(frame); break
+			case "save": this.entityMapSave(); break
+			default: break
+		}
+	}
+
+	///////////////////////////////////////////////
 	// scene geometry and update callback
 	///////////////////////////////////////////////
 
@@ -50,6 +81,7 @@ class ARPersistComponent extends XRExampleBase {
 	///
 
 	updateScene(frame) {
+		this.actionResolve(frame)
 		this.entityUpdateAll(frame)
 	}
 
@@ -91,7 +123,7 @@ class ARPersistComponent extends XRExampleBase {
 	// utils
 	/////////////////////////////////////////////////
 
-	async saveMap(args) {
+	async mapSave(args) {
 		let results = await this.session.getWorldMap()
 		if(!results) {
 			this.msg("save: this engine does not have a good map from arkit yet")
@@ -99,6 +131,7 @@ class ARPersistComponent extends XRExampleBase {
 		}
 		const data = new FormData()
 		data.append('blob',        new Blob([results.worldMap], { type: "text/html"} ) )
+		data.append('uuid',        "MAP" + args.uuid )
 		data.append('anchorUID',   args.anchorUID )
 		data.append('name',        args.name)
 		data.append('descr',       args.descr)
@@ -115,7 +148,7 @@ class ARPersistComponent extends XRExampleBase {
 		return json		
 	}
 
-	async loadMap(filename) {
+	async  mapLoad(filename) {
 
 		// observe anchors showing up again
 		if (!this.listenerSetup) {
@@ -294,7 +327,7 @@ x=y=0
 			this.msg("save: this engine needs a gps marker before saving maps")
 			return 0
 		}
-		let status = await this.saveMap(this.entityGPS)
+		let status = await this.mapSave(this.entityGPS)
 		return status
 	}
 
@@ -389,21 +422,6 @@ x=y=0
 	}
 
 	entityUpdateAll(frame) {
-
-		// resolve frame related chores synchronously with access to 'frame'
-		let command = this.command
-		this.command = 0
-		if(command)	this.msg("updateScene: command="+command)
-		switch(command) {
-			case "ux_save": this.entityMapSave(); break
-			//case "ux_load": this.entityLoad(); break
-			//case "ux_wipe": //this.flushServer(); break
-			case  "ux_gps": this.entityAddGPS(frame); break
-			case "ux_make": this.entityAddArt(frame); break
-			case "ux_self": this.entityAddParticipant(frame); break
-			default: break
-		}
-
 		for(let uuid in this.entities) {
 			this.entityUpdate(frame,this.entities[uuid])
 		}
@@ -502,7 +520,7 @@ x=y=0
 		let entity = {
 			       uuid: this.entityUUID(anchorUID),
 			  anchorUID: anchorUID,
-			       name: "gps anchor",
+			       name: "a gps anchor at " + gps.latitude + " " + gps.longitude,
 			      descr: "a gps anchor at " + gps.latitude + " " + gps.longitude,
 			       kind: "gps",
 			        art: "cylinder",
@@ -770,10 +788,10 @@ class UXHelper {
 		}
 
 		// start ar app in general in background
-		if(!this.arapp) {
+		if(!window.arapp) {
 			let target = document.getElementById('main_arview_target')
 			console.log(target)
-			this.arapp = new ARPersistComponent(target,this.zone,this.participant)
+			window.arapp = new ARPersistComponent(target,this.zone,this.participant)
 		}
 
 	}
@@ -825,10 +843,10 @@ class UXHelper {
 		console.log(gps)
 
 		// allow the app to start listening for changes near an area
-		await this.arapp.entityListen({kind:0,zone:this.zone,gps:gps})
+		await window.arapp.entityListen({kind:0,zone:this.zone,gps:gps})
 
 		// are there any maps here?
-		let results = this.arapp.entityQuery({kind:"map",gps:gps})
+		let results = window.arapp.entityQuery({kind:"map",gps:gps})
 
 		// TODO flush
 
@@ -842,7 +860,9 @@ class UXHelper {
 			dynamic_list.appendChild(element)
 			element.onclick = (e) => {
 				e.preventDefault()
-				this.load(e.srcElement.innerText)
+				let filename = e.srcElement.innerText
+				window.arapp.mapLoad(filename)
+				main()
 				return 0
 			}
 		}
@@ -860,23 +880,9 @@ class UXHelper {
 		}
 	}
 
-	load(filename) {
-		this.arapp.loadMap(filename)
-		main()
-	}
-
 	main() {
 		// go to the main page
 		this.push("main")
-
-		// user input handlers
-	    document.getElementById("ux_save").onclick = (ev) => { this.arapp.command = ev.srcElement.id }
-	    document.getElementById("ux_load").onclick = (ev) => { this.arapp.command = ev.srcElement.id }
-	    document.getElementById("ux_wipe").onclick = (ev) => { this.arapp.command = ev.srcElement.id }
-	    document.getElementById("ux_gps").onclick = (ev) => { this.arapp.command = ev.srcElement.id }
-	    document.getElementById("ux_make").onclick = (ev) => { this.arapp.command = ev.srcElement.id }
-	    document.getElementById("ux_self").onclick = (ev) => { this.arapp.command = ev.srcElement.id }
-
 	}
 
 	map() {
@@ -948,8 +954,16 @@ window.addEventListener('DOMContentLoaded', () => {
 //
 // todo
 //
-// - nobody is telling the main arpersist layer about gps locations - that needs to be fixed urgently
-// - test saving anchors and maps again
+//  + now i have a flow that takes me through to the app
+//  + it does attempt to load random noise that is near you
+//  + and there are a list of maps... and it will try load those maps...
+//
+//  + we should be able to start with a fresh map
+//
+//  - i need to write code for an admin mode or something to place a gps anchor
+//  - i need to write code for an be fed gps anchors
+//  - i need to write code to reintroduce save map widgets
+//
 //
 // - network doesn't really filter by location it needs to especially for fetching maps and entities
 // - 
