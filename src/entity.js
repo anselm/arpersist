@@ -1,9 +1,17 @@
-const DBWrapper = require('./dbwrapper.js')
+
+
+//const DBWrapper = require('./dbwrapper.js')
 
 class Entity {
 
   constructor(db,tablename="entity") {
-    this.db = db
+  }
+
+  async init() {
+/*
+
+    this.db = new DBWrapper()
+
     this.table = tablename
     this.schema = [
       "zone TEXT",          // all things are of some layer for noise reduction
@@ -37,6 +45,7 @@ class Entity {
       await this.db.table(this.table,this.schema)
       return this
     })()
+*/
   }
 
   error(msg) {
@@ -64,17 +73,18 @@ class Entity {
   }
 
   async read(uid) {
-    let user = await this.db.find(this.table,"uid",uid)
+    //let user = await this.db.find(this.table,"uid",uid)
     return user
   }
 
   async delete(uid) {
-     await this.db.delete(this.table,"uid",uid)
+    // await this.db.delete(this.table,"uid",uid)
   }
 
-  async save(blob) {
-    // TODO
-    return {error:"TBD"}
+  async save(entity) {
+    if(!this.entities) this.entities = {}
+    this.entities[entity.uuid] = entity
+    return entity
   }
 
   async flush(blob) {
@@ -82,10 +92,46 @@ class Entity {
     return {error:"TBD"}
   }
 
-  async filter(blob) {
-    // TODO
-    return {error:"TBD"}
+  async query(query) {
+    console.log("query is")
+    console.log(query)
+    return this.entities
   }
+
+  async map_save(source,target) {
+
+    console.log("saving map")
+    console.log(source)
+    console.log(target)
+
+    try {
+      fs.statSync(target)
+      fs.unlinkSync(target)
+      console.log("deleted")
+    } catch(err) {
+      console.log("not deleted")
+    }
+
+    try {
+      console.log("moving")
+      fs.renameSync(source, target)
+      response.json({status:"thanks"})
+      console.log("moved")
+    } catch(err) {
+      console.log("failed")
+      console.log(err)
+      response.json({status:"error"})
+    }
+
+    fs.writeFileSync("public/uploads/" + request.body.zone + ".inf",JSON.stringify({
+      cartesianx:request.body.cartesianx,
+      cartesiany:request.body.cartesiany,
+      cartesianz:request.body.cartesianz,
+      anchor:request.body.anchor
+    }))
+  }
+
+  // TODO save an entity for this too for later recovery
 
 }
 

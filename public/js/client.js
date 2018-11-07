@@ -405,7 +405,7 @@ x=y=0
 		this.entities = {}
 
 		// fetch all entities
-		let response = await fetch("/api/entity/sync",{ method: 'POST', body: zone })
+		let response = await fetch("/api/entity/query",{ method: 'POST', body: zone })
 		let json = await response.json()
 		for(let i = 0; i < json.length; i++) {
 			let entity = json[i]
