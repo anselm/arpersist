@@ -100,6 +100,8 @@ class ARPersistComponent extends XRExampleBase {
 		const data = new FormData()
 		data.append('blob',        new Blob([results.worldMap], { type: "text/html"} ) )
 		data.append('anchorUID',   args.anchorUID )
+		data.append('name',        args.name)
+		data.append('descr',       args.descr)
 		data.append('kind',        "map" )
 		data.append('art',         args.art )
 		data.append('zone',        args.zone )
@@ -257,9 +259,9 @@ x=y=0
 	/// entities - a wrapper for a concept of a game object
 	//////////////////////////////////////////////////////////
 
-	entityListen(args) {
+	async entityListen(args) {
 		this.entityFlush()
-		this.entityLoad(args.gps)
+		await this.entityLoad(args.gps)
 		this.entityNetwork(args.gps)
 	}
 
@@ -302,20 +304,22 @@ x=y=0
 			this.msg("load: this engine needs a gps location before loading maps")
 			return 0
 		}
-		this.msg("load: getting all entities near latitude="+gps.latitude+" longitude="+this.longitude)
+		this.msg("load: getting all entities near latitude="+gps.latitude+" longitude="+gps.longitude)
 
 		let response = await fetch("/api/entity/query",{ method: 'POST', body: this.zone })
 		let json = await response.json()
 
-		for(let i = 0; i < json.length; i++) {
-			let entity = json[i]
+		let count = 0
+		for(let uuid in json) {
+			count = count + 1
+			let entity = json[uuid]
 			this.entities[entity.uuid]=entity
 			entity.published=1
 			entity.remote=1
 			entity.dirty=1
 			this.msg("load: made entity kind="+entity.kind+" uuid="+entity.uuid+" anchor="+entity.anchorUID)
 		}
-		this.msg("load: loading done - entities in total is " + json.length )
+		this.msg("load: loading done - entities in total is " + count )
 		return 1
 	}
 
@@ -498,6 +502,8 @@ x=y=0
 		let entity = {
 			       uuid: this.entityUUID(anchorUID),
 			  anchorUID: anchorUID,
+			       name: "gps anchor",
+			      descr: "a gps anchor at " + gps.latitude + " " + gps.longitude,
 			       kind: "gps",
 			        art: "cylinder",
 			       zone: this.zone,
@@ -524,6 +530,8 @@ x=y=0
 		let entity = {
 			       uuid: this.entityUUID(anchorUID),
 			  anchorUID: anchorUID,
+			       name: "art",
+			      descr: "some user art",
 			       kind: "content",
 			        art: "box",
 			       zone: this.zone,
@@ -557,6 +565,8 @@ x=y=0
 		let entity = this.entityParticipant = {
 			       uuid: this.entityUUID(anchorUID),
 			  anchorUID: anchorUID,
+			       name: this.participant,
+			      descr: "a representation for a person named " + this.participant,
 			       kind: "participant",
 			        art: "cylinder",
 			       zone: this.zone,
@@ -746,10 +756,17 @@ class UXHelper {
 	constructor(name) {
 		this.zone = "azurevidian"
 		this.participant = "King Tut"
-		this.show(name)
+		this.push(name)
+
 		window.onpopstate = (e) => {
-			this.pop()
-			// console.log("location: " + document.location + ", state: " + JSON.stringify(event.state));
+			if(!e || !e.state) {
+				console.error("popstate: bad input for popstate")
+				console.log(e)
+				return
+			}
+			console.log("popstate: user browser hit back button")
+			console.log("popstate: location: " + document.location + ", state: " + JSON.stringify(event.state));
+			this.show(e.state.name)
 		}
 
 		// start ar app in general in background
@@ -761,26 +778,24 @@ class UXHelper {
 
 	}
 
-	hide(name) {
-		if(!name) return
-		document.getElementById(name).style.display = "none"
-	}
-
 	push(name) {
 		history.pushState({name:name},name,"#" + name );
 		this.show(name)
 	}
 
 	pop() {
-		// TODO I could actually just rely on the browsers memory here...
-		// huh? this does not work. TODO fix history.back()
-		if(!this.previous) return
-		this.show(this.previous)
-		this.previous = 0
+		history.back()
+	}
+
+	hide(name) {
+		if(!name) return
+		document.getElementById(name).style.display = "none"
 	}
 
 	show(name) {
-		this.previous = this.current
+		if(this.current == name ) {
+			return
+		}
 		this.hide(this.current)
 		this.current = name
 		let e = document.getElementById(name)
@@ -802,6 +817,7 @@ class UXHelper {
 		// show picker page
 		this.push("pick")
 
+
 		// get a gps hopefully
 		let gps = await gpsPromise()
 
@@ -809,14 +825,44 @@ class UXHelper {
 		console.log(gps)
 
 		// allow the app to start listening for changes near an area
-		this.arapp.entityListen({kind:0,zone:this.zone,gps:gps})
+		await this.arapp.entityListen({kind:0,zone:this.zone,gps:gps})
 
 		// are there any maps here?
-		let entities = this.arapp.entityQuery({kind:"map",gps:gps})
+		let results = this.arapp.entityQuery({kind:"map",gps:gps})
 
-		// paint them as options
-		console.log("picker found these maps")
-		console.log(entities)
+		// TODO flush
+
+		// paint
+		let dynamic_list = document.getElementById("picker_dynamic_list")
+		while (dynamic_list.firstChild) dynamic_list.removeChild(myNode.firstChild);
+		for(let i = 0; i < results.length; i++) {
+			let entity = results[i]
+			let element = document.createElement("button")
+			element.innerHTML = entity.name
+			dynamic_list.appendChild(element)
+			element.onclick = (e) => {
+				e.preventDefault()
+				this.load(e.srcElement.innerText)
+				return 0
+			}
+		}
+
+		// a fresh map
+		{
+			let element = document.createElement("button")
+			element.innerHTML = "a fresh map"
+			element.onclick = (e) => {
+				e.preventDefault()
+				this.main()
+				return 0
+			}
+			dynamic_list.appendChild(element)
+		}
+	}
+
+	load(filename) {
+		this.arapp.loadMap(filename)
+		main()
 	}
 
 	main() {

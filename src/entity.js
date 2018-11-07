@@ -96,6 +96,7 @@ class Entity {
   async query(query) {
     console.log("query is")
     console.log(query)
+    console.log(this.entities)
     return this.entities
   }
 
@@ -107,11 +108,13 @@ class Entity {
     let entity = {
              uuid: args.uuid,
         anchorUID: args.anchorUID,
+             name: args.name,
+            descr: args.descr,
              kind: "map",
               art: args.art,
              zone: args.anchorUUID,
       participant: args.participant,
-              gps: { latitude: args.latitude, longitude: args.longitide, altitude: args.altitude },
+              gps: { latitude: args.latitude, longitude: args.longitude, altitude: args.altitude },
         published: 0,
            remote: 0
     }

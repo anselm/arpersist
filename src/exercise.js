@@ -24,6 +24,8 @@ class Exercise {
 		        art: "nothing to live or die for",
 		       zone: "above us only sky",
 		participant: "imagine all the people",
+			   name: "living for themselves",
+			  descr: "you may say i am a dreamer",
 		  cartesian: cartesian,
 		        gps: gps,
 		  published: 1,
@@ -67,6 +69,8 @@ class Exercise {
  			data.append('blob', fs.createReadStream('test.png'), 'blob' );
  			data.append('uuid',"test_map_2")
  			data.append('anchorUID',"test_map_anchor")
+ 			data.append('name',"a map at " + gps.latitude + " " + gps.longitude )
+ 			data.append('descr',"a map at " + gps.latitude + " " + gps.longitude )
  			data.append('kind',"map")
  			data.append('art',"cylinder")
  			data.append('participant',"me")

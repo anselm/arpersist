@@ -103,19 +103,9 @@ label {
 <form class="page" id="pick">
 <center>
 <br/><label>Please pick a map </label>
-<br/><button>Fresh Map</button>
+<div id="picker_dynamic_list"></div>
 </center>
 </form>
-<script>
-(function () {
-	let form = document.getElementById("pick")
-	form.onsubmit = (e) => {
-		e.preventDefault()
-		window.ux.main("map")
-		return false
-	}
-})()
-</script>
 
 
 <!-- Map page ------------------------------------------------------------------------------------------------->
