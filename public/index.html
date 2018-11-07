@@ -16,9 +16,36 @@
 <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBrirea7OVV4aKJ9Y0UAp6Nbr6-fXtr-50" type="text/javascript"></script>
 </head>
 <body>
+<div id="main_arview_target">
 
 <!-- Login page ------------------------------------------------------------------------------------------------->
 <style>
+
+
+.page {
+  background-color:	   transparent;
+  width:               100%;
+  height:              100%;
+  position:            absolute;
+  top:                 0;
+  left:                0;
+  font-family:         'Press Start 2P',monospace;
+  font-family: 'Monofett', cursive;
+  font-family: 'Roboto Mono', monospace;
+  font-weight:         normal;
+  font-style:          normal;
+  font-size:           normal;
+  line-height:         18px;
+  color:               white;
+  white-space:         pre;
+  overflow:            hidden;
+  box-sizing:          border-box;
+  background-repeat:   no-repeat;
+  background-size:     auto;
+  display:             none;
+  text-align:          left;
+}
+
 button, input {
     font-size:18pt;
     border-radius: 8px;
@@ -45,6 +72,7 @@ label {
     border-color: #cceeff;
    	margin: 2px;
 	padding: 2px;
+	width: auto;
 }
 </style>
 <form class="page" id="login">
@@ -103,9 +131,8 @@ label {
 
 <!-- Main page ------------------------------------------------------------------------------------------------->
 <div class="page" id="main">
-<button onClick="window.ux.edit()">edit</button>
-<button onClick="window.ux.map()">map</button>
-<div id="target"></div>
+<button class=uxbutton onClick="window.ux.edit()">edit</button>
+<button class=uxbutton onClick="window.ux.map()">map</button>
 <div id="description"><div id="ux_help"> all systems nominal </div></div>
 </div>
 
@@ -120,5 +147,6 @@ label {
 <button class=uxbutton id="ux_self"> Self </button>
 </div>
 
+</div>
 </body>
 </html>

@@ -751,6 +751,14 @@ class UXHelper {
 			this.pop()
 			// console.log("location: " + document.location + ", state: " + JSON.stringify(event.state));
 		}
+
+		// start ar app in general in background
+		if(!this.arapp) {
+			let target = document.getElementById('main_arview_target')
+			console.log(target)
+			this.arapp = new ARPersistComponent(target,this.zone,this.participant)
+		}
+
 	}
 
 	hide(name) {
@@ -779,21 +787,26 @@ class UXHelper {
 		e.style.display = "block"
 	}
 
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	// helpers for various control blocks - in some nicer framework like react these would be bound to the layout
+	//////////////////////////////////////////////////////////////////////////////////////////////
+
+	login(moniker) {
+		console.log(moniker)
+		this.participant = moniker
+		this.pick()
+	}
+
 	async pick() {
 
 		// show picker page
-		this.show("pick")
+		this.push("pick")
 
 		// get a gps hopefully
 		let gps = await gpsPromise()
 
 		console.log("picker gps results")
 		console.log(gps)
-
-		// start ar app in general since it manages networking
-		if(!this.arapp) {
-			this.arapp = new ARPersistComponent(document.getElementById('target'),this.zone,this.participant)
-		}
 
 		// allow the app to start listening for changes near an area
 		this.arapp.entityListen({kind:0,zone:this.zone,gps:gps})
@@ -804,19 +817,6 @@ class UXHelper {
 		// paint them as options
 		console.log("picker found these maps")
 		console.log(entities)
-
-		// load one on demand
-
-		// TODO we need to make the network know where we are
-		// TODO we need to constantly update the system about gps
-		//
-
-		// kick the view over to the new page
-		//this.main()
-	}
-
-	edit() {
-		this.show("edit")
 	}
 
 	main() {
@@ -834,17 +834,16 @@ class UXHelper {
 	}
 
 	map() {
-		this.show("map")
+		this.push("map")
 		if(!this.uxmap) {
 			this.uxmap = new UXMap("map")
 		}
 	}
 
-	login(moniker) {
-		console.log(moniker)
-		this.participant = moniker
-		this.pick()
+	edit() {
+		this.push("edit")
 	}
+
 }
 
 /*
@@ -899,6 +898,16 @@ window.addEventListener('DOMContentLoaded', () => {
 		window.ux = new UXHelper("login")
 	}, 100)
 })
+
+//
+// todo
+//
+// - nobody is telling the main arpersist layer about gps locations - that needs to be fixed urgently
+// - test saving anchors and maps again
+//
+// - network doesn't really filter by location it needs to especially for fetching maps and entities
+// - 
+//
 
 
 
