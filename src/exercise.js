@@ -1,5 +1,7 @@
-
+const fs = require('fs')
 const fetch = require('node-fetch');
+const FormData = require('form-data');
+const Blob = require('blob');
 
 //const request = require('async-request')
 
@@ -13,9 +15,10 @@ class Exercise {
  		let uuid = 1
 		let gps = {longitude:0,latitude:0,altitude:0}
 		let cartesian = {x:0, y:0, z:0}
+		let zone = "myzone"
 
  		let entity = {
-		       uuid: 1,
+		       uuid: "test_entity_1",
 		  anchorUID: "imagine there's no tomorrow",
 		       kind: "it's easy if you try",
 		        art: "nothing to live or die for",
@@ -59,6 +62,25 @@ class Exercise {
 		*/
 
 		{
+			console.log("Exercise: saving a map")
+			const data = new FormData()
+ 			data.append('blob', fs.createReadStream('test.png'), 'blob' );
+ 			data.append('uuid',"test_map_2")
+ 			data.append('anchorUID',"test_map_anchor")
+ 			data.append('kind',"map")
+ 			data.append('art',"cylinder")
+ 			data.append('participant',"me")
+			data.append('zone',zone)
+			data.append('latitude',gps.latitude)
+			data.append('longitude',gps.longitude)
+			data.append('altitude',gps.altitude)
+			let response = await fetch("http://127.0.0.1:3000/api/map/save", { method: 'POST', body: data })
+			let json = await response.json()
+			console.log("Exercise: Server saved something like a map")
+			console.log(json)
+		}
+
+		{
 			console.log("Exercise: get all entities nearby")
 			let response = await fetch("http://127.0.0.1:3000/api/entity/query",{
 				method: 'POST',
@@ -71,9 +93,9 @@ class Exercise {
 
 		}
 
-		// TODO - save something that is kinda like a map
+// - client should request gps
 
-		// TODO - maps should also save an entity 
+		// TODO - maps should also save an entity >>> and let us get rid of zone concept >> and let us start using gps location or cartesian
 
 		// TODO - get back that map in the set of entities
 

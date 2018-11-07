@@ -10,11 +10,11 @@ const io = require('socket.io')(http)
 const fs = require('fs')
 const shortid = require('shortid')
 
-const Entity = require('./entity.js')
-
 const port = 3000
 
-let entity = new Entity()
+const entity = require('./src/entity.js')
+
+//let entity = new Entity()
 
 //////////////////////////////////////////////////
 // server
@@ -42,8 +42,7 @@ app.post('/api/entity/query', async (request, response) => {
 })
 
 app.post('/api/map/save', upload.single('blob'), async (request, response) => {
-  let path = "public/uploads/"
-  let results = await entity.map_save(path+request.file.filename,path+request.body)
+  let results = await entity.map_save(request.file.path,request.body)
   response.json(results)
 })
 

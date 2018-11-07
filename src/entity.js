@@ -1,3 +1,4 @@
+const fs = require('fs')
 
 
 //const DBWrapper = require('./dbwrapper.js')
@@ -5,6 +6,7 @@
 class Entity {
 
   constructor(db,tablename="entity") {
+    this.entities = {}
   }
 
   async init() {
@@ -82,7 +84,6 @@ class Entity {
   }
 
   async save(entity) {
-    if(!this.entities) this.entities = {}
     this.entities[entity.uuid] = entity
     return entity
   }
@@ -98,11 +99,26 @@ class Entity {
     return this.entities
   }
 
-  async map_save(source,target) {
+  async map_save(filepath,args) {
 
-    console.log("saving map")
-    console.log(source)
-    console.log(target)
+    console.log("server map save request")
+    console.log(args)
+
+    let entity = {
+             uuid: args.uuid,
+        anchorUID: args.anchorUID,
+             kind: "map",
+              art: args.art,
+             zone: args.anchorUUID,
+      participant: args.participant,
+              gps: { latitude: args.latitude, longitude: args.longitide, altitude: args.altitude },
+        published: 0,
+           remote: 0
+    }
+
+    this.save(entity)
+
+    let target = "public/uploads/"+args.anchorUID
 
     try {
       fs.statSync(target)
@@ -112,62 +128,22 @@ class Entity {
       console.log("not deleted")
     }
 
-    try {
-      console.log("moving")
-      fs.renameSync(source, target)
-      response.json({status:"thanks"})
-      console.log("moved")
-    } catch(err) {
-      console.log("failed")
-      console.log(err)
-      response.json({status:"error"})
-    }
+    fs.renameSync(filepath, target)
 
-    fs.writeFileSync("public/uploads/" + request.body.zone + ".inf",JSON.stringify({
-      cartesianx:request.body.cartesianx,
-      cartesiany:request.body.cartesiany,
-      cartesianz:request.body.cartesianz,
-      anchor:request.body.anchor
+    /*
+    fs.writeFileSync("public/uploads/" + args.zone + ".inf",JSON.stringify({
+      cartesianx:args.cartesianx,
+      cartesiany:args.cartesiany,
+      cartesianz:args.cartesianz,
+      anchor:args.anchor
     }))
-  }
+    */
 
-  // TODO save an entity for this too for later recovery
+    return({status:"thanks"})
+  }
 
 }
 
-module.exports = Entity
-
-/*
-
-//////////////////////////////////////////////////
-// fancy database
-// TODO put this in a class and add persistence
-//////////////////////////////////////////////////
-
-let entities = {}
-
-function entity_save(entity) {
-  // save a blob and return it with a uuid if none
-  if(!entity.uuid) {
-    entity.uuid = shortid.generate()
-    console.log("granted new uuid " + entity.uuid )
-  }
-  entities[entity.uuid] = entity
-  return entity
-}
-
-function entity_filter(args) {
-  // TODO replace sloppy code with map
-  let results = []
-  for(let uuid in entities) {
-    let entity = entities[uuid]
-    //if(entity.zone != args.zone) continue
-    results.push(entity)
-  }
-  return results
-}
-
-\entity_filter(request.body)
-
-*/
-
+const instance = new Entity()
+Object.freeze(instance)
+module.exports = instance

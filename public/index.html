@@ -19,7 +19,7 @@
 
 <!-- Login page ------------------------------------------------------------------------------------------------->
 <style>
-#login button, input {
+button, input {
     font-size:18pt;
     border-radius: 8px;
     background: #aaaaee;
@@ -28,14 +28,23 @@
    	margin: 2px;
 	padding: 2px;
 }
-#login input {
+input {
 	width: 80%;
 }
-#login button {
+button {
 	width: 60%;
 }
-#login label {
+label {
     font-size:18pt;
+}
+.uxbutton {
+    font-size:14pt;
+    border-radius: 4px;
+    background: #aaaaee;
+    border-style: solid;
+    border-color: #cceeff;
+   	margin: 2px;
+	padding: 2px;
 }
 </style>
 <form class="page" id="login">
@@ -54,8 +63,28 @@
 	let form = document.getElementById("login")
 	form.elements[0].placeholder = window.chance.first() + " " + window.chance.last() + " " + window.chance.animal()
 	form.onsubmit = (e) => {
+		e.preventDefault()
 		let moniker = e.srcElement.elements[0]; // or form.elements[0]
-		return window.ux.login(moniker.value || moniker.placeholder);
+		window.ux.login(moniker.value || moniker.placeholder)
+		return false
+	}
+})()
+</script>
+
+<!-- Picker ------------------------------------------------------------------------------------------------->
+<form class="page" id="pick">
+<center>
+<br/><label>Please pick a map </label>
+<br/><button>Fresh Map</button>
+</center>
+</form>
+<script>
+(function () {
+	let form = document.getElementById("pick")
+	form.onsubmit = (e) => {
+		e.preventDefault()
+		window.ux.main("map")
+		return false
 	}
 })()
 </script>
@@ -74,7 +103,7 @@
 
 <!-- Main page ------------------------------------------------------------------------------------------------->
 <div class="page" id="main">
-<button onClick="window.ux.push('edit')">edit</button>
+<button onClick="window.ux.edit()">edit</button>
 <button onClick="window.ux.map()">map</button>
 <div id="target"></div>
 <div id="description"><div id="ux_help"> all systems nominal </div></div>
@@ -83,12 +112,12 @@
 
 <!-- Admin page ------------------------------------------------------------------------------------------------->
 <div class="page">
-<button id="ux_save"> Save </button>
-<button id="ux_load"> Load </button>
-<button id="ux_wipe"> Wipe </button>
-<button id="ux_gps"> GPS </button>
-<button id="ux_make"> Make </button>
-<button id="ux_self"> Self </button>
+<button class=uxbutton id="ux_save"> Save </button>
+<button class=uxbutton id="ux_load"> Load </button>
+<button class=uxbutton id="ux_wipe"> Wipe </button>
+<button class=uxbutton id="ux_gps"> GPS </button>
+<button class=uxbutton id="ux_make"> Make </button>
+<button class=uxbutton id="ux_self"> Self </button>
 </div>
 
 </body>
