@@ -33,12 +33,7 @@ class ARPersistComponent extends XRExampleBase {
 	///////////////////////////////////////////////
 
 	action(command,args) {
-		// some commands can be done now
-		if(command == "load") {
-			this.mapLoad(args)
-			this.command = 0
-			return
-		}
+		// some commands can be done now... of which none exist at the moment in the current app design
 		// some must be deferred
 		this.command = command
 	}
@@ -161,6 +156,7 @@ class ARPersistComponent extends XRExampleBase {
 		let data = await response.text()
 		let results = await this.session.setWorldMap({worldMap:data})
 		this.msg("load: a fresh map file arrived " + filename )
+		console.log(results)
 	}
 
 	///
@@ -733,7 +729,7 @@ class UXHelper {
 
 		window.onpopstate = (e) => {
 			if(!e || !e.state) {
-				console.error("popstate: bad input for popstate")
+				console.error("popstate: bad input for popstate; or external push state?")
 				console.log(e)
 				return
 			}
@@ -757,6 +753,7 @@ class UXHelper {
 	}
 
 	pop() {
+		console.log("some code has a back event")
 		history.back()
 	}
 
@@ -811,13 +808,12 @@ class UXHelper {
 		for(let i = 0; i < results.length; i++) {
 			let entity = results[i]
 			let element = document.createElement("button")
-			element.innerHTML = entity.name
+			element.innerHTML = entity.anchorUID
 			dynamic_list.appendChild(element)
 			element.onclick = (e) => {
-				e.preventDefault()
 				let filename = e.srcElement.innerText
 				window.arapp.mapLoad(filename)
-				main()
+				this.main()
 				return 0
 			}
 		}
@@ -909,32 +905,18 @@ window.addEventListener('DOMContentLoaded', () => {
 //
 // todo
 //
-//  + now i have a flow that takes me through to the app
-//  + it does attempt to load random noise that is near you
-//  + and there are a list of maps... and it will try load those maps...
+//	+ now the flow lets me start fresh, save a gps anchor, save a map, save other objects at will, reload a map, reload and rebind anchors...
 //
-//  + we should be able to start with a fresh map
+//	- add to glitch
 //
+//	- i would like prettier art
+//	- i would like an edit page - let me name things better
+//	- it might be nice to show the gps coordinates of pages i can load - and maybe have nicer words for pages to load
+//	- it might be nice to move super powers to an admin page
 //
-// - so, can i start with a fresh map 
-// - can i make an anchor
-// - can i save it
-// - what does it save
-
-//
-//  << test making an anchor again
-//  << test saving a map again - what is the name given? is that a good name? does it show up on the other end in picker?
-//   - we probably want server side persistence at this point
-//   - does it reload?
-//   - does it bind to the markers?
-//
-//  - i need to write code for an admin mode or something to place a gps anchor
-//  - i need to write a secret admin page
-//  - 
-//
-//
-// - network doesn't really filter by location it needs to especially for fetching maps and entities
-// - 
+//	- put onto a real server
+//	- add the map adjuster too
+//	- network doesn't really filter by location it needs to especially for fetching maps and entities
 //
 
 

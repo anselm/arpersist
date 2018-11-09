@@ -66,7 +66,7 @@ class Exercise {
 		{
 			console.log("Exercise: saving a map")
 			const data = new FormData()
- 			data.append('blob', fs.createReadStream('test.png'), 'blob' );
+ 			data.append('blob', fs.createReadStream('src/test.png'), 'blob' );
  			data.append('uuid',"test_map_2")
  			data.append('anchorUID',"test_map_anchor")
  			data.append('name',"a map at " + gps.latitude + " " + gps.longitude )
