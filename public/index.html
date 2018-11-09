@@ -192,17 +192,17 @@ input:checked + .slider:before {
 <center>
 <label>Edit</label>
 <br/><input id="edit_name" placeholder="a name"></input>
-<br/><input id="edit_name" placeholder="url link to a gltf"></input>
-<br/><label> Gravity </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
-<br/><label>    Wall </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
-<br/><label>   Floor </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
-<br/><label>   Words </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
-<br/><label>  Sticky </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
-<br/><label>  Public </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
-<br/><label>Priority </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
+<br/><input id="edit_art" placeholder="url to art OR words to show"></input>
+<br/><label id="edit_upright"  >   Upright </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
+<br/><label id="edit_billboard"> Billboard </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
+<br/><label id="edit_wall"     >      Wall </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
+<br/><label id="edit_floor"    >     Floor </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
+<br/><label id="edit_persist"  >   Persist </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
+<br/><label id="edit_public"   >    Public </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
+<br/><label id="edit_priority" >  Priority </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
 <br/><button onClick="window.ux.pop()"> delete</button>
 <br/>
-<br/><button onClick="window.ux.pop()"> move</button>
+<br/><button onClick="window.ux.map()"> move</button>
 <br/><button onClick="window.ux.pop()"> done</button>
 <br/>
 <div>object uid if any</div>

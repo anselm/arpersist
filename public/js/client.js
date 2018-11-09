@@ -639,7 +639,7 @@ class UXMap {
 		//### Add a button on Google Maps ...
 		var home = document.createElement('button');
 		home.className = "uxbutton"
-		home.innerHTML = "&larr;&larr;main"
+		home.innerHTML = "back"
 		home.onclick = function(e) { window.ux.pop() }
 		map.controls[google.maps.ControlPosition.LEFT_TOP].push(home);
 
