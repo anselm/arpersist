@@ -1,5 +1,5 @@
 
-![Alt text](public/art/splash.jpg?raw=true "Splash Art")
+![Splash Image](public/art/splash.jpg?raw=true "Splash Art")
 
 # About
 
@@ -21,11 +21,11 @@ It will print out an http:// address to go to (* using the webxr-ios browser abo
 
 # Usage
 
-![Alt text](public/art/login.jpg?raw=true "Login Page")
-![Alt text](public/art/picker.jpg?raw=true "Picker Page")
-![Alt text](public/art/main.jpg?raw=true "Main Page")
-![Alt text](public/art/edit.jpg?raw=true "Edit Page")
-![Alt text](public/art/map.jpg?raw=true "Map Page")
+![Login Image](public/art/login.jpg?raw=true "Login Page")
+![Picker Image](public/art/picker.jpg?raw=true "Picker Page")
+![Main Image](public/art/main.jpg?raw=true "Main Page")
+![Edit Image](public/art/edit.jpg?raw=true "Edit Page")
+![Map Image](public/art/map.jpg?raw=true "Map Page")
 
 The client web app usage is as follows:
 

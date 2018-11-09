@@ -777,6 +777,7 @@ class UXHelper {
 	//////////////////////////////////////////////////////////////////////////////////////////////
 
 	login(moniker) {
+		alert(moniker)
 		console.log(moniker)
 		this.participant = moniker
 		this.pick()
@@ -907,16 +908,22 @@ window.addEventListener('DOMContentLoaded', () => {
 //
 //	+ now the flow lets me start fresh, save a gps anchor, save a map, save other objects at will, reload a map, reload and rebind anchors...
 //
-//	- add to glitch
+//	- edit page -> does this come up before or after... how do you pick existing things? do we have a way to pick off the screen shooting a ray? test
+//		- highlight selected item
+//		- so - you can describe a title, and a few other properties on an object
+//		- and then make it ... and maybe the edit bar can come up *AFTER* you place the object
+//		- and probably it is from this page that access to the gps adjustment widget exists - or as a decorator on the object
+//		- specify and support a hubs link or just a vanilla gltf for now
 //
-//	- i would like prettier art
-//	- i would like an edit page - let me name things better
+//  - glitch
+//		- sqlite
+//		- flush
+//		- area constraints
+//
+// - prettier
 //	- it might be nice to show the gps coordinates of pages i can load - and maybe have nicer words for pages to load
 //	- it might be nice to move super powers to an admin page
-//
-//	- put onto a real server
-//	- add the map adjuster too
-//	- network doesn't really filter by location it needs to especially for fetching maps and entities
+//	- a globe or world map view or something
 //
 
 
