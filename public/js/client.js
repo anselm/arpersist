@@ -49,8 +49,6 @@ class ARPersistComponent extends XRExampleBase {
 		this.command = 0
 		if(command)	this.msg("doing command="+command)
 		switch(command) {
-			//case "load": this.entityLoad(); break
-			//case "wipe": //this.flushServer(); break
 			case "make": this.entityAddArt(frame); break
 			case "self": this.entityAddParticipant(frame); break
 			case "base": this.entityAddGPS(frame); break
@@ -507,11 +505,12 @@ x=y=0
 	///
 
 	async entityAddGPS(frame) {
-		let gps = this.gpsGetLatest();
+		let gps = await gpsPromise()
 		if(!gps) {
-			this.msg("entityAddGSP: no gps")
+			this.msg("entityAddGPS: no gps")
 			return 0
 		}
+		this.msg("entityAddGPS: got gps " + gps.latitude + " " + gps.longitude )
 		let anchorUID = await this.mapAnchor(frame,0,0)
 		if(!anchorUID) {
 			this.msg("entityAddGPS: anchor failed")
@@ -716,50 +715,6 @@ function gpsPromise() {
 	})
 }
 
-
-/*
-		if ("geolocation" in navigator) {
-			try {
-				navigator.geolocation.watchPosition((position) => {
-				});
-			} catch(e) {
-				console.error(e)
-				this.gpsDiscovered = 0
-			}
-		}
-
-
-	gpsInitialize() {
-		this.gps = 0;
-		this.gpsDiscovered = 0
-		if ("geolocation" in navigator) {
-			try {
-				navigator.geolocation.watchPosition((position) => {
-					this.msg(position.coords)
-					this.gps = position.coords
-					this.gpsDiscovered = 1
-				});
-			} catch(e) {
-				console.error(e)
-				this.gpsDiscovered = 0
-			}
-		}
-	}
-
-	gpsGetLatest() {
-		if ("geolocation" in navigator) {
-			if (this.gpsDiscovered) {
-				let scratch = this.gps
-				this.gps = 0
-				return scratch
-			}
-			return 0
-		}
-		this.msg("gps: no gps due to no https probably")
-		return { latitude: 0, longitude: 0, altitude: 0 }
-	}
-*/
-
 function getUrlParams(vars={}) {
     window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, (m,key,value) => { vars[key] = value })
     return vars;
@@ -852,7 +807,7 @@ class UXHelper {
 
 		// paint
 		let dynamic_list = document.getElementById("picker_dynamic_list")
-		while (dynamic_list.firstChild) dynamic_list.removeChild(myNode.firstChild);
+		while (dynamic_list.firstChild) dynamic_list.removeChild(dynamic_list.firstChild);
 		for(let i = 0; i < results.length; i++) {
 			let entity = results[i]
 			let element = document.createElement("button")
@@ -960,9 +915,22 @@ window.addEventListener('DOMContentLoaded', () => {
 //
 //  + we should be able to start with a fresh map
 //
+//
+// - so, can i start with a fresh map 
+// - can i make an anchor
+// - can i save it
+// - what does it save
+
+//
+//  << test making an anchor again
+//  << test saving a map again - what is the name given? is that a good name? does it show up on the other end in picker?
+//   - we probably want server side persistence at this point
+//   - does it reload?
+//   - does it bind to the markers?
+//
 //  - i need to write code for an admin mode or something to place a gps anchor
-//  - i need to write code for an be fed gps anchors
-//  - i need to write code to reintroduce save map widgets
+//  - i need to write a secret admin page
+//  - 
 //
 //
 // - network doesn't really filter by location it needs to especially for fetching maps and entities

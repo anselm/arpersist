@@ -18,10 +18,8 @@
 <body>
 <div id="main_arview_target">
 
-<!-- Login page ------------------------------------------------------------------------------------------------->
+<!-- style used by pages below ------------------------------------------------------------------------------------------------->
 <style>
-
-
 .page {
   background-color:	   transparent;
   width:               100%;
@@ -74,7 +72,21 @@ label {
 	padding: 2px;
 	width: auto;
 }
+::placeholder { /* Chrome, Firefox, Opera, Safari 10.1+ */
+    color: red;
+    opacity: 1; /* Firefox */
+}
+
+:-ms-input-placeholder { /* Internet Explorer 10-11 */
+    color: red;
+}
+
+::-ms-input-placeholder { /* Microsoft Edge */
+    color: red;
+}
 </style>
+
+<!-- Login page ------------------------------------------------------------------------------------------------->
 <form class="page" id="login">
 <center>
 <br/><label>Please pick a name </label>
@@ -103,7 +115,7 @@ label {
 <form class="page" id="pick">
 <center>
 <br/><label>Please pick a map </label>
-<div id="picker_dynamic_list"></div>
+<div id="picker_dynamic_list"><label>...loading...</label></div>
 </center>
 </form>
 

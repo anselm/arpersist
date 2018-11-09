@@ -51,12 +51,15 @@ app.post('/api/map/query', upload.single('blob'), async (request, response) => {
   response.json(results)
 })
 
+var ip = require("ip");
+console.dir ( "Your server http address is http://" + ip.address() + ":" + port )
+
 app.use(express.static('public'))
 
 io.on('connection', (socket) => {
   socket.on('publish', async (msg) => {
     console.log(msg)
-    let results = await entities.save(msg)
+    let results = await entity.save(msg)
     // TODO filter traffic to channels based on what those channels
     // LET SOCKETS HAVE AREAS OF INTEREST
     io.emit('publish', results )
@@ -66,5 +69,6 @@ io.on('connection', (socket) => {
 http.listen(port, () => {
   console.log('listening on port ' + port )
 })
+
 
 
