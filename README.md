@@ -1,24 +1,46 @@
+
+![Alt text](public/art/splash.jpg?raw=true "Splash Art")
+
 # About
 
-This is an exploration of persistent AR in the browser leveraging ARKit. The idea is to pretend there is centimeter accurate GPS. Underneath ARKit + GPS to provide a feeling of accurate GPS.
+An exploration of persistent AR in the browser leveraging ARKit to simulate centimeter accurate GPS. Uses webxr-ios to fetch arkit maps into the browser. In combination with a gps location, we can compute the gps location for other anchors that are placed in the environment.
+
+A client/server architecture is used where maps associated with a gps location can be saved to the server and then fetched by clients at that gps location. In addition any user placed features can also be retrieved.
+
+# Build
+
+You need webxr-ios to view this page - build the develop branch at : https://github.com/mozilla-mobile/webxr-ios . Remember to build the develop branch...
+
+This app itself is a nodejs app, it can be installed and run like so locally (although I recommend using glitch for https and geolocation support):
+
+  npm install
+  npm run
+  (or node server.js)
+
+It will print out an http:// address to go to (* using the webxr-ios browser above) and this will bring up a client ux.
 
 # Usage
 
-You need webxr-ios to view this page - build the develop branch at : https://github.com/mozilla-mobile/webxr-ios
+![Alt text](public/art/login.jpg?raw=true "Login Page")
+![Alt text](public/art/picker.jpg?raw=true "Picker Page")
+![Alt text](public/art/main.jpg?raw=true "Main Page")
+![Alt text](public/art/edit.jpg?raw=true "Edit Page")
+![Alt text](public/art/map.jpg?raw=true "Map Page")
 
-Remember to build the develop branch...
+The client web app usage is as follows:
 
-This nodejs app then should be run on a server with https. To test persistence try the instance at https://mud-modem-1.glitch.me/?zone=aword&participant=aname - basically you let it start up and scan for a bit, it's best to hold the phone at 45' and I tend to face north when I initialize. Then hit "gps" to place a gps object - visually appears as a cylinder - which is a special object that ideally you should make before other objects (although it is capable of fixing things up if you do it in reverse order) and then hit "make" to place a piece of art (right now only a box). Then you can hit "save" to save your map - you should save a map after placing a gps object. Then you can quit and restart. Then hit "load" to recover your content and it should be where it was left. Right now "gps" or "make" make objects that get stored in the server. We all share the same server state - so if you make objects in any city, they are technically visible to all other players (I don't filter traffic by distance right now). You do have your own "map" which is specified by the ?zone=uniquename parameter.  Also for fun you have your own name ?participant=name, although I don't do anything with it yet...  
+  0) Go to the web page above or if you're using glitch then goto that web page (* using the webxr-ios browser)
+  1) Login Page: Pick a name for the shared server environment (which you are running above with npm)
+  2) Map Picker Page: Pick a map or "a fresh map"
+  3) Main Page Save Map Button: To make and save a map first scan your world carefully, place a gps anchor, then save the map (this is an admin power detected based on your webxr-ios build)
+  4) Main Page Save Art Button: Place art objects in the world
+  5) Main Page Edit Button: Edit selected art object properties such as the art assets they are associated with or their gps location.
+  6) Main Page Participant location button: Updates your position over the network so that other players can see where you are.
 
-You can run a local copy of the server but if you are not behind https then geolocation will not work... although geolocation isn't really needed - only needed if you are making new maps of new areas:
-
-  npm install
-  npm start
-
-# Approach
+# Technical Approach
 
 1. slam maps
-   when the system starts up it begins creating a map...
+   when the system starts up it begins creating an arkit map immediately
    these maps can be loaded or saved along with associated anchors that were made at that time
 
 2. arkit anchors in general
@@ -56,15 +78,12 @@ You can run a local copy of the server but if you are not behind https then geol
    right now the user can make any number of gps anchors, and these are networked between instances; later these may not be networked
    right now any user can make and save a map - I may hide that feature - it could ruin the experience for everybody and is a security issue
 
-
 # TODO
 
-- show other players on earth
-
+- improve edit page
+- test showing other players
 - it would be nice to show a globe that shows where all the participants are
 - network init and rebinding to anchors
-- finish map widget
-
 - provide more notification on when gps is ready, when arkit is ready, when a good time to capture gps is
 - may hide creating maps and placing gps anchors
 - need to do full orientation transform 
