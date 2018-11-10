@@ -971,7 +971,7 @@ class UXHelper {
 				this.main()
 				return 0
 			}
-			element = document.createElement("<br/>")
+			element = document.createElement("br")
 			dynamic_list.appendChild(element)
 		}
 
