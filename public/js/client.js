@@ -103,7 +103,8 @@ class ARPersistComponent extends XRExampleBase {
 		// resolve frame related chores synchronously with access to 'frame'
 		let command = this.command
 		this.command = 0
-		if(command)	this.msg("doing command="+command)
+		if(!command) return 0
+		this.msg("doing command="+command)
 		switch(command) {
 			case "gps" : await this.entityAddGPS(frame); break
 			case "make": await this.entityAddArtHelper(frame); break
@@ -111,6 +112,7 @@ class ARPersistComponent extends XRExampleBase {
 			case "save": await this.entityAddMapHelper(frame); break
 			default: break
 		}
+		return 1
 	}
 
 	///////////////////////////////////////////////
@@ -134,8 +136,8 @@ class ARPersistComponent extends XRExampleBase {
 	/// Called once per frame by base class, before render, to give the app a chance to update this.scene
 	///
 
-	updateScene(frame) {
-		this.actionResolve(frame)
+	async updateScene(frame) {
+		await this.actionResolve(frame)
 		this.entityUpdateAll(frame)
 	}
 
@@ -209,11 +211,12 @@ class ARPersistComponent extends XRExampleBase {
 	async mapAnchor(frame,x=0.5,y=0.5) {
 
 		// If no screen space position supplied then return an anchor at the head
-x=y=0 
+x=y=-0.5 
 		if(!x && !y) {
 			// TODO verify that the anchor that is created ends up with XRCoordinateSystem.TRACKER
 			let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
 			let anchorUID = frame.addAnchor(headCoordinateSystem,[0,0,0])
+			console.log("**** Made an arkit anchor " + anchorUID)
 			return anchorUID
 		}
 
@@ -221,9 +224,8 @@ x=y=0
 		// TODO This is broken why?
 
 		// TODO are these both the same?
-		let anchorOffset = await frame.findAnchor(x,y)
-
-		//let anchorOffset = await this.session.hitTest(x,y)
+		//let anchorOffset = await frame.findAnchor(x,y)
+		let anchorOffset = await this.session.hitTest(x,y)
 		if(!anchorOffset) {
 			return 0
 		}
@@ -243,9 +245,14 @@ x=y=0
 		const worldCoordinates = frame.getCoordinateSystem(XRCoordinateSystem.TRACKER)
 		const anchorUID = frame.addAnchor(worldCoordinates, [this.tempPos.x, this.tempPos.y, this.tempPos.z], [this.tempQuaternion.x, this.tempQuaternion.y, this.tempQuaternion.z, this.tempQuaternion.w])
 
+		console.log("**** Got an arkit anchor " + anchorUID)
+		console.log("***** Not using " + anchorOffset.anchorUID )
+		console.log(anchor)
+		console.log(anchorUID)
+
 		// TODO is this ok? does it make sense / save any memory / have any impact?
 		// delete the anchor that had the offset
-		frame.removeAnchor(anchor); anchor = 0
+//		frame.removeAnchor(anchor); anchor = 0
 
 		return anchorUID
 	}
@@ -553,17 +560,7 @@ x=y=0
 	}
 
 	async entityAddArtHelper(frame) {
-		// goes ahead and force makes a gps anchor if needed
 		if(!this.entityGPS) {
-			// if no gps entity was added then force add one now
-			let entity = await this.entityAddGPS(frame)
-			// force promote the entity to the gps entity
-			if(entity) {
-				this.entityUpdateGPSEntity(frame, entity)
-			}
-		}
-		if(!this.entityGPS) {
-			// it is possible that gps failed us - so this can happen
 			this.msg("save: this engine needs gps before doing other stuff")
 			return
 		}
@@ -946,11 +943,23 @@ class UXHelper {
 		// are there any maps here?
 		let results = window.arapp.entityQuery({kind:"map",gps:gps})
 
-		// TODO flush
-
-		// paint
+		// flush
 		let dynamic_list = document.getElementById("picker_dynamic_list")
 		while (dynamic_list.firstChild) dynamic_list.removeChild(dynamic_list.firstChild);
+
+		// say "a fresh map"
+		{
+			let element = document.createElement("button")
+			element.innerHTML = "a fresh map"
+			element.onclick = (e) => {
+				e.preventDefault()
+				this.main()
+				return 0
+			}
+			dynamic_list.appendChild(element)
+		}
+
+		// say other cases - could use a slider etc TODO
 		for(let i = 0; i < results.length; i++) {
 			let entity = results[i]
 			let element = document.createElement("button")
@@ -962,19 +971,10 @@ class UXHelper {
 				this.main()
 				return 0
 			}
-		}
-
-		// a fresh map
-		{
-			let element = document.createElement("button")
-			element.innerHTML = "a fresh map"
-			element.onclick = (e) => {
-				e.preventDefault()
-				this.main()
-				return 0
-			}
+			element = document.createElement("<br/>")
 			dynamic_list.appendChild(element)
 		}
+
 	}
 
 	main() {
