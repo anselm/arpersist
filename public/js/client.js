@@ -720,9 +720,10 @@ x=y=0
 			console.log("entityReceive: saving new remote entity")
 			console.log(entity)
 		} else {
-			// TODO may wish to scavenge more properties from the inbound traffic
-			// TODO may wish to mark as dirty?
+			// scavenge choice morsels from the network traffic and throw network traffic away
 			previous.cartesian = entity.cartesian
+			previous.art = entity.art
+			previous.tags = entity.tags
 			console.log("entityReceive: remote entity found again and updated")
 			console.log(entity)
 		}
