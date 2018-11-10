@@ -75,6 +75,9 @@ class ARPersistComponent extends XRExampleBase {
 
 		// party - this may be improved - used to distinguish players right now but is not non-collidant
 		this.party = party
+
+		// tags - default props per entity
+		this.tags = "aesthetic"
 	}
 
 	msg(msg) {
@@ -316,6 +319,7 @@ x=y=0
 
 	entitySystemReset() {
 		// local flush - not network
+		this.entitySelected = 0
 		if(this.entities) {
 			for(let uuid in this.entities) {
 				let entity = this.entities[uuid]
@@ -379,7 +383,7 @@ x=y=0
 		}
 
 		// update entity rendering position (every frame)
-//		entity.node.position.set(entity.pose.x,entity.pose.y,entity.pose.z)
+		entity.node.position.set(entity.pose.x,entity.pose.y,entity.pose.z)
 
 		// given an anchor it is possible to directly set the node from that
 		//	entity.node.matrixAutoUpdate = false
@@ -458,6 +462,7 @@ x=y=0
 			       kind: "gps",
 			        art: "cylinder",
 			       zone: this.zone,
+			       tags: this.tags,
 			      party: this.party,
 			        gps: gps,
 			  published: 1,
@@ -486,12 +491,14 @@ x=y=0
 			       kind: "content",
 			        art: "box",
 			       zone: this.zone,
+			       tags: this.tags,
 			      party: this.party,
 			  cartesian: 0,
 			  published: 1,
 			     remote: 0,
 			      dirty: 1
 		}
+		this.entitySelected = entity
 		this.entities[entity.uuid] = entity
 		return entity
 	}
@@ -521,6 +528,7 @@ x=y=0
 			       kind: "party",
 			        art: "cylinder",
 			       zone: this.zone,
+			       tags: this.tags,
 			      party: this.party,
 			  cartesian: 0,
 			  published: 1,
@@ -607,6 +615,7 @@ x=y=0
 		data.append('kind',        "map" )
 		data.append('art',         args.art )
 		data.append('zone',        args.zone )
+		data.append('tags',        args.tags )
 		data.append('party',       args.party )
 		data.append('latitude',    args.gps.latitude )
 		data.append('longitide',   args.gps.longitude )
@@ -730,6 +739,7 @@ x=y=0
 			       kind: entity.kind,
 			        art: entity.art,
 			       zone: entity.zone,
+			       tags: entity.tags,
 			      party: entity.party,
 			  cartesian: entity.cartesian || 0,
 			        gps: entity.gps || 0,
@@ -854,11 +864,11 @@ class UXHelper {
 			this.show(e.state.name)
 		}
 
-		// start ar app in general in background
+		// start ar app in general in background for now
 		if(!window.arapp) {
 			let target = document.getElementById('main_arview_target')
 			console.log(target)
-			window.arapp = new ARPersistComponent(target,this.zone,this.party)
+			this.arapp = window.arapp = new ARPersistComponent(target,this.zone,this.party)
 		}
 
 	}
@@ -893,8 +903,6 @@ class UXHelper {
 	//////////////////////////////////////////////////////////////////////////////////////////////
 
 	login(party) {
-		alert(party)
-		console.log(party)
 		this.party = party
 		this.pick()
 	}
@@ -956,8 +964,16 @@ class UXHelper {
 	}
 
 	main() {
+
+		// take this opportunity to hide 'save map' if your build does not have it
+		if(window.arapp && (!window.arapp.session || !window.arapp.session.getWorldMap))
+		{
+			document.getElementById("page_main_save").style.display = "none"
+		}
+
 		// go to the main page
 		this.push("main")
+		return 0
 	}
 
 	map() {
@@ -965,10 +981,58 @@ class UXHelper {
 		if(!this.uxmap) {
 			this.uxmap = new UXMapController("map")
 		}
+		return 0
+	}
+
+	delete() {
+		// TBD
+		return 0
 	}
 
 	edit() {
 		this.push("edit")
+		if(this.arapp.entitySelected) {
+			let elem = document.getElementById("edit_art")
+			elem.innerHTML = this.arapp.entitySelected.art
+			elem = document.getElementById("edit_uuid")
+			elem.innerHTML = this.arapp.entitySelected.uuid
+
+			// these are the tags - set all the checkboxes off - TODO could generate the entire checkbox system programmatically later
+			let tags = "upright eyelevel billboard wall floor persist public priority"
+			tags.split(" ").map(tag => {
+				let e = document.getElementById("edit_"+tag)
+				if(!e)return // weird
+				e.checked = false				
+				console.log("resettting " + tag)
+			})
+
+			// bust out the tags from entity and set those to true
+			this.arapp.entitySelected.tags.split(" ").map(tag => {
+				let e = document.getElementById("edit_"+tag)
+				if(!e)return // weird
+				e.checked = true
+				console.log("upsettting " + tag)
+			})
+
+		}
+		return 0
+	}
+
+	editdone() {
+
+		let buildset = []
+		let tags = "upright eyelevel billboard wall floor persist public priority"
+		tags.split(" ").map(tag => {
+			let e = document.getElementById("edit_"+tag)
+			if(!e)return // weird
+			if(!e.checked) return
+			buildset.push(tag)
+		})
+		console.log("set build set to " + buildset + " on " + this.arapp.entitySelected.uuid )
+		if(this.arapp.entitySelected) this.arapp.entitySelected.tags = buildset.join(" ")
+
+		this.main() // TODO I should be able to pop...
+		return 0
 	}
 
 }
@@ -986,29 +1050,25 @@ window.addEventListener('DOMContentLoaded', () => {
 //
 // todo
 //
-//	+ now the flow lets me start fresh, save a gps anchor, save a map, save other objects at will, reload a map, reload and rebind anchors...
+//	- i notice i get a lot of other maps and anchors that i am not actually that interested in... debate the wisdom of this or how to prune better...
 //
+///	- edit page to write
+//		- populate based on current entity
+//		- save changes
+//		- wire up map widget
+//		- mark as dirty and refetch art
+//		- add a thing picker
+//		- put a halo around current picked thing
+//		- maybe support some built in primitives
 //
-// - so edit page needs to know what we were looking at...
-// - and then it needs to save the changes when done...
-// - in particular i want it to re publish the art, and load it
-//
-//	- edit page -> does this come up before or after... how do you pick existing things? do we have a way to pick off the screen shooting a ray? test
-//		- highlight selected item
-//		- so - you can describe a title, and a few other properties on an object
-//		- and then make it ... and maybe the edit bar can come up *AFTER* you place the object
-//		- and probably it is from this page that access to the gps adjustment widget exists - or as a decorator on the object
-//		- specify and support a hubs link or just a vanilla gltf for now
-//
-//  - glitch
+//  - glitch support
 //		- sqlite
 //		- flush
 //		- area constraints
 //
 // - prettier
-//	- it might be nice to show the gps coordinates of pages i can load - and maybe have nicer words for pages to load
-//	- it might be nice to move super powers to an admin page
-//	- a globe or world map view or something
+//		- show a map of everything
+//		- a globe or world map view or something
 //
 
 

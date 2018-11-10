@@ -23,6 +23,7 @@ class Exercise {
 		       kind: "it's easy if you try",
 		        art: "nothing to live or die for",
 		       zone: "above us only sky",
+		       tags: "",
 	          party: "imagine all the people",
 			   name: "living for themselves",
 			  descr: "you may say i am a dreamer",
@@ -75,7 +76,8 @@ class Exercise {
  			data.append('kind',"map")
  			data.append('art',"cylinder")
 			data.append('zone',zone)
- 			data.append('participant',"me")
+			data.append('tags',"amaze")
+ 			data.append('party',"me")
 			data.append('latitude',gps.latitude)
 			data.append('longitude',gps.longitude)
 			data.append('altitude',gps.altitude)

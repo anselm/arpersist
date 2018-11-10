@@ -194,20 +194,20 @@ input:checked + .slider:before {
 <label>Edit</label>
 <br/><input id="edit_name" placeholder="a name"></input>
 <br/><input id="edit_art" placeholder="url to art OR words to show"></input>
-<br/><label id="edit_upright"  >   Upright </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
-<br/><label id="edit_eyelevel" > Eye Level </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
-<br/><label id="edit_billboard"> Billboard </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
-<br/><label id="edit_wall"     >      Wall </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
-<br/><label id="edit_floor"    >     Floor </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
-<br/><label id="edit_persist"  >   Persist </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
-<br/><label id="edit_public"   >    Public </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
-<br/><label id="edit_priority" >  Priority </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
-<br/><button onClick="window.ux.pop()"> delete</button>
+<br/><label id="xedit_upright"  >   Upright </label><label class="switch">      <input id="edit_upright" type="checkbox"><span class="slider"></span></label>
+<br/><label id="xedit_eyelevel" > Eye Level </label><label class="switch">      <input id="edit_eyelevel" type="checkbox"><span class="slider"></span></label>
+<br/><label id="xedit_billboard"> Billboard </label><label class="switch">      <input id="edit_billboard" type="checkbox"><span class="slider"></span></label>
+<br/><label id="xedit_wall"     >      Wall </label><label class="switch">      <input id="edit_wall" type="checkbox"><span class="slider"></span></label>
+<br/><label id="xedit_floor"    >     Floor </label><label class="switch">      <input id="edit_floor" type="checkbox"><span class="slider"></span></label>
+<br/><label id="xedit_persist"  >   Persist </label><label class="switch">      <input id="edit_persist" type="checkbox"><span class="slider"></span></label>
+<br/><label id="xedit_public"   >    Public </label><label class="switch">      <input id="edit_public" type="checkbox"><span class="slider"></span></label>
+<br/><label id="xedit_priority" >  Priority </label><label class="switch">      <input id="edit_priority" type="checkbox"><span class="slider"></span></label>
+<br/><button onClick="return window.ux.delete()"> delete</button>
 <br/>
-<br/><button onClick="window.ux.map()"> map</button>
-<br/><button onClick="window.ux.pop()"> done</button>
+<br/><button onClick="return window.ux.map()"> map</button>
+<br/><button onClick="return window.ux.editdone()"> done</button>
 <br/>
-<div>object uid if any</div>
+<div id="edit_uuid">object uid if any</div>
 <div>object location if any</div>
 </center>
 </form>
@@ -215,10 +215,10 @@ input:checked + .slider:before {
 
 <!-- Main page ------------------------------------------------------------------------------------------------->
 <div class="page" id="main">
-<button class=uxbutton onClick="window.ux.edit()">edit</button> <!-- edit TBD - will be an editor for markers -->
+<button class=uxbutton onClick="window.ux.edit()"> Edit </button> <!-- edit TBD - will be an editor for markers -->
 <button class=uxbutton onClick="window.arapp.action('make')"> Make </button> <!-- make an art asset - TBD replace with edit -->
 <button class=uxbutton onClick="window.arapp.action('move')"> Move </button> <!-- update participant location -->
-<button class=uxbutton onClick="window.arapp.action('save')"> Save Map </button> <!-- admin: save the map -->
+<button id="page_main_save" class=uxbutton onClick="window.arapp.action('save')"> Save Map </button> <!-- admin: save the map - autohides on default build -->
 <div id="description"><div id="ux_help"> all systems nominal </div></div>
 </div>
 

@@ -3,6 +3,10 @@ const fs = require('fs')
 
 //const DBWrapper = require('./dbwrapper.js')
 
+///
+/// Entity - server side management
+///
+
 class Entity {
 
   constructor(db,tablename="entity") {
@@ -21,8 +25,10 @@ class Entity {
       "name TEXT",          // all things have a title or name
       "link TEXT",          // some things may link to other assets
       "art TEXT",           // some things may have an iconic representation
-      "description TEXT",   // some things may have a description
-      "sponsor INT",        // some things may be sponsored by a party
+      "descr TEXT",         // some things may have a description
+      "party TEXT",         // some things may be sponsored by a party
+      "zone TEXT",          // some things may have a zone
+      "tags TEXT",          // some things may have tags
       "parent INT",         // some things may have a parent node 
       "priority INT",       // some things may be visible from far away
       "public INT",         // some things may be private, protected, public
@@ -113,6 +119,7 @@ class Entity {
              kind: "map",
               art: args.art,
              zone: args.anchorUUID,
+             tags: args.tags,
             party: args.party,
               gps: { latitude: args.latitude, longitude: args.longitude, altitude: args.altitude },
         published: 0,
