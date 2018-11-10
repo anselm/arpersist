@@ -161,11 +161,24 @@ class ARPersistComponent extends XRExampleBase {
 	createSceneGraphNode(args = 0) {
 		let geometry = 0
 
-		// examine the string and decide what the content is
+		// test
 
-		if(true || args.startsWith("http")) {
+		if(args.startsWith("duck")) {
 			let group = new THREE.Group()
 			let path = "/raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
+			loadGLTF(path).then(gltf => {
+				group.add(gltf.scene)
+			}).catch((...params) =>{
+				console.error('could not load gltf', ...params)
+			})
+			return group
+		}
+
+		// examine the string and decide what the content is
+
+		if(args.startsWith("http")) {
+			let group = new THREE.Group()
+			let path = args // "/raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
 			loadGLTF(path).then(gltf => {
 				group.add(gltf.scene)
 			}).catch((...params) =>{
@@ -991,11 +1004,12 @@ class UXHelper {
 
 	edit() {
 		this.push("edit")
-		if(this.arapp.entitySelected) {
+		let entity = this.arapp.entitySelected
+		if(entity) {
 			let elem = document.getElementById("edit_art")
-			elem.innerHTML = this.arapp.entitySelected.art
+			elem.value = entity.art
 			elem = document.getElementById("edit_uuid")
-			elem.innerHTML = this.arapp.entitySelected.uuid
+			elem.innerHTML = entity.uuid
 
 			// these are the tags - set all the checkboxes off - TODO could generate the entire checkbox system programmatically later
 			let tags = "upright eyelevel billboard wall floor persist public priority"
@@ -1007,7 +1021,7 @@ class UXHelper {
 			})
 
 			// bust out the tags from entity and set those to true
-			this.arapp.entitySelected.tags.split(" ").map(tag => {
+			entity.tags.split(" ").map(tag => {
 				let e = document.getElementById("edit_"+tag)
 				if(!e)return // weird
 				e.checked = true
@@ -1020,18 +1034,32 @@ class UXHelper {
 
 	editdone() {
 
-		let buildset = []
-		let tags = "upright eyelevel billboard wall floor persist public priority"
-		tags.split(" ").map(tag => {
-			let e = document.getElementById("edit_"+tag)
-			if(!e)return // weird
-			if(!e.checked) return
-			buildset.push(tag)
-		})
-		console.log("set build set to " + buildset + " on " + this.arapp.entitySelected.uuid )
-		if(this.arapp.entitySelected) this.arapp.entitySelected.tags = buildset.join(" ")
+		let entity = this.arapp.entitySelected
+		if(entity) {
 
-		this.main() // TODO I should be able to pop...
+			// set art and force reload art
+			// TODO sanitize
+			entity.art = document.getElementById("edit_art").value
+			if(entity.node) {
+				this.arapp.scene.remove(entity.node)
+				entity.node = 0;
+			}
+			console.log("entity has new art = " + entity.art )
+
+			// set tags
+			let buildset = []
+			let tags = "upright eyelevel billboard wall floor persist public priority"
+			tags.split(" ").map(tag => {
+				let e = document.getElementById("edit_"+tag)
+				if(!e)return // weird
+				if(!e.checked) return
+				buildset.push(tag)
+			})
+			console.log("entity tags set to " + buildset + " on " + entity.uuid )
+			entity.tags = buildset.join(" ")
+		}
+
+		this.main() // TODO I should be able to pop... study
 		return 0
 	}
 
