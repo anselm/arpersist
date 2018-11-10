@@ -1037,6 +1037,9 @@ class UXHelper {
 		let entity = this.arapp.entitySelected
 		if(entity) {
 
+			entity.published = 0
+			entity.dirty = 1
+
 			// set art and force reload art
 			// TODO sanitize
 			entity.art = document.getElementById("edit_art").value
