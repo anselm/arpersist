@@ -1085,10 +1085,10 @@ window.addEventListener('DOMContentLoaded', () => {
 //	- i notice i get a lot of other maps and anchors that i am not actually that interested in... debate the wisdom of this or how to prune better...
 //
 ///	- edit page to write
-//		- populate based on current entity
-//		- save changes
+//		[done] populate based on current entity
+//		[done] save changes
+//		[done] mark as dirty and refetch art
 //		- wire up map widget
-//		- mark as dirty and refetch art
 //		- add a thing picker
 //		- put a halo around current picked thing
 //		- maybe support some built in primitives
