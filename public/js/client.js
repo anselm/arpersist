@@ -1,22 +1,80 @@
 
 
+///////////////////////////////////////////////
+///
+/// Utilities
+///
+///////////////////////////////////////////////
 
-//////////////////////////////////////////////////////////////////////////////
-// AR View, peristance and networking
-//////////////////////////////////////////////////////////////////////////////
+function gpsPromise() {
+
+    return new Promise((resolve, reject)=>{
+
+		if (!("geolocation" in navigator)) {
+			console.log("GPS: not found - faking it 1")
+			let gps = { latitude: 0, longitude: 0, altitude: 0 }
+			resolve(gps)
+		}
+
+		let options = {
+		  enableHighAccuracy: true,
+		  timeout: 5000,
+		  maximumAge: 0
+		};
+
+		function success(pos) {
+			var crd = pos.coords;
+			console.log("GPS: Your current position is:")
+			console.log("GPS:  Latitude: "+crd.latitude)
+			console.log("GPS: Longitude: "+crd.longitude)
+			console.log("GPS:  Altitude: "+crd.altitude)
+			console.log("GPS:  Accuracy: "+crd.accuracy + " meters")
+			resolve(crd)
+		}
+
+		function error(err) {
+			console.warn("GPS: ERROR 1 "+err.code+" "+ err.message)
+			console.log("GPS: not found - faking it 2")
+			let gps = { latitude: 0, longitude: 0, altitude: 0 }
+			resolve(gps)
+			//reject("failed")
+		}
+
+		try {
+			console.log("GPS: attempting to get current position once")
+			navigator.geolocation.getCurrentPosition(success, error, options);
+		} catch(err) {
+			console.warn("GPS: ERROR 2 "+err.code+" "+ err.message)
+			reject("failed")
+		}
+	})
+}
+
+function getUrlParams(vars={}) {
+    window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, (m,key,value) => { vars[key] = value })
+    return vars;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+///
+/// ARPersistComponent
+///
+/// Manages a concept of 'entities' which are networkable collections of art and gps locations
+///
+////////////////////////////////////////////////////////////////////////////////////////////////
 
 class ARPersistComponent extends XRExampleBase {
 
-	constructor(element,zone,participant) {
+	constructor(element,zone,party) {
 
 		// init parent
         super(element, false, true, false, true)
 
-		// zone concept - this may go away or be improved
+		// zone concept - TODO this may go away or be improved
 		this.zone = zone
 
-		// participant - this may be improved - used to distinguish players right now but is not non-collidant
-		this.participant = participant
+		// party - this may be improved - used to distinguish players right now but is not non-collidant
+		this.party = party
 	}
 
 	msg(msg) {
@@ -38,22 +96,22 @@ class ARPersistComponent extends XRExampleBase {
 		this.command = command
 	}
 
-	actionResolve(frame) {
+	async actionResolve(frame) {
 		// resolve frame related chores synchronously with access to 'frame'
 		let command = this.command
 		this.command = 0
 		if(command)	this.msg("doing command="+command)
 		switch(command) {
-			case "make": this.entityAddArt(frame); break
-			case "self": this.entityAddParticipant(frame); break
-			case "base": this.entityAddGPS(frame); break
-			case "save": this.entityMapSave(); break
+			case "gps" : await this.entityAddGPS(frame); break
+			case "make": await this.entityAddArtHelper(frame); break
+			case "move": await this.entityAddPartyHelper(frame); break
+			case "save": await this.entityAddMapHelper(frame); break
 			default: break
 		}
 	}
 
 	///////////////////////////////////////////////
-	// scene geometry and update callback
+	// scene geometry and update callback helpers
 	///////////////////////////////////////////////
 
 	initializeScene() {
@@ -99,6 +157,20 @@ class ARPersistComponent extends XRExampleBase {
 
 	createSceneGraphNode(args = 0) {
 		let geometry = 0
+
+		// examine the string and decide what the content is
+
+		if(true || args.startsWith("http")) {
+			let group = new THREE.Group()
+			let path = "/raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
+			loadGLTF(path).then(gltf => {
+				group.add(gltf.scene)
+			}).catch((...params) =>{
+				console.error('could not load gltf', ...params)
+			})
+			return group
+		}
+
 		switch(args) {
 			default: geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1); break;
 			case "cylinder": geometry = new THREE.CylinderGeometry( 0.1, 0.1, 0.1, 32 ); break;
@@ -107,57 +179,12 @@ class ARPersistComponent extends XRExampleBase {
 		}
 		let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
 		let mesh = new THREE.Mesh(geometry, material)
-		let group = new THREE.Group()
-		group.add(mesh)
-		return group
+		return mesh
 	}
 
 	//////////////////////////////////////////////////
-	// utils
+	// arkit anchor math
 	/////////////////////////////////////////////////
-
-	async mapSave(args) {
-		let results = await this.session.getWorldMap()
-		if(!results) {
-			this.msg("save: this engine does not have a good map from arkit yet")
-			return 0
-		}
-		const data = new FormData()
-		data.append('blob',        new Blob([results.worldMap], { type: "text/html"} ) )
-		data.append('uuid',        "MAP" + args.uuid )
-		data.append('anchorUID',   args.anchorUID )
-		data.append('name',        args.name)
-		data.append('descr',       args.descr)
-		data.append('kind',        "map" )
-		data.append('art',         args.art )
-		data.append('zone',        args.zone )
-		data.append('participant', args.participant )
-		data.append('latitude',    args.gps.latitude )
-		data.append('longitide',   args.gps.longitude )
-		data.append('altitude',    args.gps.altitude )
-		let response = await fetch('/api/map/save', { method: 'POST', body: data })
-		let json = await response.json()
-		this.msg("mapSave: succeeded")
-		return json		
-	}
-
-	async  mapLoad(filename) {
-
-		// observe anchors showing up again
-		if (!this.listenerSetup) {
-			this.listenerSetup = true
-			this.session.addEventListener(XRSession.NEW_WORLD_ANCHOR,(event) => {
-				console.log("mapLoad callback - saw an anchor re-appear uid=" + event.detail.uid )
-			})
-		}
-
-		// fetch map itself - which will eventually resolve the anchor loaded above
-		let response = await fetch("uploads/"+filename)
-		let data = await response.text()
-		let results = await this.session.setWorldMap({worldMap:data})
-		this.msg("load: a fresh map file arrived " + filename )
-		console.log(results)
-	}
 
 	///
 	/// Get an anchor
@@ -166,7 +193,7 @@ class ARPersistComponent extends XRExampleBase {
 	async mapAnchor(frame,x=0.5,y=0.5) {
 
 		// If no screen space position supplied then return an anchor at the head
-x=y=0
+x=y=0 
 		if(!x && !y) {
 			// TODO verify that the anchor that is created ends up with XRCoordinateSystem.TRACKER
 			let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
@@ -175,6 +202,7 @@ x=y=0
 		}
 
 		// Otherwise probe for an anchor
+		// TODO This is broken why?
 
 		// TODO are these both the same?
 		let anchorOffset = await frame.findAnchor(x,y)
@@ -286,23 +314,8 @@ x=y=0
 	/// entities - a wrapper for a concept of a game object
 	//////////////////////////////////////////////////////////
 
-	async entityListen(args) {
-		this.entityFlush()
-		await this.entityLoad(args.gps)
-		this.entityNetwork(args.gps)
-	}
-
-	entityQuery(args) {
-		let results = []
-		for(let uuid in this.entities) {
-			let entity = this.entities[uuid]
-			if(args.kind && entity.kind == args.kind) results.push(entity)
-			// TODO add gps filtering
-		}
-		return results
-	}
-
-	entityFlush() {
+	entitySystemReset() {
+		// local flush - not network
 		if(this.entities) {
 			for(let uuid in this.entities) {
 				let entity = this.entities[uuid]
@@ -315,17 +328,336 @@ x=y=0
 		this.entities = {}
 	}
 
-	async entityMapSave() {
-		// actually the entities are already 'saved' - instead save the map using the gps anchors anchorUID
-		if(!this.entityGPS || !this.entityGPS.cartesian || !this.entityGPS.gps) {
-			this.msg("save: this engine needs a gps marker before saving maps")
+	entityQuery(args) {
+		// local query only - not network
+		let results = []
+		for(let uuid in this.entities) {
+			let entity = this.entities[uuid]
+			if(args.kind && entity.kind == args.kind) results.push(entity)
+			// TODO add gps filtering
+		}
+		return results
+	}
+
+	entityUpdateAll(frame) {
+		// local update all
+		for(let uuid in this.entities) {
+			this.entityUpdateOne(frame,this.entities[uuid])
+		}
+	}
+
+	entityUpdateOne(frame,entity) {
+
+		// TODO may remove this type
+		if(entity.kind=="map") return
+
+		// busy poll till a gps and associated anchor show up and then build coordinate systems around it
+		if(!this.entityGPS && entity.kind == "gps") {
+			this.entityGPS = this.entityUpdateGPSEntity(frame,entity)
+		}
+
+		// not a lot to do before a gps anchor shows up
+		if(!this.entityGPS) {
+			return
+		}
+
+		this.entityGPS.transform = this.entityGPS.offset.getOffsetTransform(this.entityGPS.anchor.coordinateSystem)
+
+		// busy poll till grant cartesian coordinates if none yet (these objects should be local and an anchor should eventually show up)
+		// TODO this could be done over and over actually even after success... (but don't update the cartesian of the gpsEntity obviously)
+		if(!entity.cartesian) {
+			this.entityUpdateArt(frame,entity,this.entityGPS.transform)
+		}
+
+		// update pose
+		entity.pose = this.toLocal(entity.cartesian,this.entityGPS.inverse,this.entityGPS.transform)
+
+		// add art to entities if needed
+		if(!entity.node) {
+			entity.node = this.createSceneGraphNode(entity.art)
+			this.scene.add(entity.node)
+		}
+
+		// update entity rendering position (every frame)
+//		entity.node.position.set(entity.pose.x,entity.pose.y,entity.pose.z)
+
+		// given an anchor it is possible to directly set the node from that
+		//	entity.node.matrixAutoUpdate = false
+		//	entity.node.matrix.fromArray(entity.anchorOffset.getOffsetTransform(entity.anchorCoordinateSystem))
+		//	entity.node.updateMatrixWorld(true)
+
+		// publish changes?
+		if(entity.published == 0) {
+			this.entityPublish(entity)
+			entity.published = 1
+		}
+	}
+
+	entityUpdateGPSEntity(frame,entity) {
+		// flesh out a few details on the entity and mark it as the shared map gps anchor
+		entity.anchor = frame.getAnchor(entity.anchorUID)
+		if(!entity.anchor) {
 			return 0
 		}
+		entity.offset = new XRAnchorOffset(entity.anchorUID)
+		entity.cartesian = Cesium.Cartesian3.fromDegrees(entity.gps.longitude, entity.gps.latitude, entity.gps.altitude)
+		entity.fixed = Cesium.Transforms.eastNorthUpToFixedFrame(entity.cartesian)
+		entity.inverse = Cesium.Matrix4.inverseTransformation(entity.fixed, new Cesium.Matrix4())
+		entity.published = 0
+		this.entityGPS = entity
+		this.msg("map relocalized against gps entity")
+		return entity
+	}
+
+	entityUpdateArt(frame,entity,worldTransform) {
+		// this.gpsEntity must exist
+		entity.anchor = frame.getAnchor(entity.anchorUID)
+		if(!entity.anchor) {
+			return 0
+		}
+		entity.offset = new XRAnchorOffset(entity.anchorUID)
+		entity.transform = entity.offset.getOffsetTransform(entity.anchor.coordinateSystem)
+		entity.cartesian = this.toCartesian(entity.transform,worldTransform,this.entityGPS.fixed)
+		entity.published = 0
+		return entity
+	}
+
+	///
+	/// Every entity needs a uuid - right now that is ALWAYS generated from an anchor - even if entity loses anchor over network
+	///
+
+	entityUUID(id) {
+		// uuid has to be deterministic yet unique for all client instances so build it out of known parts and hope for best
+		return this.zone + "_" + this.party + "_" + id
+	}
+
+	///
+	/// Make a gps entity from an anchor (is an ordinary entity that has a gps value)
+	///
+	/// NOTE A plurality of these is allowed for now (later will probably only allow one) - only the first one is used right now
+	/// NOTE the anchor should be built implicitly at time of GPS - not 'whenever'
+	///
+
+	async entityAddGPS(frame) {
+		let gps = await gpsPromise()
+		if(!gps) {
+			this.msg("entityAddGPS: no gps")
+			return 0
+		}
+		this.msg("entityAddGPS: got gps " + gps.latitude + " " + gps.longitude )
+		let anchorUID = await this.mapAnchor(frame,0,0)
+		if(!anchorUID) {
+			this.msg("entityAddGPS: anchor failed")
+			return 0
+		}
+		let entity = {
+			       uuid: this.entityUUID(anchorUID),
+			  anchorUID: anchorUID,
+			       name: "a gps anchor at " + gps.latitude + " " + gps.longitude,
+			      descr: "a gps anchor at " + gps.latitude + " " + gps.longitude,
+			       kind: "gps",
+			        art: "cylinder",
+			       zone: this.zone,
+			      party: this.party,
+			        gps: gps,
+			  published: 1,
+			     remote: 0,
+			      dirty: 1
+		}
+		this.entities[entity.uuid] = entity
+		return entity
+	}
+
+	///
+	/// Create an entity as per the users request
+	///
+
+	async entityAddArt(frame) {
+		let anchorUID = await this.mapAnchor(frame)
+		if(!anchorUID) {
+			this.msg("entityAddArt: anchor failed")
+			return 0
+		}
+		let entity = {
+			       uuid: this.entityUUID(anchorUID),
+			  anchorUID: anchorUID,
+			       name: "art",
+			      descr: "some user art",
+			       kind: "content",
+			        art: "box",
+			       zone: this.zone,
+			      party: this.party,
+			  cartesian: 0,
+			  published: 1,
+			     remote: 0,
+			      dirty: 1
+		}
+		this.entities[entity.uuid] = entity
+		return entity
+	}
+
+	///
+	/// Create or update a partys position
+	///
+
+	async entityAddParty(frame) {
+		let anchorUID = await this.mapAnchor(frame)
+		if(!anchorUID) {
+			this.msg("entityAddParty: anchor failed")
+			return 0
+		}
+		if(this.entityParty) {
+			// TODO - should I throw away the previous anchor?
+			this.entityParty.anchorUID = anchorUID
+			this.entityParty.cartesian = 0
+			this.entityParty.published = 0
+			return this.entityParty
+		}
+		let entity = this.entityParty = {
+			       uuid: this.entityUUID(anchorUID),
+			  anchorUID: anchorUID,
+			       name: this.party,
+			      descr: "a representation for a person named " + this.party,
+			       kind: "party",
+			        art: "cylinder",
+			       zone: this.zone,
+			      party: this.party,
+			  cartesian: 0,
+			  published: 1,
+			     remote: 0,
+			      dirty: 1
+		}
+		this.entities[entity.uuid] = entity
+		return entity
+	}
+
+	async entityAddArtHelper(frame) {
+		// goes ahead and force makes a gps anchor if needed
+		if(!this.entityGPS) {
+			// if no gps entity was added then force add one now
+			let entity = await this.entityAddGPS(frame)
+			// force promote the entity to the gps entity
+			if(entity) {
+				this.entityUpdateGPSEntity(frame, entity)
+			}
+		}
+		if(!this.entityGPS) {
+			// it is possible that gps failed us - so this can happen
+			this.msg("save: this engine needs gps before doing other stuff")
+			return
+		}
+		let status = await this.entityAddArt(frame)
+		return status
+	}
+
+	async entityAddPartyHelper(frame) {
+		// goes ahead and force makes a gps anchor if needed
+		if(!this.entityGPS) {
+			// if no gps entity was added then force add one now
+			let entity = await this.entityAddGPS(frame)
+			// force promote the entity to the gps entity
+			if(entity) {
+				this.entityUpdateGPSEntity(frame, entity)
+			}
+		}
+		if(!this.entityGPS) {
+			// it is possible that gps failed us - so this can happen
+			this.msg("save: this engine needs gps before doing other stuff")
+			return
+		}
+		let status = await this.entityAddParty(frame)
+		return status
+	}
+
+	async entityAddMapHelper(frame) {
+		// goes ahead and force makes a gps anchor if needed
+		if(!this.entityGPS) {
+			// if no gps entity was added then force add one now
+			let entity = await this.entityAddGPS(frame)
+			// force promote the entity to the gps entity
+			if(entity) {
+				this.entityUpdateGPSEntity(frame, entity)
+			}
+		}
+		if(!this.entityGPS) {
+			// it is possible that gps failed us - so this can happen
+			this.msg("save: this engine needs gps before doing other stuff")
+			return
+		}
+
+		// save
 		let status = await this.mapSave(this.entityGPS)
 		return status
 	}
 
-	async entityLoad(gps) {
+	async mapSave(args) {
+		// must pass an entityGPS 
+		let results = await this.session.getWorldMap()
+		if(!results) {
+			this.msg("save: this engine does not have a good map from arkit yet")
+			return 0
+		}
+		const data = new FormData()
+		// TODO - this kind of mixes concerns badly - if I pick a single anchor to associate the map with then this is not needed
+		data.append('blob',        new Blob([results.worldMap], { type: "text/html"} ) )
+		data.append('uuid',        "MAP" + args.uuid )
+		data.append('anchorUID',   args.anchorUID )
+		data.append('name',        args.name)
+		data.append('descr',       args.descr)
+		data.append('kind',        "map" )
+		data.append('art',         args.art )
+		data.append('zone',        args.zone )
+		data.append('party',       args.party )
+		data.append('latitude',    args.gps.latitude )
+		data.append('longitide',   args.gps.longitude )
+		data.append('altitude',    args.gps.altitude )
+		let response = await fetch('/api/map/save', { method: 'POST', body: data })
+		let json = await response.json()
+		this.msg("mapSave: succeeded")
+		return json		
+	}
+
+	async  mapLoad(filename) {
+
+		// observe anchors showing up again - this code doesn't have to do any work since update loop will busy poll till it rebinds anchors to maps
+		if (!this.listenerSetup) {
+			this.listenerSetup = true
+			this.session.addEventListener(XRSession.NEW_WORLD_ANCHOR,(event) => {
+				console.log("mapLoad callback - saw an anchor re-appear uid=" + event.detail.uid )
+			})
+		}
+
+		// fetch map itself - which will eventually resolve the anchor loaded above
+		let response = await fetch("uploads/"+filename)
+		let data = await response.text()
+		let results = await this.session.setWorldMap({worldMap:data})
+		this.msg("load: a fresh map file arrived " + filename )
+		console.log(results)
+	}
+
+
+	//////////////////////////////////////////////////////////////////////////////////
+	// network
+	//////////////////////////////////////////////////////////////////////////////////
+
+	async entityNetworkRestart(args) {
+		// flush local entities
+		this.entitySystemReset()
+		if(!this.socket) {
+			// TODO somehow tell network where we are!!! - it needs some way to filter traffic to us intelligently
+			// start network if needed
+			this.socket = io()
+			this.socket.on('publish', this.entityReceive.bind(this) )
+		}
+		// reload or load everything (typically AFTER the network is started to avoid missing chatter)
+		await this.entityLoadAll(args.gps)
+	}
+
+	///
+	/// Get everything near player gps from server (typically AFTER starting to listen to ongoing chatter due to possibility of a gap)
+	///
+
+	async entityLoadAll(gps) {
 		// load all the entities from the server in one go - and rebinding/gluing state back together will happen later on in update()
 		if(!gps) {
 			this.msg("load: this engine needs a gps location before loading maps")
@@ -348,12 +680,6 @@ x=y=0
 		}
 		this.msg("load: loading done - entities in total is " + count )
 		return 1
-	}
-
-	entityNetwork(gps) {
-		// TODO somehow tell network where we are!!!
-		this.socket = io()
-		this.socket.on('publish', this.entityReceive.bind(this) )
 	}
 
 	///
@@ -404,7 +730,7 @@ x=y=0
 			       kind: entity.kind,
 			        art: entity.art,
 			       zone: entity.zone,
-			participant: entity.participant,
+			      party: entity.party,
 			  cartesian: entity.cartesian || 0,
 			        gps: entity.gps || 0,
 			  published: entity.published || 0,
@@ -413,72 +739,6 @@ x=y=0
 		}
 
 		this.socket.emit('publish',blob);
-	}
-
-	entityUpdateAll(frame) {
-		for(let uuid in this.entities) {
-			this.entityUpdate(frame,this.entities[uuid])
-		}
-	}
-
-	entityUpdate(frame,entity) {
-
-		// busy poll till a gps and associated anchor show up and then build coordinate systems around it
-		if(!this.entityGPS && entity.kind == "gps") {
-			entity.anchor = frame.getAnchor(entity.anchorUID)
-			if(!entity.anchor) {
-				return
-			}
-			entity.offset = new XRAnchorOffset(entity.anchorUID)
-			entity.cartesian = Cesium.Cartesian3.fromDegrees(entity.gps.longitude, entity.gps.latitude, entity.gps.altitude)
-			entity.fixed = Cesium.Transforms.eastNorthUpToFixedFrame(entity.cartesian)
-			entity.inverse = Cesium.Matrix4.inverseTransformation(entity.fixed, new Cesium.Matrix4())
-			entity.published = 0
-			this.entityGPS = entity
-			this.msg("map relocalized")
-		}
-
-		// not a lot to do before a gps anchor shows up
-		if(!this.entityGPS) {
-			return
-		}
-
-		this.entityGPS.transform = this.entityGPS.offset.getOffsetTransform(this.entityGPS.anchor.coordinateSystem)
-
-		// busy poll till grant cartesian coordinates if none yet (these objects should be local and an anchor should eventually show up)
-		if(!entity.cartesian) {
-			entity.anchor = frame.getAnchor(entity.anchorUID)
-			if(!entity.anchor) {
-				return
-			}
-			entity.offset = new XRAnchorOffset(entity.anchorUID)
-			entity.transform = entity.offset.getOffsetTransform(entity.anchor.coordinateSystem)
-			entity.cartesian = this.toCartesian(entity.transform,this.entityGPS.transform,this.entityGPS.fixed)
-			entity.published = 0
-		}
-
-		// update pose
-		entity.pose = this.toLocal(entity.cartesian,this.entityGPS.inverse,this.entityGPS.transform)
-
-		// add art to entities if needed
-		if(!entity.node) {
-			entity.node = this.createSceneGraphNode(entity.art)
-			this.scene.add(entity.node)
-		}
-
-		// update entity rendering position
-		entity.node.position.set(entity.pose.x,entity.pose.y,entity.pose.z)
-
-		// given an anchor it is possible to directly set the node from that
-		//	entity.node.matrixAutoUpdate = false
-		//	entity.node.matrix.fromArray(entity.anchorOffset.getOffsetTransform(entity.anchorCoordinateSystem))
-		//	entity.node.updateMatrixWorld(true)
-
-		// publish changes?
-		if(entity.published == 0) {
-			this.entityPublish(entity)
-			entity.published = 1
-		}
 	}
 
 	/*
@@ -493,118 +753,19 @@ x=y=0
 	}
 	*/
 
-	///
-	/// Make a gps entity from an anchor (is an ordinary entity that has a gps value)
-	///
-	/// NOTE A plurality of these is allowed for now (later will probably only allow one) - only the first one is used right now
-	/// NOTE the anchor should be built implicitly at time of GPS - not 'whenever'
-	///
-
-	async entityAddGPS(frame) {
-		let gps = await gpsPromise()
-		if(!gps) {
-			this.msg("entityAddGPS: no gps")
-			return 0
-		}
-		this.msg("entityAddGPS: got gps " + gps.latitude + " " + gps.longitude )
-		let anchorUID = await this.mapAnchor(frame,0,0)
-		if(!anchorUID) {
-			this.msg("entityAddGPS: anchor failed")
-			return 0
-		}
-		let entity = {
-			       uuid: this.entityUUID(anchorUID),
-			  anchorUID: anchorUID,
-			       name: "a gps anchor at " + gps.latitude + " " + gps.longitude,
-			      descr: "a gps anchor at " + gps.latitude + " " + gps.longitude,
-			       kind: "gps",
-			        art: "cylinder",
-			       zone: this.zone,
-			participant: this.participant,
-			        gps: gps,
-			  published: 1,
-			     remote: 0,
-			      dirty: 1
-		}
-		this.entities[entity.uuid] = entity
-		return entity
-	}
-
-	///
-	/// Create an entity as per the users request
-	///
-
-	async entityAddArt(frame) {
-		let anchorUID = await this.mapAnchor(frame)
-		if(!anchorUID) {
-			this.msg("entityAddArt: anchor failed")
-			return 0
-		}
-		let entity = {
-			       uuid: this.entityUUID(anchorUID),
-			  anchorUID: anchorUID,
-			       name: "art",
-			      descr: "some user art",
-			       kind: "content",
-			        art: "box",
-			       zone: this.zone,
-			participant: this.participant,
-			  cartesian: 0,
-			  published: 1,
-			     remote: 0,
-			      dirty: 1
-		}
-		this.entities[entity.uuid] = entity
-		return entity
-	}
-
-	///
-	/// Create or update a participants position
-	///
-
-	async entityAddParticipant(frame) {
-		let anchorUID = await this.mapAnchor(frame)
-		if(!anchorUID) {
-			this.msg("entityAddArt: anchor failed")
-			return 0
-		}
-		if(this.entityParticipant) {
-			// TODO - should I throw away the previous anchor?
-			this.entityParticipant.anchorUID = anchorUID
-			this.entityParticipant.cartesian = 0
-			this.entityParticipant.published = 0
-			return this.entityParticipant
-		}
-		let entity = this.entityParticipant = {
-			       uuid: this.entityUUID(anchorUID),
-			  anchorUID: anchorUID,
-			       name: this.participant,
-			      descr: "a representation for a person named " + this.participant,
-			       kind: "participant",
-			        art: "cylinder",
-			       zone: this.zone,
-			participant: this.participant,
-			  cartesian: 0,
-			  published: 1,
-			     remote: 0,
-			      dirty: 1
-		}
-		this.entities[entity.uuid] = entity
-		return entity
-	}
-
-	entityUUID(id) {
-		// uuid has to be deterministic yet unique for all client instances so build it out of known parts and hope for best
-		return this.zone + "_" + this.participant + "_" + id
-	}
-
 }
 
 //////////////////////////////////////////////////////////////////////////////
-// map correction widget
+///
+/// UXMapController
+///
+/// Controls the view for the map page
+/// This is a google maps page used in several ways
+/// One way it is used is to help fine tine the position of an arkit anchor
+///
 //////////////////////////////////////////////////////////////////////////////
 
-class UXMap {
+class UXMapController {
 
 	constructor() {
 		this.map = 0
@@ -663,68 +824,23 @@ class UXMap {
 	}
 }
 
-///////////////////////////////////////////////
-// gps glue
-///////////////////////////////////////////////
-
-function gpsPromise() {
-
-    return new Promise((resolve, reject)=>{
-
-		if (!("geolocation" in navigator)) {
-			console.log("GPS: not found - faking it 1")
-			let gps = { latitude: 0, longitude: 0, altitude: 0 }
-			resolve(gps)
-		}
-
-		let options = {
-		  enableHighAccuracy: true,
-		  timeout: 5000,
-		  maximumAge: 0
-		};
-
-		function success(pos) {
-			var crd = pos.coords;
-			console.log("GPS: Your current position is:")
-			console.log("GPS:  Latitude: "+crd.latitude)
-			console.log("GPS: Longitude: "+crd.longitude)
-			console.log("GPS:  Altitude: "+crd.altitude)
-			console.log("GPS:  Accuracy: "+crd.accuracy + " meters")
-			resolve(crd)
-		}
-
-		function error(err) {
-			console.warn("GPS: ERROR 1 "+err.code+" "+ err.message)
-			console.log("GPS: not found - faking it 2")
-			let gps = { latitude: 0, longitude: 0, altitude: 0 }
-			resolve(gps)
-			//reject("failed")
-		}
-
-		try {
-			console.log("GPS: attempting to get current position once")
-			navigator.geolocation.getCurrentPosition(success, error, options);
-		} catch(err) {
-			console.warn("GPS: ERROR 2 "+err.code+" "+ err.message)
-			reject("failed")
-		}
-	})
-}
-
-function getUrlParams(vars={}) {
-    window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, (m,key,value) => { vars[key] = value })
-    return vars;
-}
-
 //////////////////////////////////////////////////////////////////////////////
-// UX general support - and also consolidates some of the page associated work
+///
+/// UXHelper
+///
+/// Provides general support for page management
+/// In an engine like React pages would be implicitly associated with logic
+/// In this case everything is baked by hand and flows are explicit.
+/// Has specialized logic for this particular app to help manage flow
+///
+///
 //////////////////////////////////////////////////////////////////////////////
 
 class UXHelper {
 
 	constructor(name) {
 		this.zone = "azurevidian"
-		this.participant = "King Tut"
+		this.party = "King Tut"
 		this.push(name)
 
 		window.onpopstate = (e) => {
@@ -742,7 +858,7 @@ class UXHelper {
 		if(!window.arapp) {
 			let target = document.getElementById('main_arview_target')
 			console.log(target)
-			window.arapp = new ARPersistComponent(target,this.zone,this.participant)
+			window.arapp = new ARPersistComponent(target,this.zone,this.party)
 		}
 
 	}
@@ -776,10 +892,10 @@ class UXHelper {
 	// helpers for various control blocks - in some nicer framework like react these would be bound to the layout
 	//////////////////////////////////////////////////////////////////////////////////////////////
 
-	login(moniker) {
-		alert(moniker)
-		console.log(moniker)
-		this.participant = moniker
+	login(party) {
+		alert(party)
+		console.log(party)
+		this.party = party
 		this.pick()
 	}
 
@@ -794,9 +910,16 @@ class UXHelper {
 
 		console.log("picker gps results")
 		console.log(gps)
+		if(!gps) {
+			alert("Hmm no gps error")
+			return 0
+		}
 
-		// allow the app to start listening for changes near an area
-		await window.arapp.entityListen({kind:0,zone:this.zone,gps:gps})
+		// reset the entity system (or set it up the first time)
+		window.arapp.entitySystemReset()
+
+		// allow the app to start listening for changes near an area (or restart listening)
+		await window.arapp.entityNetworkRestart({kind:0,zone:this.zone,gps:gps})
 
 		// are there any maps here?
 		let results = window.arapp.entityQuery({kind:"map",gps:gps})
@@ -840,7 +963,7 @@ class UXHelper {
 	map() {
 		this.push("map")
 		if(!this.uxmap) {
-			this.uxmap = new UXMap("map")
+			this.uxmap = new UXMapController("map")
 		}
 	}
 
@@ -850,51 +973,8 @@ class UXHelper {
 
 }
 
-/*
-let goodwords = [
- "#blessed", "Barnacles", "Buttons", "Charity", "Daffodil", "Doodle", "Fiddlesticks", 
- "Fishsticks", "Foccacia", "Fudge", "Grace", "Grace", "Live Laugh Love", 
- "Periwinkle", "Serendipity", "Succotash", "Terwilliger", "Twinkle", "Wanderlust", 
- "Collywobble", "Dongle", "Sackbut"
-];
-
-//$.ajax({ type: "GET", url: "books/badwords.txt", dataType: "text", success: function(text)
-{
-  //let badwords = text.split("\n");
-  for(let i = 0;i<badwords.length;i++) {
-    let word = atob(badwords[i]);
-    let parts = word.split(' ');
-    if(parts.length > 1) {
-      badwords_long.push(word);
-    } else {
-      badwords_short.push(word);
-    }
-  }
-  badwords_short.push("kill");
-  badwords_short.push("killed");
-  badwords_short.push("killing");
-} //});
-
-function Badwords(parent,args) {
-  for(let j = 1;j<args.length;j++) {
-    let arg = args[j].toLowerCase();
-    let tokenexists = -1;
-    if(j < args.length - 1) {
-      let concatenated = arg + " " + args[j+1]; // try get word pair
-      tokenexists = badwords_long.indexOf(concatenated.toLowerCase()); // is it there?
-    }
-    if(tokenexists >= 0) {
-      args[j] = "bad"; args[j+1] = "mule";
-      j++;
-    } else if(badwords_short.indexOf(arg) >= 0) {
-      args[j] = goodwords[getRandomInt(0,goodwords.length)];
-    }
-  }
-  return args.slice(1).join(" ");
-*/
-
 //////////////////////////////////////////////////////////////////////////////
-// bootstrap
+/// bootstrap
 //////////////////////////////////////////////////////////////////////////////
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -907,6 +987,11 @@ window.addEventListener('DOMContentLoaded', () => {
 // todo
 //
 //	+ now the flow lets me start fresh, save a gps anchor, save a map, save other objects at will, reload a map, reload and rebind anchors...
+//
+//
+// - so edit page needs to know what we were looking at...
+// - and then it needs to save the changes when done...
+// - in particular i want it to re publish the art, and load it
 //
 //	- edit page -> does this come up before or after... how do you pick existing things? do we have a way to pick off the screen shooting a ray? test
 //		- highlight selected item

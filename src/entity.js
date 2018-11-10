@@ -17,12 +17,12 @@ class Entity {
     this.table = tablename
     this.schema = [
       "zone TEXT",          // all things are of some layer for noise reduction
-      "kind TEXT",          // all things are of some kind (participant,art,...)
+      "kind TEXT",          // all things are of some kind (party,art,...)
       "name TEXT",          // all things have a title or name
       "link TEXT",          // some things may link to other assets
       "art TEXT",           // some things may have an iconic representation
       "description TEXT",   // some things may have a description
-      "sponsor INT",        // some things may be sponsored by a participant
+      "sponsor INT",        // some things may be sponsored by a party
       "parent INT",         // some things may have a parent node 
       "priority INT",       // some things may be visible from far away
       "public INT",         // some things may be private, protected, public
@@ -113,10 +113,11 @@ class Entity {
              kind: "map",
               art: args.art,
              zone: args.anchorUUID,
-      participant: args.participant,
+            party: args.party,
               gps: { latitude: args.latitude, longitude: args.longitude, altitude: args.altitude },
         published: 0,
-           remote: 0
+           remote: 0,
+            dirty: 0
     }
 
     this.save(entity)

@@ -23,13 +23,14 @@ class Exercise {
 		       kind: "it's easy if you try",
 		        art: "nothing to live or die for",
 		       zone: "above us only sky",
-		participant: "imagine all the people",
+	          party: "imagine all the people",
 			   name: "living for themselves",
 			  descr: "you may say i am a dreamer",
 		  cartesian: cartesian,
 		        gps: gps,
 		  published: 1,
-		     remote: 1
+		     remote: 1,
+		      dirty: 0
 		 }
 
 		 // Make using fetch
@@ -96,18 +97,6 @@ class Exercise {
 			console.log(json)
 
 		}
-
-// - client should request gps
-
-		// TODO - maps should also save an entity >>> and let us get rid of zone concept >> and let us start using gps location or cartesian
-
-		// TODO - get back that map in the set of entities
-
-		// TODO - actually do range limiting on queries
-
-		// TODO - actually make client show the set of maps the client can choose from
-
-		// TODO - actually load a chosen map - or allow NONE for admin modes
 
 		console.log("done")
 

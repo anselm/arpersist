@@ -9,6 +9,7 @@ const http = require('http').Server(app)
 const io = require('socket.io')(http)
 const fs = require('fs')
 const shortid = require('shortid')
+var proxy = require('express-http-proxy');
 
 const port = 3000
 
@@ -19,6 +20,9 @@ const entity = require('./src/entity.js')
 //////////////////////////////////////////////////
 // server
 //////////////////////////////////////////////////
+ 
+app.use('/github.com', proxy('github.com'))
+app.use('/raw.githubusercontent.com', proxy('raw.githubusercontent.com'))
 
 app.use(parser.json())
 

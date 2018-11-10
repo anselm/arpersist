@@ -6,6 +6,7 @@
 <link rel="stylesheet" type="text/css" href="/css/main.css">
 <link rel="stylesheet" href="/css/common.css"/>
 <script src="/libs/three.js"></script>
+<script src="/libs/three-gltf-loader.js"></script>
 <script src="/js/webxr-polyfill.js"></script>
 <script src="/js/common.js"></script>
 <script src="/js/Cesium.js"></script>
@@ -194,6 +195,7 @@ input:checked + .slider:before {
 <br/><input id="edit_name" placeholder="a name"></input>
 <br/><input id="edit_art" placeholder="url to art OR words to show"></input>
 <br/><label id="edit_upright"  >   Upright </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
+<br/><label id="edit_eyelevel" > Eye Level </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
 <br/><label id="edit_billboard"> Billboard </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
 <br/><label id="edit_wall"     >      Wall </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
 <br/><label id="edit_floor"    >     Floor </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
@@ -202,7 +204,7 @@ input:checked + .slider:before {
 <br/><label id="edit_priority" >  Priority </label><label class="switch">      <input type="checkbox"><span class="slider"></span></label>
 <br/><button onClick="window.ux.pop()"> delete</button>
 <br/>
-<br/><button onClick="window.ux.map()"> move</button>
+<br/><button onClick="window.ux.map()"> map</button>
 <br/><button onClick="window.ux.pop()"> done</button>
 <br/>
 <div>object uid if any</div>
@@ -214,11 +216,9 @@ input:checked + .slider:before {
 <!-- Main page ------------------------------------------------------------------------------------------------->
 <div class="page" id="main">
 <button class=uxbutton onClick="window.ux.edit()">edit</button> <!-- edit TBD - will be an editor for markers -->
-<button class=uxbutton onClick="window.ux.map()">map</button> <!-- see a map mode - TBD will be used to edit markers -->
 <button class=uxbutton onClick="window.arapp.action('make')"> Make </button> <!-- make an art asset - TBD replace with edit -->
-<button class=uxbutton onClick="window.arapp.action('self')"> Self </button> <!-- update participant location -->
-<button class=uxbutton onClick="window.arapp.action('base')"> Base </button> <!-- admin: place a gps anchor -->
-<button class=uxbutton onClick="window.arapp.action('save')"> Save </button> <!-- admin: save the map -->
+<button class=uxbutton onClick="window.arapp.action('move')"> Move </button> <!-- update participant location -->
+<button class=uxbutton onClick="window.arapp.action('save')"> Save Map </button> <!-- admin: save the map -->
 <div id="description"><div id="ux_help"> all systems nominal </div></div>
 </div>
 
