@@ -210,7 +210,7 @@ class ARPersistComponent extends XRExampleBase {
 	async mapAnchor(frame,x=0.5,y=0.5) {
 
 		// If no screen space position supplied then return an anchor at the head
-x=y=-0.5 
+
 		if(!x && !y) {
 			// TODO verify that the anchor that is created ends up with XRCoordinateSystem.TRACKER
 			let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
@@ -470,7 +470,7 @@ x=y=-0.5
 		this.msg("entityAddGPS: got gps " + gps.latitude + " " + gps.longitude )
 		let anchorUID = await this.mapAnchor(frame,0,0)
 		if(!anchorUID) {
-			this.msg("entityAddGPS: anchor failed")
+			this.msg("entityAddGPS: could not place an anchor!")
 			return 0
 		}
 		let entity = {
@@ -503,7 +503,7 @@ x=y=-0.5
 			return 0
 		}
 
-		let anchorUID = await this.mapAnchor(frame)
+		let anchorUID = await this.mapAnchor(frame,0.5,0.5)
 		if(!anchorUID) {
 			this.msg("entityAddArt: anchor failed")
 			return 0
@@ -586,7 +586,7 @@ x=y=-0.5
 		}
 		if(!this.entityGPS) {
 			// it is possible that gps failed us - so this can happen
-			this.msg("save: this engine needs gps before doing other stuff")
+			this.msg("save: couldn't place anchor or couldn't find gps")
 			return 0
 		}
 
