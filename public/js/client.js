@@ -107,9 +107,9 @@ class ARPersistComponent extends XRExampleBase {
 		this.msg("doing command="+command)
 		switch(command) {
 			case "gps" : await this.entityAddGPS(frame); break
-			case "make": await this.entityAddArtHelper(frame); break
-			case "move": await this.entityAddPartyHelper(frame); break
-			case "save": await this.entityAddMapHelper(frame); break
+			case "make": await this.entityAddArt(frame); break
+			case "move": await this.entityAddParty(frame); break
+			case "save": await this.entityAddMap(frame); break
 			default: break
 		}
 		return 1
@@ -459,7 +459,7 @@ x=y=-0.5
 	/// Make a gps entity from an anchor (is an ordinary entity that has a gps value)
 	///
 	/// NOTE A plurality of these is allowed for now (later will probably only allow one) - only the first one is used right now
-	/// NOTE the anchor should be built implicitly at time of GPS - not 'whenever'
+	/// NOTE this call doesn't set this.entityGPS itsel
 	///
 
 	async entityAddGPS(frame) {
@@ -498,6 +498,12 @@ x=y=-0.5
 	///
 
 	async entityAddArt(frame) {
+
+		if(!this.entityGPS) {
+			this.msg("save: this engine needs gps before doing other stuff")
+			return 0
+		}
+
 		let anchorUID = await this.mapAnchor(frame)
 		if(!anchorUID) {
 			this.msg("entityAddArt: anchor failed")
@@ -528,6 +534,13 @@ x=y=-0.5
 	///
 
 	async entityAddParty(frame) {
+
+		if(!this.entityGPS) {
+			// it is possible that gps failed us - so this can happen
+			this.msg("save: this engine needs gps before doing other stuff")
+			return 0
+		}
+
 		let anchorUID = await this.mapAnchor(frame)
 		if(!anchorUID) {
 			this.msg("entityAddParty: anchor failed")
@@ -559,48 +572,20 @@ x=y=-0.5
 		return entity
 	}
 
-	async entityAddArtHelper(frame) {
-		if(!this.entityGPS) {
-			this.msg("save: this engine needs gps before doing other stuff")
-			return
-		}
-		let status = await this.entityAddArt(frame)
-		return status
-	}
-
-	async entityAddPartyHelper(frame) {
-		// goes ahead and force makes a gps anchor if needed
+	async entityAddMap(frame) {
+		// a slight hack - goes ahead and force makes a gps anchor right now and fully prepare it if needed (i conflated adding a gps anchor and a saving a map)
 		if(!this.entityGPS) {
 			// if no gps entity was added then force add one now
-			let entity = await this.entityAddGPS(frame)
+			let entity = this.entityGPS = await this.entityAddGPS(frame)
 			// force promote the entity to the gps entity
-			if(entity) {
+			if(this.entityGPS) {
 				this.entityUpdateGPSEntity(frame, entity)
 			}
 		}
 		if(!this.entityGPS) {
 			// it is possible that gps failed us - so this can happen
 			this.msg("save: this engine needs gps before doing other stuff")
-			return
-		}
-		let status = await this.entityAddParty(frame)
-		return status
-	}
-
-	async entityAddMapHelper(frame) {
-		// goes ahead and force makes a gps anchor if needed
-		if(!this.entityGPS) {
-			// if no gps entity was added then force add one now
-			let entity = await this.entityAddGPS(frame)
-			// force promote the entity to the gps entity
-			if(entity) {
-				this.entityUpdateGPSEntity(frame, entity)
-			}
-		}
-		if(!this.entityGPS) {
-			// it is possible that gps failed us - so this can happen
-			this.msg("save: this engine needs gps before doing other stuff")
-			return
+			return 0
 		}
 
 		// save
@@ -1080,8 +1065,11 @@ window.addEventListener('DOMContentLoaded', () => {
 })
 
 //
-// todo
+// bugs
 //
+//  - validate that math is correct; i see recoveries that move things around
+//  - i notice glitch is not saving maps - why
+
 //	- i notice i get a lot of other maps and anchors that i am not actually that interested in... debate the wisdom of this or how to prune better...
 //
 ///	- edit page to write
