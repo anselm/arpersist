@@ -106,10 +106,9 @@ class ARPersistComponent extends XRExampleBase {
 		if(!command) return 0
 		this.msg("doing command="+command)
 		switch(command) {
-			case "gps" : await this.entityAddGPS(frame); break
 			case "make": await this.entityAddArt(frame); break
 			case "move": await this.entityAddParty(frame); break
-			case "save": await this.entityAddMap(frame); break
+			case "save": await this.mapSave(frame); break
 			default: break
 		}
 		return 1
@@ -572,14 +571,17 @@ x=y=-0.5
 		return entity
 	}
 
-	async entityAddMap(frame) {
+	async mapSave(frame) {
 		// a slight hack - goes ahead and force makes a gps anchor right now and fully prepare it if needed (i conflated adding a gps anchor and a saving a map)
 		if(!this.entityGPS) {
 			// if no gps entity was added then force add one now
-			let entity = this.entityGPS = await this.entityAddGPS(frame)
+			let entity = await this.entityAddGPS(frame)
 			// force promote the entity to the gps entity
-			if(this.entityGPS) {
+			if(entity) {
+				console.log("map save - added gps entity")
 				this.entityUpdateGPSEntity(frame, entity)
+			} else {
+				console.error("map save - failed to add gps entity")
 			}
 		}
 		if(!this.entityGPS) {
@@ -588,13 +590,12 @@ x=y=-0.5
 			return 0
 		}
 
-		// save
-		let status = await this.mapSave(this.entityGPS)
-		return status
-	}
+		// for now the entity is also written into the map - it's arguable if this is needed - will likely remove since it's mostly just extraneous TODO
+		// the idea was that I could search for maps, but if I assume each map has one and only one gps anchor entity then I know what maps exist based on entities whose kind is == gps
 
-	async mapSave(args) {
-		// must pass an entityGPS 
+		let args = this.entityGPS
+		console.log("saving map")
+
 		let results = await this.session.getWorldMap()
 		if(!results) {
 			this.msg("save: this engine does not have a good map from arkit yet")
