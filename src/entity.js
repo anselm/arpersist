@@ -92,10 +92,6 @@ class Entity {
   async save(entity) {
     console.log("saving ******")
     console.log(entity)
-    if(entity.gps && !entity.gps.latitude && entity.latitude) {
-      console.error("**** this is super weird")
-      entity.gps = { latitude:entity.gps.latitude, longitude:entity.gps.longitude, altitude: entity.gps.altitude }
-    }
     this.entities[entity.uuid] = entity
     return entity
   }

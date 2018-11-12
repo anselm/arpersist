@@ -96,6 +96,7 @@ class XRAnchorCartography extends XRExampleBase {
 		// TODO is it ok to to delete unused anchor? does it make sense / save any memory / have any impact?
 		// delete the anchor that had the offset
 		// frame.removeAnchor(anchor); anchor = 0
+		console.log("*** will ignore this anchor from now on " + anchorOffset.anchorUID)
 		return {
 			  anchorUID: anchorUID,
 			       kind: "local",
