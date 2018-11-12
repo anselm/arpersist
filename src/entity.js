@@ -90,6 +90,8 @@ class Entity {
   }
 
   async save(entity) {
+    console.log("saving ******")
+    console.log(entity)
     this.entities[entity.uuid] = entity
     return entity
   }
@@ -108,7 +110,7 @@ class Entity {
 
   async map_save(filepath,args) {
 
-    console.log("server map save request")
+    console.log("*** mapSave: server map save request")
     console.log(args)
 
     let entity = {
@@ -118,7 +120,7 @@ class Entity {
             descr: args.descr,
              kind: "map",
               art: args.art,
-             zone: args.anchorUUID,
+             zone: args.zone,
              tags: args.tags,
             party: args.party,
               gps: { latitude: args.latitude, longitude: args.longitude, altitude: args.altitude },
@@ -127,6 +129,7 @@ class Entity {
             dirty: 0
     }
 
+    console.log("*** mapSave: injecting a map into list of entities") // TODO may remove this concept
     this.save(entity)
 
     let target = "public/uploads/"+args.anchorUID

@@ -398,7 +398,7 @@ class UXPersistComponent extends XRAnchorCartography {
 		data.append('party',       entity.party )
 		data.append('relocalized', 0)
 		data.append('latitude',    entity.gps.latitude )
-		data.append('longitide',   entity.gps.longitude )
+		data.append('longitude',   entity.gps.longitude )
 		data.append('altitude',    entity.gps.altitude )
 		let response = await fetch('/api/map/save', { method: 'POST', body: data })
 		let json = await response.json()
@@ -494,6 +494,7 @@ class UXPersistComponent extends XRAnchorCartography {
 			previous.cartesian = entity.cartesian
 			previous.art = entity.art
 			previous.tags = entity.tags
+			previous.gps = entity.gps
 			console.log("UX entityReceive: remote entity found again and updated")
 			console.log(entity)
 		}

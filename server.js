@@ -62,10 +62,11 @@ app.use(express.static('public'))
 
 io.on('connection', (socket) => {
   socket.on('publish', async (msg) => {
-    console.log(msg)
     let results = await entity.save(msg)
-    // TODO filter traffic to channels based on what those channels
-    // LET SOCKETS HAVE AREAS OF INTEREST
+    // TODO understand the location of all sockets
+    // TODO filter by layer / zone also
+    // TODO filter by trust network distance
+    // TODO filter by geography
     io.emit('publish', results )
   })
 })
