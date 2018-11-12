@@ -523,6 +523,9 @@ class UXPersistComponent extends XRAnchorCartography {
 			       uuid: entity.uuid,
 			  anchorUID: entity.anchorUID,
 			        gps: entity.gps || 0,
+			   latitude: entity.gps ? entity.gps.latitude : 0,
+			  longitude: entity.gps ? entity.gps.longitude : 0,
+			   altitude: entity.gps ? entity.gps.altitude : 0,
 			  transform: entity.transform || 0,
 		    translation: entity.translation || 0,
 			orientation: entity.orientation || 0,
@@ -539,7 +542,8 @@ class UXPersistComponent extends XRAnchorCartography {
 			     remote: entity.remote || 0,
 			      dirty: entity.dirty || 0
 		}
-
+		console.log("*** sending blob")
+		console.log(blob)
 		this.socket.emit('publish',blob);
 	}
 
