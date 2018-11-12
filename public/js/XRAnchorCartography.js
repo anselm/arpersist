@@ -34,7 +34,7 @@ class XRAnchorCartography extends XRExampleBase {
 			}
 
 			function success(pos) {
-				var crd = pos.coords;
+				var crd = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, altitude: pos.coords.altitude, accuracy: pos.coords.accuracy }
 				resolve(crd)
 			}
 
