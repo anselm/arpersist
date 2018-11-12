@@ -1,74 +1,326 @@
 
-
-///////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///
-/// Utilities
+/// Wrapper for WebXR-Polyfill that adds geographic support to anchors
+/// Given a map and one anchor on that map at a known gps location - provide gps coordinates for other anchors on the same map
 ///
-///////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-function gpsPromise() {
+class XRAnchorCartography extends XRExampleBase {
 
-    return new Promise((resolve, reject)=>{
+	constructor(args) {
+        super(
+        	args.domElement,
+        	args.createVirtualReality,
+        	args.shouldStartPresenting,
+        	args.useComputerVision,
+        	args.worldSensing,
+        	args.alignEUS
+        	)
+		this.tempMat = new THREE.Matrix4()
+		this.tempScale = new THREE.Vector3()
+		this.tempPos = new THREE.Vector3()
+		this.tempQuaternion = new THREE.Quaternion()
+	}
 
-		if (!("geolocation" in navigator)) {
-			console.log("GPS: not found - faking it 1")
-			let gps = { latitude: 0, longitude: 0, altitude: 0 }
-			resolve(gps)
+	gpsPromise() {
+
+	    return new Promise((resolve, reject)=>{
+
+			if (!("geolocation" in navigator)) {
+				// fake it for now
+				let gps = { latitude: 0, longitude: 0, altitude: 0 }
+				resolve(gps)
+			}
+
+			function success(pos) {
+				var crd = pos.coords;
+				resolve(crd)
+			}
+
+			function error(err) {
+				// fake it
+				let gps = { latitude: 0, longitude: 0, altitude: 0 }
+				resolve(gps)
+				//reject(err)
+			}
+
+			try {
+				let options = {
+				  enableHighAccuracy: true,
+				  timeout: 5000,
+				  maximumAge: 0
+				};
+				navigator.geolocation.getCurrentPosition(success, error, options);
+			} catch(err) {
+				// unusual error - just return it
+				reject(err)
+			}
+		})
+	}
+
+	async featureAtPose(frame) {
+		// TODO does the final anchor that is created end up with XRCoordinateSystem.TRACKER??
+		let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
+		let anchorUID = frame.addAnchor(headCoordinateSystem,[0,0,0])
+		return {
+			  anchorUID: anchorUID,
+			       kind: "local",
+			  transform: 0,
+		    translation: 0,
+			orientation: 0,
+			relocalized: false
+		}
+	}
+
+	async featureAtIntersection(frame,x=0.5,y=0.5) {
+
+		//let anchorOffset = await frame.findAnchor(x,y) // this way is broken and both seem similar - whats what? TODO
+		let anchorOffset = await this.session.hitTest(x,y)
+		if(!anchorOffset) {
+			return 0
 		}
 
-		let options = {
-		  enableHighAccuracy: true,
-		  timeout: 5000,
-		  maximumAge: 0
-		};
-
-		function success(pos) {
-			var crd = pos.coords;
-			console.log("GPS: Your current position is:")
-			console.log("GPS:  Latitude: "+crd.latitude)
-			console.log("GPS: Longitude: "+crd.longitude)
-			console.log("GPS:  Altitude: "+crd.altitude)
-			console.log("GPS:  Accuracy: "+crd.accuracy + " meters")
-			resolve(crd)
+		let anchor = frame.getAnchor(anchorOffset.anchorUID)
+		if(!anchor) {
+			console.error("featureAtIntersection: just had an anchor but no longer? " + anchorUID )
+			return 0
 		}
 
-		function error(err) {
-			console.warn("GPS: ERROR 1 "+err.code+" "+ err.message)
-			console.log("GPS: not found - faking it 2")
-			let gps = { latitude: 0, longitude: 0, altitude: 0 }
-			resolve(gps)
-			//reject("failed")
+		// get a new anchor without the offset
+		this.tempMat.fromArray(anchorOffset.getOffsetTransform(anchor.coordinateSystem))
+		this.tempMat.decompose(this.tempPos,this.tempQuaternion, this.tempScale);
+		const worldCoordinates = frame.getCoordinateSystem(XRCoordinateSystem.TRACKER)
+		const anchorUID = frame.addAnchor(worldCoordinates, [this.tempPos.x, this.tempPos.y, this.tempPos.z], [this.tempQuaternion.x, this.tempQuaternion.y, this.tempQuaternion.z, this.tempQuaternion.w])
+
+		// TODO is it ok to to delete unused anchor? does it make sense / save any memory / have any impact?
+		// delete the anchor that had the offset
+		// frame.removeAnchor(anchor); anchor = 0
+		return {
+			  anchorUID: anchorUID,
+			       kind: "local",
+			  transform: 0,
+		    translation: 0,
+			orientation: 0,
+			relocalized: false
+		}
+	}
+
+	async featureAtGPS(frame) {
+		let gps = await this.gpsPromise()
+		if(!gps) {
+			return 0
+		}
+		let feature = await this.featureAtPose(frame)
+		feature.gps = gps
+		return feature
+	}
+
+	featureRelocalize(frame,feature,gpsfeature=0) {
+		if(feature.kind == "gps") {
+			if(!feature.gps) {
+				console.error("featureRelocalize: corrupt feature")
+				return
+			}
+			feature.cartesian = Cesium.Cartesian3.fromDegrees(feature.gps.longitude, feature.gps.latitude, feature.gps.altitude)
+			feature.fixed = Cesium.Transforms.eastNorthUpToFixedFrame(feature.cartesian)
+			feature.inverse = Cesium.Matrix4.inverseTransformation(feature.fixed, new Cesium.Matrix4())
+			feature.anchor = frame.getAnchor(feature.anchorUID)
+			if(feature.anchor) {
+				// this can change every frame
+				feature.offset = new XRAnchorOffset(feature.anchorUID)
+				feature.transform = feature.offset.getOffsetTransform(feature.anchor.coordinateSystem)
+				// only mark as relocalized after an anchor appears since there's a higher expectation on an initial gpsfeature to have an anchor AND a gps
+				feature.pose = this._toLocal(feature.cartesian,feature.inverse,feature.transform) // kind of redundant way to achieve this but...
+				feature.relocalized = true
+				return
+			}
+		} else {
+			// cannot do much with other features if there is no context
+			if(!gpsfeature || !gpsfeature.relocalized) {
+				console.error("featureRelocalize: invalid gps feature passed")
+				return
+			}
+			feature.anchor = frame.getAnchor(feature.anchorUID)
+			if(feature.anchor) {
+				// although some features may have anchors, it's arguable if these should be used or if the system should just use cartesian at some point
+				feature.offset = new XRAnchorOffset(feature.anchorUID)
+				feature.transform = feature.offset.getOffsetTransform(feature.anchor.coordinateSystem)
+				feature.cartesian = this._toCartesian(feature.transform,gpsfeature.transform,gpsfeature.fixed)
+				feature.fixed = Cesium.Transforms.eastNorthUpToFixedFrame(feature.cartesian)
+				feature.inverse = Cesium.Matrix4.inverseTransformation(feature.fixed, new Cesium.Matrix4())
+			}
+		}
+		// can compute screen pose of any feature (gps or otherwise) that has cartesian coordinates (if there is a local gps+anchor available as a reference)
+		if(feature.cartesian && gpsfeature && gpsfeature.relocalized) {
+			feature.pose = this._toLocal(feature.cartesian,gpsfeature.inverse,gpsfeature.transform)
+			feature.relocalized = true
+		}
+	}
+
+	///
+	/// Generate cartesian coordinates from relative transforms
+	/// TODO could preserve rotation also
+	///
+
+	_toCartesian(et,wt,gpsFixed) {
+
+		// if a gps coordinate is supplied then this is a gps related anchor and it's a good time to save a few properties
+
+		// where is the gps point?
+		//console.log("toCartesian: we believe the arkit pose for the gps anchor is at: ")
+		//console.log(wt)
+
+		// where is the feature?
+		//console.log("toCartesian: point in arkit frame of reference is at : ")
+		//console.log(et)
+
+		// relative to gps anchor?
+		// (subtract rather than transform because as far as concerned is in EUS and do not want any orientation to mar that)
+		let ev = { x: et[12]-wt[12], y: et[13]-wt[13], z: et[14]-wt[14] }
+		//console.log("toCartesian: relative to gps anchor in arkit is at ")
+		//console.log(ev)
+
+		//
+		// form a relative vector to the gps anchor - in cartesian coordinates - this only works for points "NEAR" the gps anchor
+		//
+		// https://developer.apple.com/documentation/arkit/arsessionconfiguration/worldalignment/gravityandheading
+		// ARKit relative EUS coordinates are "kinda like" polar coordinates with +x to the right, +y towards space, -z towards the north pole
+		//
+		// ECEF is a cartesian space centered on the earth with +x pointing towards 0,0 long,lat and +y coming out in china, and +z pointing north
+		// https://en.wikipedia.org/wiki/ECEF
+		//
+		// Cesium is default ENU so we have to swap axes (or else order Cesium around a bit more)
+		// https://groups.google.com/forum/#!topic/cesium-dev/NSen9Z04NEo
+		//
+
+		let ev2 = new Cesium.Cartesian3(
+			ev.x,							// in ARKit, ECEF and Cesium smaller X values are to the east.
+			-ev.z,							// in ARKit smaller Z values are to the north... and in Cesium by default vertices are East, North, Up
+			ev.y 							// in ARKit larger Y values point into space... and in Cesium "up" is the third field by default
+			)
+
+		// Get a matrix that describes the orientation and displacement of a place on earth and multiply the relative cartesian ray by it
+		let cartesian = Cesium.Matrix4.multiplyByPoint( gpsFixed, ev2, new Cesium.Cartesian3() )
+
+		//console.log("debug - absolutely in ecef at")
+		//console.log(cartesian)
+		//console.log(ev2)
+
+		if(false) {
+			// debug
+			let carto  = Cesium.Ellipsoid.WGS84.cartesianToCartographic(cartesian);
+			let lon = Cesium.Math.toDegrees(carto.longitude);
+			let lat = Cesium.Math.toDegrees(carto.latitude);
+			console.log("toCartesian: lon="+lon + " lat="+lat)
 		}
 
-		try {
-			console.log("GPS: attempting to get current position once")
-			navigator.geolocation.getCurrentPosition(success, error, options);
-		} catch(err) {
-			console.warn("GPS: ERROR 2 "+err.code+" "+ err.message)
-			reject("failed")
+		return cartesian
+	}
+
+	_toLocal(cartesian,inv,wt) {
+
+		// TODO full orientation
+
+		// transform from ECEF to be relative to gps anchor
+		let v = Cesium.Matrix4.multiplyByPoint(inv, cartesian, new Cesium.Cartesian3());
+
+		// although is now in arkit relative space, there is still a displacement to correct relative to the actual arkit origin, also fix axes
+		v = {
+			x:    v.x + wt[12],
+			y:    v.z + wt[13],
+			z:  -(v.y + wt[14]),
 		}
-	})
+
+		return v
+	}
+
 }
 
-function getUrlParams(vars={}) {
-    window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, (m,key,value) => { vars[key] = value })
-    return vars;
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///
+/// An event bus to help decouple components
+/// Supports an idea of event callbacks or just shared variable storage
+///
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+class EventBus {
+	constructor(){
+		this.messages = {} // holds labels and associated arrays of messages pending
+		this.listeners = {} // holds labels and associated arrays of unique listeners (which will all be triggered in order if matching a message label)
+	}
+	listen(label,listener) {
+		let listeners = this.listeners[label]
+		if(!listeners) {
+			listeners = this.listeners[label] = []
+		}
+		for(let i = 0; i < listeners.length;i++) {
+			if(listener === listener[i]) return
+		}
+		listeners.push(listener)
+	}
+	unlisten(label,listener) {
+		let listeners = this.listeners[label]
+		if(!listeners) {
+			listeners = this.listeners[label] = []
+		}
+		for(let i = 0; i < listeners.length;i++) {
+			if(listener === listener[i]) listeners.splice(i,1) // TODO may be better to return a unique id on listen() instead of === test here
+		}
+	}
+	set(label,...args) {
+		// call listeners if any
+		let listeners = this.listeners[label]
+		if(listeners) {
+			listeners.map((listener)=>{
+				listener(args)
+			})
+		}
+		// save value also - always as an array of values
+		this.messages[label] = args
+	}
+	push(label,...args) {
+		let m = this.messages[label]
+		if(!m) m = this.messages[label] = []
+		m.concat(args)
+		return m
+	}
+	get(label,flush=true){
+		let args = this.messages[label] || []
+		if(flush) this.messages[label]=[]
+		return args
+	}
+	log(message) {
+		push("log","log",message)
+	}
+	err(message) {
+		push("log","err",message)
+	}
 }
+const eventbus = window.eventbus = new EventBus();
+Object.freeze(eventbus);
+*/
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///
 /// ARPersistComponent
 ///
 /// Manages a concept of 'entities' which are networkable collections of art and gps locations
 ///
-////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class ARPersistComponent extends XRExampleBase {
+class ARPersistComponent extends XRAnchorCartography {
 
 	constructor(element,zone,party) {
 
-		// init parent
-        super(element, false, true, false, true)
+        super({
+            domElement:element,
+        	createVirtualReality:false,
+        	shouldStartPresenting:true,
+        	useComputerVision:false,
+        	worldSensing:true,
+        	alignEUS:true
+	        })
 
 		// zone concept - TODO this may go away or be improved
 		this.zone = zone
@@ -78,15 +330,6 @@ class ARPersistComponent extends XRExampleBase {
 
 		// tags - default props per entity
 		this.tags = "aesthetic"
-	}
-
-	msg(msg) {
-		if(!this.msgs) this.msgs = []
-		console.log(msg)
-		let div = document.getElementById("ux_help")
-		if(!div) return
-		this.msgs.unshift(msg)
-		div.innerHTML = this.msgs.slice(0,5).join("<br/>")
 	}
 
 	///////////////////////////////////////////////
@@ -101,11 +344,13 @@ class ARPersistComponent extends XRExampleBase {
 
 	async actionResolve(frame) {
 		// resolve frame related chores synchronously with access to 'frame'
+		// TODO I'm not happy with this approach - see EventBus above for something more flexible
 		let command = this.command
 		this.command = 0
 		if(!command) return 0
-		this.msg("doing command="+command)
+		console.log("doing command="+command)
 		switch(command) {
+			case "gps": await this.entityAddGPS(frame); break
 			case "make": await this.entityAddArt(frame); break
 			case "move": await this.entityAddParty(frame); break
 			case "save": await this.mapSave(frame); break
@@ -175,7 +420,7 @@ class ARPersistComponent extends XRExampleBase {
 			return group
 		}
 
-		// examine the string and decide what the content is
+		// examine the string and decide what the content is - TODO this needs a real proxy such as moz hubs
 
 		if(args.startsWith("http")) {
 			let group = new THREE.Group()
@@ -199,142 +444,14 @@ class ARPersistComponent extends XRExampleBase {
 		return mesh
 	}
 
-	//////////////////////////////////////////////////
-	// arkit anchor math
-	/////////////////////////////////////////////////
-
-	///
-	/// Get an anchor
-	///
-
-	async mapAnchor(frame,x=0.5,y=0.5) {
-
-		// If no screen space position supplied then return an anchor at the head
-
-		if(!x && !y) {
-			// TODO verify that the anchor that is created ends up with XRCoordinateSystem.TRACKER
-			let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
-			let anchorUID = frame.addAnchor(headCoordinateSystem,[0,0,0])
-			console.log("**** Made an arkit anchor " + anchorUID)
-			return anchorUID
-		}
-
-		// Otherwise probe for an anchor
-		// TODO This is broken why?
-
-		// TODO are these both the same?
-		//let anchorOffset = await frame.findAnchor(x,y)
-		let anchorOffset = await this.session.hitTest(x,y)
-		if(!anchorOffset) {
-			return 0
-		}
-
-		let anchor = frame.getAnchor(anchorOffset.anchorUID)
-		if(!anchor) {
-			return 0
-		}
-
-		// get a new anchor without the offset
-		this.tempMat = new THREE.Matrix4();
-		this.tempScale = new THREE.Vector3();
-		this.tempPos = new THREE.Vector3();
-		this.tempQuaternion = new THREE.Quaternion();
-		this.tempMat.fromArray(anchorOffset.getOffsetTransform(anchor.coordinateSystem))
-		this.tempMat.decompose(this.tempPos,this.tempQuaternion, this.tempScale); 
-		const worldCoordinates = frame.getCoordinateSystem(XRCoordinateSystem.TRACKER)
-		const anchorUID = frame.addAnchor(worldCoordinates, [this.tempPos.x, this.tempPos.y, this.tempPos.z], [this.tempQuaternion.x, this.tempQuaternion.y, this.tempQuaternion.z, this.tempQuaternion.w])
-
-		console.log("**** Got an arkit anchor " + anchorUID)
-		console.log("***** Not using " + anchorOffset.anchorUID )
-		console.log(anchor)
-		console.log(anchorUID)
-
-		// TODO is this ok? does it make sense / save any memory / have any impact?
-		// delete the anchor that had the offset
-//		frame.removeAnchor(anchor); anchor = 0
-
-		return anchorUID
-	}
-
-	///
-	/// Generate cartesian coordinates from relative transforms
-	/// TODO could preserve rotation also
-	///
-
-	toCartesian(et,wt,gpsFixed) {
-
-		// if a gps coordinate is supplied then this is a gps related anchor and it's a good time to save a few properties
-
-
-		// where is the gps point?
-		console.log("toCartesian: we believe the arkit pose for the gps anchor is at: ")
-		console.log(wt)
-
-		// where is the feature?
-		console.log("toCartesian: point in arkit frame of reference is at : ")
-		console.log(et)
-
-		// relative to gps anchor?
-		// (subtract rather than transform because as far as concerned is in EUS and do not want any orientation to mar that)
-		let ev = { x: et[12]-wt[12], y: et[13]-wt[13], z: et[14]-wt[14] }
-		console.log("toCartesian: relative to gps anchor in arkit is at ")
-		console.log(ev)
-
-		//
-		// form a relative vector to the gps anchor - in cartesian coordinates - this only works for points "NEAR" the gps anchor
-		//
-		// https://developer.apple.com/documentation/arkit/arsessionconfiguration/worldalignment/gravityandheading
-		// ARKit relative EUS coordinates are "kinda like" polar coordinates with +x to the right, +y towards space, -z towards the north pole
-		//
-		// ECEF is a cartesian space centered on the earth with +x pointing towards 0,0 long,lat and +y coming out in china, and +z pointing north
-		// https://en.wikipedia.org/wiki/ECEF
-		//
-		// Cesium is default ENU so we have to swap axes (or else order Cesium around a bit more)
-		// https://groups.google.com/forum/#!topic/cesium-dev/NSen9Z04NEo
-		//
-
-		let ev2 = new Cesium.Cartesian3(
-			ev.x,							// in ARKit, ECEF and Cesium smaller X values are to the east.
-			-ev.z,							// in ARKit smaller Z values are to the north... and in Cesium by default vertices are East, North, Up
-			ev.y 							// in ARKit larger Y values point into space... and in Cesium "up" is the third field by default
-			)
-
-		// Get a matrix that describes the orientation and displacement of a place on earth and multiply the relative cartesian ray by it
-		let cartesian = Cesium.Matrix4.multiplyByPoint( gpsFixed, ev2, new Cesium.Cartesian3() )
-
-		console.log("debug - absolutely in ecef at")
-		console.log(cartesian)
-		console.log(ev2)
-
-		if(true) {
-			// debug
-			let carto  = Cesium.Ellipsoid.WGS84.cartesianToCartographic(cartesian);
-			let lon = Cesium.Math.toDegrees(carto.longitude);
-			let lat = Cesium.Math.toDegrees(carto.latitude);
-			this.msg("toCartesian: lon="+lon + " lat="+lat)
-		}
-
-		return cartesian
-	}
-
-	toLocal(cartesian,inv,wt) {
-
-		// transform from ECEF to be relative to gps anchor
-		let v = Cesium.Matrix4.multiplyByPoint(inv, cartesian, new Cesium.Cartesian3());
-
-		// although is now in arkit relative space, there is still a displacement to correct relative to the actual arkit origin, also fix axes
-		v = {
-			x:    v.x + wt[12],
-			y:    v.z + wt[13],
-			z:  -(v.y + wt[14]),
-		}
-
-		return v
-	}
-
 	//////////////////////////////////////////////////////////
 	/// entities - a wrapper for a concept of a game object
 	//////////////////////////////////////////////////////////
+
+	entityUUID(id) {
+		// uuid has to be deterministic yet unique for all client instances so build it out of known parts and hope for best
+		return this.zone + "_" + this.party + "_" + id
+	}
 
 	entitySystemReset() {
 		// local flush - not network
@@ -346,6 +463,7 @@ class ARPersistComponent extends XRExampleBase {
 					this.scene.remove(entity.node)
 					entity.node = 0
 				}
+				// TODO delete anchors?
 			}
 		}
 		this.entities = {}
@@ -363,37 +481,47 @@ class ARPersistComponent extends XRExampleBase {
 	}
 
 	entityUpdateAll(frame) {
-		// local update all
 		for(let uuid in this.entities) {
-			this.entityUpdateOne(frame,this.entities[uuid])
+			let entity = this.entities[uuid]
+			this.entityUpdateOne(frame,entity)
+			this.entityDebugging(entity)
 		}
 	}
 
 	entityUpdateOne(frame,entity) {
 
-		// TODO may remove this type
+		// ignore maps for now
 		if(entity.kind=="map") return
 
-		// busy poll till a gps and associated anchor show up and then build coordinate systems around it
-		if(!this.entityGPS && entity.kind == "gps") {
-			this.entityGPS = this.entityUpdateGPSEntity(frame,entity)
-		}
-
-		// not a lot to do before a gps anchor shows up
-		if(!this.entityGPS) {
+		// ignore things that are not gps until a entityGPS exists
+		if(entity.kind != "gps" && !this.entityGPS) {
 			return
 		}
 
-		this.entityGPS.transform = this.entityGPS.offset.getOffsetTransform(this.entityGPS.anchor.coordinateSystem)
+		// attempt to relocalize
+		this.featureRelocalize(frame,entity,this.entityGPS)
 
-		// busy poll till grant cartesian coordinates if none yet (these objects should be local and an anchor should eventually show up)
-		// TODO this could be done over and over actually even after success... (but don't update the cartesian of the gpsEntity obviously)
-		if(!entity.cartesian) {
-			this.entityUpdateArt(frame,entity,this.entityGPS.transform)
+		// attempt to set an entityGPS
+		if(entity.kind == "gps" && entity.relocalized && !this.entityGPS) {
+			this.entityGPS = entity
 		}
 
-		// update pose
-		entity.pose = this.toLocal(entity.cartesian,this.entityGPS.inverse,this.entityGPS.transform)
+		// update art
+		this.entityArt(entity)
+
+		// publish changes?
+		if(!entity.published) {
+			this.entityPublish(entity)
+			entity.published = 1
+		}
+	}
+
+	entityArt(entity) {
+
+		if(!entity.pose) {
+			//console.error("entityArt: no pose " + entity.uuid)
+			return
+		}
 
 		// add art to entities if needed
 		if(!entity.node) {
@@ -401,90 +529,44 @@ class ARPersistComponent extends XRExampleBase {
 			this.scene.add(entity.node)
 		}
 
-		// update entity rendering position (every frame)
-		entity.node.position.set(entity.pose.x,entity.pose.y,entity.pose.z)
-
 		// given an anchor it is possible to directly set the node from that
 		//	entity.node.matrixAutoUpdate = false
 		//	entity.node.matrix.fromArray(entity.anchorOffset.getOffsetTransform(entity.anchorCoordinateSystem))
 		//	entity.node.updateMatrixWorld(true)
 
-		// publish changes?
-		if(entity.published == 0) {
-			this.entityPublish(entity)
-			entity.published = 1
-		}
-	}
-
-	entityUpdateGPSEntity(frame,entity) {
-		// flesh out a few details on the entity and mark it as the shared map gps anchor
-		entity.anchor = frame.getAnchor(entity.anchorUID)
-		if(!entity.anchor) {
-			return 0
-		}
-		entity.offset = new XRAnchorOffset(entity.anchorUID)
-		entity.cartesian = Cesium.Cartesian3.fromDegrees(entity.gps.longitude, entity.gps.latitude, entity.gps.altitude)
-		entity.fixed = Cesium.Transforms.eastNorthUpToFixedFrame(entity.cartesian)
-		entity.inverse = Cesium.Matrix4.inverseTransformation(entity.fixed, new Cesium.Matrix4())
-		entity.published = 0
-		this.entityGPS = entity
-		this.msg("map relocalized against gps entity")
-		return entity
-	}
-
-	entityUpdateArt(frame,entity,worldTransform) {
-		// this.gpsEntity must exist
-		entity.anchor = frame.getAnchor(entity.anchorUID)
-		if(!entity.anchor) {
-			return 0
-		}
-		entity.offset = new XRAnchorOffset(entity.anchorUID)
-		entity.transform = entity.offset.getOffsetTransform(entity.anchor.coordinateSystem)
-		entity.cartesian = this.toCartesian(entity.transform,worldTransform,this.entityGPS.fixed)
-		entity.published = 0
-		return entity
+		// update entity rendering position (every frame)
+		// TODO deal with orientation
+		entity.node.position.set(entity.pose.x,entity.pose.y,entity.pose.z)		
 	}
 
 	///
-	/// Every entity needs a uuid - right now that is ALWAYS generated from an anchor - even if entity loses anchor over network
-	///
-
-	entityUUID(id) {
-		// uuid has to be deterministic yet unique for all client instances so build it out of known parts and hope for best
-		return this.zone + "_" + this.party + "_" + id
-	}
-
-	///
-	/// Make a gps entity from an anchor (is an ordinary entity that has a gps value)
-	///
-	/// NOTE A plurality of these is allowed for now (later will probably only allow one) - only the first one is used right now
-	/// NOTE this call doesn't set this.entityGPS itsel
+	/// Make a gps entity - at the moment multiple of these are allowed - note that this.entityGPS is not set here (since it could arrive over network)
 	///
 
 	async entityAddGPS(frame) {
-		let gps = await gpsPromise()
-		if(!gps) {
-			this.msg("entityAddGPS: no gps")
-			return 0
-		}
-		this.msg("entityAddGPS: got gps " + gps.latitude + " " + gps.longitude )
-		let anchorUID = await this.mapAnchor(frame,0,0)
-		if(!anchorUID) {
-			this.msg("entityAddGPS: could not place an anchor!")
+		let feature = await this.featureAtGPS(frame)
+		if(!feature || !feature.gps) {
+			console.error("UX entityAddGPS: could not make gps anchor!")
 			return 0
 		}
 		let entity = {
-			       uuid: this.entityUUID(anchorUID),
-			  anchorUID: anchorUID,
-			       name: "a gps anchor at " + gps.latitude + " " + gps.longitude,
-			      descr: "a gps anchor at " + gps.latitude + " " + gps.longitude,
+			       uuid: this.entityUUID(feature.anchorUID),
+			     anchor: feature.anchor,
+			  anchorUID: feature.anchorUID,
+			        gps: feature.gps || 0,
+			  transform: feature.transform || 0,
+		    translation: feature.translation || 0,
+			orientation: feature.orientation || 0,
+			relocalized: feature.relocalized || 0,
+			  cartesian: feature.cartesian || 0,
+			       name: "a gps anchor at " + feature.gps.latitude + " " + feature.gps.longitude,
+			      descr: "a gps anchor at " + feature.gps.latitude + " " + feature.gps.longitude,
 			       kind: "gps",
 			        art: "cylinder",
 			       zone: this.zone,
 			       tags: this.tags,
 			      party: this.party,
-			        gps: gps,
-			  published: 1,
+			  published: 0,
 			     remote: 0,
 			      dirty: 1
 		}
@@ -493,24 +575,26 @@ class ARPersistComponent extends XRExampleBase {
 	}
 
 	///
-	/// Create an entity as per the users request
+	/// Create an entity as per the users request - it is ok to make these before gps anchors show up
 	///
 
 	async entityAddArt(frame) {
 
-		if(!this.entityGPS) {
-			this.msg("save: this engine needs gps before doing other stuff")
-			return 0
-		}
-
-		let anchorUID = await this.mapAnchor(frame,0.5,0.5)
-		if(!anchorUID) {
-			this.msg("entityAddArt: anchor failed")
+		let feature = await this.featureAtIntersection(frame,0.5,0.5)
+		if(!feature) {
+			console.error("UX entityAddArt: anchor failed")
 			return 0
 		}
 		let entity = {
-			       uuid: this.entityUUID(anchorUID),
-			  anchorUID: anchorUID,
+			       uuid: this.entityUUID(feature.anchorUID),
+			  anchorUID: feature.anchorUID,
+			     anchor: feature.anchor,
+			        gps: feature.gps || 0,
+			  transform: feature.transform || 0,
+		    translation: feature.translation || 0,
+			orientation: feature.orientation || 0,
+			relocalized: feature.relocalized || 0,
+			  cartesian: feature.cartesian || 0,
 			       name: "art",
 			      descr: "some user art",
 			       kind: "content",
@@ -518,8 +602,7 @@ class ARPersistComponent extends XRExampleBase {
 			       zone: this.zone,
 			       tags: this.tags,
 			      party: this.party,
-			  cartesian: 0,
-			  published: 1,
+			  published: 0,
 			     remote: 0,
 			      dirty: 1
 		}
@@ -534,27 +617,28 @@ class ARPersistComponent extends XRExampleBase {
 
 	async entityAddParty(frame) {
 
-		if(!this.entityGPS) {
-			// it is possible that gps failed us - so this can happen
-			this.msg("save: this engine needs gps before doing other stuff")
-			return 0
-		}
-
-		let anchorUID = await this.mapAnchor(frame)
-		if(!anchorUID) {
-			this.msg("entityAddParty: anchor failed")
+		let feature = await this.featureAtPose(frame)
+		if(!feature) {
+			console.error("entityAddParty: anchor failed")
 			return 0
 		}
 		if(this.entityParty) {
 			// TODO - should I throw away the previous anchor?
-			this.entityParty.anchorUID = anchorUID
+			this.entityParty.anchorUID = feature.anchorUID
 			this.entityParty.cartesian = 0
 			this.entityParty.published = 0
+			this.entityParty.dirty = 0
 			return this.entityParty
 		}
 		let entity = this.entityParty = {
-			       uuid: this.entityUUID(anchorUID),
-			  anchorUID: anchorUID,
+			       uuid: this.entityUUID(feature.anchorUID),
+			  anchorUID: feature.anchorUID,
+			        gps: feature.gps || 0,
+			  transform: feature.transform || 0,
+		    translation: feature.translation || 0,
+			orientation: feature.orientation || 0,
+			relocalized: feature.relocalized || 0,
+			  cartesian: feature.cartesian || 0,
 			       name: this.party,
 			      descr: "a representation for a person named " + this.party,
 			       kind: "party",
@@ -562,8 +646,7 @@ class ARPersistComponent extends XRExampleBase {
 			       zone: this.zone,
 			       tags: this.tags,
 			      party: this.party,
-			  cartesian: 0,
-			  published: 1,
+			  published: 0,
 			     remote: 0,
 			      dirty: 1
 		}
@@ -572,53 +655,55 @@ class ARPersistComponent extends XRExampleBase {
 	}
 
 	async mapSave(frame) {
-		// a slight hack - goes ahead and force makes a gps anchor right now and fully prepare it if needed (i conflated adding a gps anchor and a saving a map)
-		if(!this.entityGPS) {
+
+		// a slight hack - make and fully prep a gps anchor if one is not made yet
+
+		let entity = this.entityGPS
+		if(!entity) {
 			// if no gps entity was added then force add one now
-			let entity = await this.entityAddGPS(frame)
-			// force promote the entity to the gps entity
-			if(entity) {
-				console.log("map save - added gps entity")
-				this.entityUpdateGPSEntity(frame, entity)
-			} else {
-				console.error("map save - failed to add gps entity")
+			entity = await this.entityAddGPS(frame)
+			if(!entity) {
+				console.error("UX map save - failed to add gps entity - no gps yet?")
+				return
 			}
-		}
-		if(!this.entityGPS) {
-			// it is possible that gps failed us - so this can happen
-			this.msg("save: couldn't place anchor or couldn't find gps")
-			return 0
+			// force promote the entity to the gps entity
+			this.featureRelocalize(frame, entity)
+			if(!entity.relocalized) {
+				console.error("UX map save - failed to relocalize entity - which is odd")
+				return
+			}
+			this.entityGPS = entity
 		}
 
 		// for now the entity is also written into the map - it's arguable if this is needed - will likely remove since it's mostly just extraneous TODO
 		// the idea was that I could search for maps, but if I assume each map has one and only one gps anchor entity then I know what maps exist based on entities whose kind is == gps
 
-		let args = this.entityGPS
-		console.log("saving map")
+		console.log("UX saving map")
 
 		let results = await this.session.getWorldMap()
 		if(!results) {
-			this.msg("save: this engine does not have a good map from arkit yet")
+			console.error("UX save: this engine does not have a good map from arkit yet")
 			return 0
 		}
 		const data = new FormData()
 		// TODO - this kind of mixes concerns badly - if I pick a single anchor to associate the map with then this is not needed
 		data.append('blob',        new Blob([results.worldMap], { type: "text/html"} ) )
-		data.append('uuid',        "MAP" + args.uuid )
-		data.append('anchorUID',   args.anchorUID )
-		data.append('name',        args.name)
-		data.append('descr',       args.descr)
+		data.append('uuid',        "MAP" + entity.uuid )
+		data.append('anchorUID',   entity.anchorUID )
+		data.append('name',        entity.name)
+		data.append('descr',       entity.descr)
 		data.append('kind',        "map" )
-		data.append('art',         args.art )
-		data.append('zone',        args.zone )
-		data.append('tags',        args.tags )
-		data.append('party',       args.party )
-		data.append('latitude',    args.gps.latitude )
-		data.append('longitide',   args.gps.longitude )
-		data.append('altitude',    args.gps.altitude )
+		data.append('art',         entity.art )
+		data.append('zone',        entity.zone )
+		data.append('tags',        entity.tags )
+		data.append('party',       entity.party )
+		data.append('relocalized', 0)
+		data.append('latitude',    entity.gps.latitude )
+		data.append('longitide',   entity.gps.longitude )
+		data.append('altitude',    entity.gps.altitude )
 		let response = await fetch('/api/map/save', { method: 'POST', body: data })
 		let json = await response.json()
-		this.msg("mapSave: succeeded")
+		console.log("UX mapSave: succeeded")
 		return json		
 	}
 
@@ -628,7 +713,7 @@ class ARPersistComponent extends XRExampleBase {
 		if (!this.listenerSetup) {
 			this.listenerSetup = true
 			this.session.addEventListener(XRSession.NEW_WORLD_ANCHOR,(event) => {
-				console.log("mapLoad callback - saw an anchor re-appear uid=" + event.detail.uid )
+				console.log("UX mapLoad callback - saw an anchor re-appear uid=" + event.detail.uid )
 			})
 		}
 
@@ -636,7 +721,7 @@ class ARPersistComponent extends XRExampleBase {
 		let response = await fetch("uploads/"+filename)
 		let data = await response.text()
 		let results = await this.session.setWorldMap({worldMap:data})
-		this.msg("load: a fresh map file arrived " + filename )
+		console.log("UX load: a fresh map file arrived " + filename )
 		console.log(results)
 	}
 
@@ -665,10 +750,10 @@ class ARPersistComponent extends XRExampleBase {
 	async entityLoadAll(gps) {
 		// load all the entities from the server in one go - and rebinding/gluing state back together will happen later on in update()
 		if(!gps) {
-			this.msg("load: this engine needs a gps location before loading maps")
+			console.error("UX load: this engine needs a gps location before loading maps")
 			return 0
 		}
-		this.msg("load: getting all entities near latitude="+gps.latitude+" longitude="+gps.longitude)
+		console.log("UX load: getting all entities near latitude="+gps.latitude+" longitude="+gps.longitude)
 
 		let response = await fetch("/api/entity/query",{ method: 'POST', body: this.zone })
 		let json = await response.json()
@@ -681,9 +766,10 @@ class ARPersistComponent extends XRExampleBase {
 			entity.published=1
 			entity.remote=1
 			entity.dirty=1
-			this.msg("load: made entity kind="+entity.kind+" uuid="+entity.uuid+" anchor="+entity.anchorUID)
+			entity.relocalized=0
+			console.log("UX load: made entity kind="+entity.kind+" uuid="+entity.uuid+" anchor="+entity.anchorUID)
 		}
-		this.msg("load: loading done - entities in total is " + count )
+		console.log("UX load: loading done - entities in total is " + count )
 		return 1
 	}
 
@@ -693,21 +779,23 @@ class ARPersistComponent extends XRExampleBase {
 	///
 
 	entityReceive(entity) {
-		entity.cartesian =  new Cesium.Cartesian3(entity.cartesian.x,entity.cartesian.y,entity.cartesian.z)
+		// TODO rebuild trans/rot
+		entity.cartesian = entity.cartesian ? new Cesium.Cartesian3(entity.cartesian.x,entity.cartesian.y,entity.cartesian.z) : 0
 		entity.published = 1
 		entity.remote = 1
 		entity.dirty = 1
+		entity.relocalized = 0
 		let previous = this.entities[entity.uuid]
 		if(!previous) {
 			this.entities[entity.uuid] = entity
-			console.log("entityReceive: saving new remote entity")
+			console.log("UX entityReceive: saving new remote entity")
 			console.log(entity)
 		} else {
 			// scavenge choice morsels from the network traffic and throw network traffic away
 			previous.cartesian = entity.cartesian
 			previous.art = entity.art
 			previous.tags = entity.tags
-			console.log("entityReceive: remote entity found again and updated")
+			console.log("UX entityReceive: remote entity found again and updated")
 			console.log(entity)
 		}
 	}
@@ -720,7 +808,8 @@ class ARPersistComponent extends XRExampleBase {
 
 	entityPublish(entity) {
 
-		if(!entity.cartesian || entity.published || entity.remote) {
+		if(!entity.cartesian) {
+			console.warning("publish: entity has no cartesian " + entity.uuid )
 			return
 		}
 
@@ -733,13 +822,19 @@ class ARPersistComponent extends XRExampleBase {
 		let blob = {
 			       uuid: entity.uuid,
 			  anchorUID: entity.anchorUID,
+			        gps: entity.gps || 0,
+			  transform: entity.transform || 0,
+		    translation: entity.translation || 0,
+			orientation: entity.orientation || 0,
+			relocalized: entity.relocalized || 0,
+			  cartesian: entity.cartesian || 0,
+			       name: entity.name,
+			      descr: entity.descr,
 			       kind: entity.kind,
 			        art: entity.art,
 			       zone: entity.zone,
 			       tags: entity.tags,
 			      party: entity.party,
-			  cartesian: entity.cartesian || 0,
-			        gps: entity.gps || 0,
 			  published: entity.published || 0,
 			     remote: entity.remote || 0,
 			      dirty: entity.dirty || 0
@@ -748,7 +843,7 @@ class ARPersistComponent extends XRExampleBase {
 		this.socket.emit('publish',blob);
 	}
 
-	/*
+	/* TODO - I need some kind of admin flush mode
 	async flushServer() {
 
 		// flush server
@@ -760,9 +855,20 @@ class ARPersistComponent extends XRExampleBase {
 	}
 	*/
 
+	entityDebugging(entity) {
+		if(entity.debugged) return
+		if(!entity.pose) return
+		entity.debugged = 1
+		console.log("UX *********************** entity status " + entity.anchorUID + " relocalized="+entity.relocalized)
+		if(entity.pose) console.log("UX entity=" + entity.anchorUID + " is at x=" + entity.pose.x + " y="+entity.pose.y+" z="+entity.pose.z)
+		if(entity.gps) console.log("UX entity=" + entity.anchorUID + " latitude="+entity.gps.latitude+" longitude="+entity.gps.longitude+" accuracy="+entity.gps.accuracy)
+		if(entity.cartesian) console.log("UX entity cartesian x=" + entity.cartesian.x + " y=" + entity.cartesian.y + " z="+entity.cartesian.z)
+		console.log(entity)
+	}
+
 }
 
-//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///
 /// UXMapController
 ///
@@ -770,7 +876,12 @@ class ARPersistComponent extends XRExampleBase {
 /// This is a google maps page used in several ways
 /// One way it is used is to help fine tine the position of an arkit anchor
 ///
-//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+function getUrlParams(vars={}) {
+    window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, (m,key,value) => { vars[key] = value })
+    return vars;
+}
 
 class UXMapController {
 
@@ -831,7 +942,7 @@ class UXMapController {
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///
 /// UXHelper
 ///
@@ -841,7 +952,7 @@ class UXMapController {
 /// Has specialized logic for this particular app to help manage flow
 ///
 ///
-//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 class UXHelper {
 
@@ -911,7 +1022,7 @@ class UXHelper {
 
 
 		// get a gps hopefully
-		let gps = await gpsPromise()
+		let gps = await window.arapp.gpsPromise()
 
 		console.log("picker gps results")
 		console.log(gps)
@@ -1054,6 +1165,50 @@ class UXHelper {
 	}
 
 }
+
+///////////////////////////////////////////////
+///
+/// A zero weight logger that stays out of the way - kind of hack
+///
+///////////////////////////////////////////////
+
+/*
+function uxlog(...args) {
+	let scope = window.myglobalogger
+	if(!scope) {
+		scope = window.mygloballogger = {}
+		window.mygloballogger.msgs = []
+		window.mygloballogger.target = document.getElementById("ux_help")
+	}
+	if(!scope.target) return
+	let blob = args.join(' ')
+	scope.mygloballogger.msgs.unshift(blob)
+	scope.target.innerHTML = scope.mygloballogger.msgs.slice(0,5).join("<br/>")
+}
+
+let previous_console = window.console
+window.console = {
+	log: function(...args) {
+		//previous_console.log(args[0])
+		//if(args.length > 0 && args[0].startsWith("UX")) {
+			uxlog(args)
+		//}
+		previous_console.log(args)
+	},
+	warn: function(...args) {
+		//if(args.length > 0 && args[0].startsWith("UX")) {
+		//	uxlog(args)
+		//}
+		previous_console.warn(args)
+	},
+	error: function(...args) {
+		//if(args.length > 0 && args[0].startsWith("UX")) {
+		//	uxlog(args)
+		//}
+		previous_console.error(args)
+	}
+}
+*/
 
 //////////////////////////////////////////////////////////////////////////////
 /// bootstrap
