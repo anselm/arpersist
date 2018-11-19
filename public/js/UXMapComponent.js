@@ -20,7 +20,7 @@ class UXMapComponent {
 	}
 
 	add(pos) {
-		return new google.maps.Marker({position: pos, map: this.map})
+		return new google.maps.Marker({title: pos.title, position: pos, map: this.map})
 	}
 
 	mapMarker(pos) {

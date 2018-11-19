@@ -213,7 +213,7 @@ class UXHelper {
 			let blob  = Cesium.Ellipsoid.WGS84.cartesianToCartographic(entity.cartesian);
 			blob.lat = blob.latitude
 			blob.lng = blob.longitude
-			blob.uuid = entity.uuid
+			blob.title = entity.uuid
 			entity.mapped = this.uxmap.add(blob)
 			console.log("mapped")
 			console.log(blob)
