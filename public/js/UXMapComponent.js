@@ -19,6 +19,10 @@ class UXMapComponent {
 		this.mapInit()
 	}
 
+	add(pos) {
+		return new google.maps.Marker({position: pos, map: this.map})
+	}
+
 	mapMarker(pos) {
 		let c = this.map.getCenter()
 		if(!this.markerCenter) {

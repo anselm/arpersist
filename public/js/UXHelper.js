@@ -186,7 +186,7 @@ class UXHelper {
 		// take this opportunity to hide 'save map' if your build does not have it
 		if(window.arapp && (!window.arapp.session || !window.arapp.session.getWorldMap))
 		{
-			document.getElementById("page_main_save").style.display = "none"
+			document.getElementById("save").style.display = "none"
 		}
 
 		// go to the main page
@@ -194,11 +194,30 @@ class UXHelper {
 		return 0
 	}
 
-	map() {
+	map_nudge() {
 		this.push("map")
 		if(!this.uxmap) {
 			this.uxmap = new UXMapComponent("map")
 		}
+		return 0
+	}
+
+	map_overview() {
+		this.push("map")
+		if(!this.uxmap) {
+			this.uxmap = new UXMapComponent("map")
+		}
+		window.arapp.em.entityAll((entity)=>{
+			if(entity.mapped) return
+			if(!entity.cartesian) return
+			let blob  = Cesium.Ellipsoid.WGS84.cartesianToCartographic(entity.cartesian);
+			blob.lat = blob.latitude
+			blob.lng = blob.longitude
+			blob.uuid = entity.uuid
+			entity.mapped = this.uxmap.add(blob)
+			console.log("mapped")
+			console.log(blob)
+		})
 		return 0
 	}
 
@@ -269,6 +288,20 @@ class UXHelper {
 		}
 
 		this.main() // TODO I should be able to pop... study
+		return 0
+	}
+
+	action(act) {
+		switch(act) {
+			case 'make': this.arapp.action(act); break
+			case 'edit': return this.ux.exit()
+			case 'move': this.arapp.action(act); break
+			case 'del':  alert("tbd"); break
+			case 'gps':  this.arapp.action(act); break
+			case 'save': this.arapp.action(act); break
+			case 'maps': this.map_overview(); break
+			case 'nudg': this.map_nudge(); break
+		}
 		return 0
 	}
 
