@@ -1030,6 +1030,8 @@ var ARKitWrapper = function (_EventHandlerBase) {
 		_this._timeOffsetComputed = false;
 		_this.timestamp = 0;
 
+		_this.worldMappingStatus = ARKitWrapper.WEB_AR_WORLDMAPPING_NOT_AVAILABLE;
+
 		_this._globalCallbacksMap = {}; // Used to map a window.arkitCallback method name to an ARKitWrapper.on* method name
 		// Set up the window.arkitCallback methods that the ARKit bridge depends on
 		var callbackNames = ['onInit', 'onWatch'];
@@ -1800,7 +1802,7 @@ var ARKitWrapper = function (_EventHandlerBase) {
 			this.lightIntensity = data.light_intensity;
 			this.viewMatrix_ = data.camera_view;
 			this.projectionMatrix_ = data.projection_camera;
-
+			this.worldMappingStatus = data.worldMappingStatus;
 			if (data.newObjects.length) {
 				for (var i = 0; i < data.newObjects.length; i++) {
 					var element = data.newObjects[i];
@@ -2303,6 +2305,12 @@ ARKitWrapper.ORIENTATION_RIGHT = 6; // 0th row on right,  0th column at top    -
 ARKitWrapper.ORIENTATION_RIGHT_MIRRORED = 7; // 0th row on right,  0th column on bottom
 ARKitWrapper.ORIENTATION_LEFT = 8; // 0th row on left,   0th column at bottom - 90 deg CCW
 
+// world mapping status
+ARKitWrapper.WEB_AR_WORLDMAPPING_NOT_AVAILABLE = "ar_worldmapping_not_available";
+ARKitWrapper.WEB_AR_WORLDMAPPING_LIMITED = "ar_worldmapping_limited";
+ARKitWrapper.WEB_AR_WORLDMAPPING_EXTENDING = "ar_worldmapping_extending";
+ARKitWrapper.WEB_AR_WORLDMAPPING_MAPPED = "ar_worldmapping_mapped";
+
 // hit test types
 ARKitWrapper.HIT_TEST_TYPE_FEATURE_POINT = 1;
 ARKitWrapper.HIT_TEST_TYPE_ESTIMATED_HORIZONTAL_PLANE = 2;
@@ -2674,7 +2682,11 @@ var Reality = function (_EventHandlerBase) {
 		value: function _setWorldMap(worldMap) {
 			throw new Error('Extending classes should implement _setWorldMap');
 		}
-
+	}, {
+		key: '_getWorldMappingStatus',
+		value: function _getWorldMappingStatus() {
+			throw new Error('Extending classes should implement _getWorldMappingStatus');
+		}
 		// attribute EventHandler onchange;
 
 	}, {
@@ -3265,7 +3277,11 @@ var XRSession = function (_EventHandlerBase) {
 		value: function setWorldMap(worldMap) {
 			return this.reality._setWorldMap(worldMap);
 		}
-
+	}, {
+		key: 'getWorldMappingStatus',
+		value: function getWorldMappingStatus() {
+			return this.reality._getWorldMappingStatus();
+		}
 		/*
   attribute EventHandler onblur;
   attribute EventHandler onfocus;
@@ -12223,6 +12239,16 @@ var CameraReality = function (_Reality) {
 				return null;
 			}
 		}
+	}, {
+		key: '_getWorldMappingStatus',
+		value: function _getWorldMappingStatus() {
+			if (this._arKitWrapper !== null) {
+				return this._arKitWrapper.worldMappingStatus;
+			} else {
+				// No platform support for ligth estimation
+				return null;
+			}
+		}
 
 		/**
   * retrieves a worldMap from the platform, if possible
@@ -12265,7 +12291,9 @@ var CameraReality = function (_Reality) {
 			if (this._arKitWrapper) {
 				return this._arKitWrapper.setWorldMap(worldMap);
 			} else {
-				return null;
+				return new Promise(function (resolve, reject) {
+					reject(new Error('setWorldMap not supported'));
+				});
 			}
 		}
 	}, {
