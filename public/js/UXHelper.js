@@ -4,6 +4,52 @@ function getUrlParams(vars={}) {
     return vars;
 }
 
+///////////////////////////////////////////////
+///
+/// A zero weight logger that stays out of the way - kind of hack
+///
+///////////////////////////////////////////////
+
+function uxlog(...args) {
+	let blob = args.join(' ')
+	console.log(blob)
+	let scope = window.mygloballogger
+	if(!scope) {
+		scope = window.mygloballogger = {}
+		window.mygloballogger.msgs = []
+		window.mygloballogger.target = document.getElementById("ux_help")
+	}
+	if(!scope.target) return
+	scope.msgs.unshift(blob)
+	scope.target.innerHTML = scope.msgs.slice(0,10).join("<br/>")
+}
+
+/*
+
+let previous_console = window.console
+window.console = {
+	log: function(...args) {
+		//previous_console.log(args[0])
+		//if(args.length > 0 && args[0].startsWith("UX")) {
+			uxlog(args)
+		//}
+		previous_console.log(args)
+	},
+	warn: function(...args) {
+		//if(args.length > 0 && args[0].startsWith("UX")) {
+		//	uxlog(args)
+		//}
+		previous_console.warn(args)
+	},
+	error: function(...args) {
+		//if(args.length > 0 && args[0].startsWith("UX")) {
+		//	uxlog(args)
+		//}
+		previous_console.error(args)
+	}
+}
+*/
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///
@@ -39,7 +85,7 @@ class UXHelper {
 		if(!window.arapp) {
 			let target = document.getElementById('main_arview_target')
 			console.log(target)
-			this.arapp = window.arapp = new UXPersistComponent(target,this.zone,this.party)
+			this.arapp = window.arapp = new UXEntityComponent(target,this.zone,this.party,uxlog)
 		}
 
 	}
@@ -83,9 +129,8 @@ class UXHelper {
 		// show picker page
 		this.push("pick")
 
-
 		// get a gps hopefully
-		let gps = await window.arapp.gpsPromise()
+		let gps = await XRAnchorCartography.gpsPromise()
 
 		console.log("picker gps results")
 		console.log(gps)
@@ -94,14 +139,12 @@ class UXHelper {
 			return 0
 		}
 
-		// reset the entity system (or set it up the first time)
-		window.arapp.entitySystemReset()
+		// restart component - listening for changes near an area (or restart listening)
+		await window.arapp.restart({kind:0,zone:this.zone,gps:gps})
 
-		// allow the app to start listening for changes near an area (or restart listening)
-		await window.arapp.entityNetworkRestart({kind:0,zone:this.zone,gps:gps})
-
-		// are there any maps here?
-		let results = window.arapp.entityQuery({kind:"map",gps:gps})
+		// are there any maps near here?
+		// TODO slightly inelegant to reveal arapp em property
+		let results = window.arapp.em.entityQuery({kind:"map",gps:gps})
 
 		// flush
 		let dynamic_list = document.getElementById("picker_dynamic_list")
@@ -120,6 +163,7 @@ class UXHelper {
 		}
 
 		// say other cases - could use a slider etc TODO
+		// TODO the mapload method itself could be an action hidden inside of the arapp component rather than naked here
 		for(let i = 0; i < results.length; i++) {
 			let entity = results[i]
 			let element = document.createElement("button")
@@ -127,7 +171,7 @@ class UXHelper {
 			dynamic_list.appendChild(element)
 			element.onclick = (e) => {
 				let filename = e.srcElement.innerText
-				window.arapp.mapLoad(filename)
+				window.arapp.em.mapLoad(window.arapp.session,filename)
 				this.main()
 				return 0
 			}
@@ -165,7 +209,7 @@ class UXHelper {
 
 	edit() {
 		this.push("edit")
-		let entity = this.arapp.entitySelected
+		let entity = this.arapp.selected()
 		if(entity) {
 			let elem = document.getElementById("edit_art")
 			elem.value = entity.art
@@ -195,7 +239,7 @@ class UXHelper {
 
 	editdone() {
 
-		let entity = this.arapp.entitySelected
+		let entity = this.arapp.selected()
 		if(entity) {
 
 			entity.published = 0
@@ -205,6 +249,7 @@ class UXHelper {
 			// TODO sanitize
 			entity.art = document.getElementById("edit_art").value
 			if(entity.node) {
+				// TODO this should be in the above component not here
 				this.arapp.scene.remove(entity.node)
 				entity.node = 0;
 			}
@@ -229,49 +274,6 @@ class UXHelper {
 
 }
 
-///////////////////////////////////////////////
-///
-/// A zero weight logger that stays out of the way - kind of hack
-///
-///////////////////////////////////////////////
-
-/*
-function uxlog(...args) {
-	let scope = window.myglobalogger
-	if(!scope) {
-		scope = window.mygloballogger = {}
-		window.mygloballogger.msgs = []
-		window.mygloballogger.target = document.getElementById("ux_help")
-	}
-	if(!scope.target) return
-	let blob = args.join(' ')
-	scope.mygloballogger.msgs.unshift(blob)
-	scope.target.innerHTML = scope.mygloballogger.msgs.slice(0,5).join("<br/>")
-}
-
-let previous_console = window.console
-window.console = {
-	log: function(...args) {
-		//previous_console.log(args[0])
-		//if(args.length > 0 && args[0].startsWith("UX")) {
-			uxlog(args)
-		//}
-		previous_console.log(args)
-	},
-	warn: function(...args) {
-		//if(args.length > 0 && args[0].startsWith("UX")) {
-		//	uxlog(args)
-		//}
-		previous_console.warn(args)
-	},
-	error: function(...args) {
-		//if(args.length > 0 && args[0].startsWith("UX")) {
-		//	uxlog(args)
-		//}
-		previous_console.error(args)
-	}
-}
-*/
 
 //////////////////////////////////////////////////////////////////////////////
 /// bootstrap

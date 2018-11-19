@@ -1,29 +1,16 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///
-/// Wrapper for WebXR-Polyfill that adds geographic support to anchors
+/// Wrapper for WebXR-Polyfill that has a pile of static utilty methods to add geographic support to anchors
+///
 /// Given a map and one anchor on that map at a known gps location - provide gps coordinates for other anchors on the same map
 ///
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class XRAnchorCartography extends XRExampleBase {
+class XRAnchorCartography {
 
-	constructor(args) {
-        super(
-        	args.domElement,
-        	args.createVirtualReality,
-        	args.shouldStartPresenting,
-        	args.useComputerVision,
-        	args.worldSensing,
-        	args.alignEUS
-        	)
-		this.tempMat = new THREE.Matrix4()
-		this.tempScale = new THREE.Vector3()
-		this.tempPos = new THREE.Vector3()
-		this.tempQuaternion = new THREE.Quaternion()
-	}
-
-	gpsPromise() {
+	//gpsPromise() { return this.constructor.gpsPromise() }
+	static gpsPromise() {
 
 	    return new Promise((resolve, reject)=>{
 
@@ -59,7 +46,8 @@ class XRAnchorCartography extends XRExampleBase {
 		})
 	}
 
-	async featureAtPose(frame) {
+	async featureAtPose(frame) { return this.constructor.featureAtPose(frame) }
+	static async featureAtPose(frame) {
 		// TODO does the final anchor that is created end up with XRCoordinateSystem.TRACKER??
 		let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
 		let anchorUID = frame.addAnchor(headCoordinateSystem,[0,0,0])
@@ -73,10 +61,11 @@ class XRAnchorCartography extends XRExampleBase {
 		}
 	}
 
-	async featureAtIntersection(frame,x=0.5,y=0.5) {
+	async featureAtIntersection(frame,x=0.5,y=0.5) { return featureAtIntersection(frame,x,y) }
+	static async featureAtIntersection(frame,x=0.5,y=0.5) {
 
-		//let anchorOffset = await frame.findAnchor(x,y) // this way is broken and both seem similar - whats what? TODO
-		let anchorOffset = await this.session.hitTest(x,y)
+		//let anchorOffset = await frame.findAnchor(x,y) // this way is broken and both seem similar - whats what? TODO and then remove _session hack
+		let anchorOffset = await frame._session.hitTest(x,y)
 		if(!anchorOffset) {
 			return 0
 		}
@@ -87,16 +76,21 @@ class XRAnchorCartography extends XRExampleBase {
 			return 0
 		}
 
+		let m = new THREE.Matrix4()
+		let s = new THREE.Vector3()
+		let xyz = new THREE.Vector3()
+		let q = new THREE.Quaternion()
+
 		// get a new anchor without the offset
-		this.tempMat.fromArray(anchorOffset.getOffsetTransform(anchor.coordinateSystem))
-		this.tempMat.decompose(this.tempPos,this.tempQuaternion, this.tempScale);
-		const worldCoordinates = frame.getCoordinateSystem(XRCoordinateSystem.TRACKER)
-		const anchorUID = frame.addAnchor(worldCoordinates, [this.tempPos.x, this.tempPos.y, this.tempPos.z], [this.tempQuaternion.x, this.tempQuaternion.y, this.tempQuaternion.z, this.tempQuaternion.w])
+		m.fromArray(anchorOffset.getOffsetTransform(anchor.coordinateSystem))
+		m.decompose(xyz,q,s);
+		const wc = frame.getCoordinateSystem(XRCoordinateSystem.TRACKER)
+		const anchorUID = frame.addAnchor(wc, [xyz.x, xyz.y, xyz.z], [q.x, q.y, q.z, q.w])
 
 		// TODO is it ok to to delete unused anchor? does it make sense / save any memory / have any impact?
-		// delete the anchor that had the offset
-		// frame.removeAnchor(anchor); anchor = 0
+		//frame.removeAnchor(anchor); anchor = 0
 		console.log("*** will ignore this anchor from now on " + anchorOffset.anchorUID)
+
 		return {
 			  anchorUID: anchorUID,
 			       kind: "local",
@@ -107,7 +101,8 @@ class XRAnchorCartography extends XRExampleBase {
 		}
 	}
 
-	async featureAtGPS(frame) {
+	async featureAtGPS(frame) { return this.constructor.featureAtGPS(frame) }
+	static async featureAtGPS(frame) {
 		let gps = await this.gpsPromise()
 		if(!gps) {
 			return 0
@@ -117,7 +112,8 @@ class XRAnchorCartography extends XRExampleBase {
 		return feature
 	}
 
-	featureRelocalize(frame,feature,gpsfeature=0) {
+	async featureRelocalize(frame,feature,gpsfeature=0) { return this.constructor.featureAtGPS(frame,feature,gpsfeature) }
+	static featureRelocalize(frame,feature,gpsfeature=0) {
 		if(feature.kind == "gps") {
 			if(!feature.gps) {
 				console.error("featureRelocalize: corrupt feature")
@@ -164,7 +160,7 @@ class XRAnchorCartography extends XRExampleBase {
 	/// TODO could preserve rotation also
 	///
 
-	_toCartesian(et,wt,gpsFixed) {
+	static _toCartesian(et,wt,gpsFixed) {
 
 		// if a gps coordinate is supplied then this is a gps related anchor and it's a good time to save a few properties
 
@@ -219,7 +215,7 @@ class XRAnchorCartography extends XRExampleBase {
 		return cartesian
 	}
 
-	_toLocal(cartesian,inv,wt) {
+	static _toLocal(cartesian,inv,wt) {
 
 		// TODO full orientation
 

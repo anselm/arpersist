@@ -17,7 +17,7 @@ This app itself is a nodejs app, it can be installed and run like so locally (al
   npm run
   (or node server.js)
 
-It will print out an http:// address to go to (* using the webxr-ios browser above) and this will bring up a client ux.
+It will print out an http:// address:port to go to (* using the webxr-ios browser above) and this will bring up a client ux.
 
 # Usage
 
@@ -80,13 +80,11 @@ The client web app usage is as follows:
 
 # TODO
 
-- improve edit page
-- test showing other players
-- it would be nice to show a globe that shows where all the participants are
-- network init and rebinding to anchors
-- provide more notification on when gps is ready, when arkit is ready, when a good time to capture gps is
-- may hide creating maps and placing gps anchors
-- need to do full orientation transform 
+  - tell network about our location
+
+  - have a map page with everything
+
+  - network orientation
 
 # Future
 

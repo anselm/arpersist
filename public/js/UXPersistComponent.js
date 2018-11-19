@@ -1,190 +1,60 @@
 
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///
-/// UXPersistComponent
+/// Client side entity state mirroring and networking
 ///
 /// Manages a concept of 'entities' which are networkable collections of art and gps locations
 ///
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class UXPersistComponent extends XRAnchorCartography {
+class EntityManager {
 
-	constructor(element,zone,party) {
-
-        super({
-            domElement:element,
-        	createVirtualReality:false,
-        	shouldStartPresenting:true,
-        	useComputerVision:false,
-        	worldSensing:true,
-        	alignEUS:true
-	        })
-
+	constructor(zone,party,logging=0) {
 		// zone concept - TODO this may go away or be improved
 		this.zone = zone
 
 		// party - this may be improved - used to distinguish players right now but is not non-collidant
 		this.party = party
 
+		// some error logging support - a callback handler
+		this.logging = logging || function(message) { console.log(message) }
+
 		// tags - default props per entity
 		this.tags = "aesthetic"
 	}
-
-	///////////////////////////////////////////////
-	// support for externally driven command messages
-	///////////////////////////////////////////////
-
-	action(command,args) {
-		// some commands can be done now... of which none exist at the moment in the current app design
-		// some must be deferred
-		this.command = command
-	}
-
-	async actionResolve(frame) {
-		// resolve frame related chores synchronously with access to 'frame'
-		// TODO I'm not happy with this approach - see EventBus above for something more flexible
-		let command = this.command
-		this.command = 0
-		if(!command) return 0
-		console.log("doing command="+command)
-		switch(command) {
-			case "gps": await this.entityAddGPS(frame); break
-			case "make": await this.entityAddArt(frame); break
-			case "move": await this.entityAddParty(frame); break
-			case "save": await this.mapSave(frame); break
-			default: break
-		}
-		return 1
-	}
-
-	///////////////////////////////////////////////
-	// scene geometry and update callback helpers
-	///////////////////////////////////////////////
-
-	initializeScene() {
-		this.listenerSetup = false
-
-		// add some light
-		this.scene.add(new THREE.AmbientLight('#FFF', 0.2))
-		let directionalLight = new THREE.DirectionalLight('#FFF', 0.6)
-		directionalLight.position.set(0, 10, 0)
-		this.scene.add(directionalLight)
-
-		// attach something to 0,0,0 (although 0,0,0 doesn't mean a lot since arkit can update anchor positions)
-        this.scene.add( this.AxesHelper( 0.2 ) );
-	}
-
-	///
-	/// Called once per frame by base class, before render, to give the app a chance to update this.scene
-	///
-
-	async updateScene(frame) {
-		await this.actionResolve(frame)
-		this.entityUpdateAll(frame)
-	}
-
-	AxesHelper( size ) {
-		size = size || 1;
-			var vertices = [
-			0, 0, 0,	size, 0, 0,
-			0, 0, 0,	0, size, 0,
-			0, 0, 0,	0, 0, size
-		];
-			var colors = [
-			1, 0, 0,	1, 0.6, 0,
-			0, 1, 0,	0.6, 1, 0,
-			0, 0, 1,	0, 0.6, 1
-		];
-		var geometry = new THREE.BufferGeometry();
-		geometry.addAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
-		geometry.addAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
-		var material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors } );
-		return new THREE.LineSegments(geometry, material);
-	}
-
-	createSceneGraphNode(args = 0) {
-		let geometry = 0
-
-		// test
-
-		if(args.startsWith("duck")) {
-			let group = new THREE.Group()
-			let path = "/raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
-			loadGLTF(path).then(gltf => {
-				group.add(gltf.scene)
-			}).catch((...params) =>{
-				console.error('could not load gltf', ...params)
-			})
-			return group
-		}
-
-		// examine the string and decide what the content is - TODO this needs a real proxy such as moz hubs
-
-		if(args.startsWith("http")) {
-			let group = new THREE.Group()
-			let path = args // "/raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
-			loadGLTF(path).then(gltf => {
-				group.add(gltf.scene)
-			}).catch((...params) =>{
-				console.error('could not load gltf', ...params)
-			})
-			return group
-		}
-
-		switch(args) {
-			default: geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1); break;
-			case "cylinder": geometry = new THREE.CylinderGeometry( 0.1, 0.1, 0.1, 32 ); break;
-			case "sphere":   geometry = new THREE.SphereGeometry( 0.07, 32, 32 ); break;
-			case "box":      geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1); break;
-		}
-		let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
-		let mesh = new THREE.Mesh(geometry, material)
-		return mesh
-	}
-
-	//////////////////////////////////////////////////////////
-	/// entities - a wrapper for a concept of a game object
-	//////////////////////////////////////////////////////////
 
 	entityUUID(id) {
 		// uuid has to be deterministic yet unique for all client instances so build it out of known parts and hope for best
 		return this.zone + "_" + this.party + "_" + id
 	}
 
+	entityAll(callback) {
+		if(!this.entities) return
+		for(let uuid in this.entities) {
+			callback(this.entities[uuid])
+		}
+	}
+
 	entitySystemReset() {
 		// local flush - not network
-		this.entitySelected = 0
-		if(this.entities) {
-			for(let uuid in this.entities) {
-				let entity = this.entities[uuid]
-				if(entity.node) {
-					this.scene.remove(entity.node)
-					entity.node = 0
-				}
-				// TODO delete anchors?
-			}
-		}
 		this.entities = {}
 	}
 
 	entityQuery(args) {
 		// local query only - not network
 		let results = []
-		for(let uuid in this.entities) {
-			let entity = this.entities[uuid]
+		this.entityAll((entity)=>{
 			if(args.kind && entity.kind == args.kind) results.push(entity)
 			// TODO add gps filtering
-		}
+		})
 		return results
 	}
 
 	entityUpdateAll(frame) {
-		for(let uuid in this.entities) {
-			let entity = this.entities[uuid]
+		this.entityAll((entity)=>{
 			this.entityUpdateOne(frame,entity)
 			this.entityDebugging(entity)
-		}
+		})
 	}
 
 	entityUpdateOne(frame,entity) {
@@ -198,15 +68,12 @@ class UXPersistComponent extends XRAnchorCartography {
 		}
 
 		// attempt to relocalize
-		this.featureRelocalize(frame,entity,this.entityGPS)
+		XRAnchorCartography.featureRelocalize(frame,entity,this.entityGPS)
 
 		// attempt to set an entityGPS
 		if(entity.kind == "gps" && entity.relocalized && !this.entityGPS) {
 			this.entityGPS = entity
 		}
-
-		// update art
-		this.entityArt(entity)
 
 		// publish changes?
 		if(!entity.published) {
@@ -215,37 +82,14 @@ class UXPersistComponent extends XRAnchorCartography {
 		}
 	}
 
-	entityArt(entity) {
-
-		if(!entity.pose) {
-			//console.error("entityArt: no pose " + entity.uuid)
-			return
-		}
-
-		// add art to entities if needed
-		if(!entity.node) {
-			entity.node = this.createSceneGraphNode(entity.art)
-			this.scene.add(entity.node)
-		}
-
-		// given an anchor it is possible to directly set the node from that
-		//	entity.node.matrixAutoUpdate = false
-		//	entity.node.matrix.fromArray(entity.anchorOffset.getOffsetTransform(entity.anchorCoordinateSystem))
-		//	entity.node.updateMatrixWorld(true)
-
-		// update entity rendering position (every frame)
-		// TODO deal with orientation
-		entity.node.position.set(entity.pose.x,entity.pose.y,entity.pose.z)		
-	}
-
 	///
 	/// Make a gps entity - at the moment multiple of these are allowed - note that this.entityGPS is not set here (since it could arrive over network)
 	///
 
 	async entityAddGPS(frame) {
-		let feature = await this.featureAtGPS(frame)
+		let feature = await XRAnchorCartography.featureAtGPS(frame)
 		if(!feature || !feature.gps) {
-			console.error("UX entityAddGPS: could not make gps anchor!")
+			this.logging("entityAddGPS: could not make gps anchor!")
 			return 0
 		}
 		let entity = {
@@ -279,9 +123,9 @@ class UXPersistComponent extends XRAnchorCartography {
 
 	async entityAddArt(frame) {
 
-		let feature = await this.featureAtIntersection(frame,0.5,0.5)
+		let feature = await XRAnchorCartography.featureAtIntersection(frame,0.5,0.5)
 		if(!feature) {
-			console.error("UX entityAddArt: anchor failed")
+			this.logging("entityAddArt: anchor failed")
 			return 0
 		}
 		let entity = {
@@ -305,20 +149,19 @@ class UXPersistComponent extends XRAnchorCartography {
 			     remote: 0,
 			      dirty: 1
 		}
-		this.entitySelected = entity
 		this.entities[entity.uuid] = entity
 		return entity
 	}
 
 	///
 	/// Create or update a partys position
-	///
+	/// TODO could fold into above and reduce amount of code
 
 	async entityAddParty(frame) {
 
-		let feature = await this.featureAtPose(frame)
+		let feature = await XRAnchorCartography.featureAtPose(frame)
 		if(!feature) {
-			console.error("entityAddParty: anchor failed")
+			this.logging("entityAddParty: [error] anchor failed")
 			return 0
 		}
 		if(this.entityParty) {
@@ -362,13 +205,13 @@ class UXPersistComponent extends XRAnchorCartography {
 			// if no gps entity was added then force add one now
 			entity = await this.entityAddGPS(frame)
 			if(!entity) {
-				console.error("UX map save - failed to add gps entity - no gps yet?")
+				this.logging("entity MapSave: [error] failed to add gps entity - no gps yet?")
 				return
 			}
 			// force promote the entity to the gps entity
-			this.featureRelocalize(frame, entity)
+			XRAnchorCartography.featureRelocalize(frame, entity)
 			if(!entity.relocalized) {
-				console.error("UX map save - failed to relocalize entity - which is odd")
+				this.logging("entity mapSave: [error] failed to relocalize entity - which is odd")
 				return
 			}
 			this.entityGPS = entity
@@ -377,11 +220,11 @@ class UXPersistComponent extends XRAnchorCartography {
 		// for now the entity is also written into the map - it's arguable if this is needed - will likely remove since it's mostly just extraneous TODO
 		// the idea was that I could search for maps, but if I assume each map has one and only one gps anchor entity then I know what maps exist based on entities whose kind is == gps
 
-		console.log("UX saving map")
+		this.logging("entity mapSave: UX saving map")
 
-		let results = await this.session.getWorldMap()
+		let results = await frame._session.getWorldMap()
 		if(!results) {
-			console.error("UX save: this engine does not have a good map from arkit yet")
+			this.logging("entity MapSave: [error] this engine does not have a good map from arkit yet")
 			return 0
 		}
 		const data = new FormData()
@@ -402,26 +245,25 @@ class UXPersistComponent extends XRAnchorCartography {
 		data.append('altitude',    entity.gps.altitude )
 		let response = await fetch('/api/map/save', { method: 'POST', body: data })
 		let json = await response.json()
-		console.log("UX mapSave: succeeded")
+		this.logging("entity mapSave: succeeded")
 		return json		
 	}
 
-	async  mapLoad(filename) {
+	async  mapLoad(session,filename) {
 
 		// observe anchors showing up again - this code doesn't have to do any work since update loop will busy poll till it rebinds anchors to maps
 		if (!this.listenerSetup) {
 			this.listenerSetup = true
-			this.session.addEventListener(XRSession.NEW_WORLD_ANCHOR,(event) => {
-				console.log("UX mapLoad callback - saw an anchor re-appear uid=" + event.detail.uid )
+			session.addEventListener(XRSession.NEW_WORLD_ANCHOR,(event) => {
+				this.logging(event.detail.uid + " << arkit callback - saw an anchor re-appear " )
 			})
 		}
 
 		// fetch map itself - which will eventually resolve the anchor loaded above
 		let response = await fetch("uploads/"+filename)
 		let data = await response.text()
-		let results = await this.session.setWorldMap({worldMap:data})
-		console.log("UX load: a fresh map file arrived " + filename )
-		console.log(results)
+		let results = await session.setWorldMap({worldMap:data})
+		this.logging("entity mapLoad: a fresh map file arrived " + filename )
 	}
 
 
@@ -431,7 +273,6 @@ class UXPersistComponent extends XRAnchorCartography {
 
 	async entityNetworkRestart(args) {
 		// flush local entities
-		this.entitySystemReset()
 		if(!this.socket) {
 			// TODO somehow tell network where we are!!! - it needs some way to filter traffic to us intelligently
 			// start network if needed
@@ -449,10 +290,10 @@ class UXPersistComponent extends XRAnchorCartography {
 	async entityLoadAll(gps) {
 		// load all the entities from the server in one go - and rebinding/gluing state back together will happen later on in update()
 		if(!gps) {
-			console.error("UX load: this engine needs a gps location before loading maps")
+			this.logging("entityLoadAll: this engine needs a gps location before loading maps")
 			return 0
 		}
-		console.log("UX load: getting all entities near latitude="+gps.latitude+" longitude="+gps.longitude)
+		this.logging("entityLoadAll: getting all entities near latitude="+gps.latitude+" longitude="+gps.longitude)
 
 		let response = await fetch("/api/entity/query",{ method: 'POST', body: this.zone })
 		let json = await response.json()
@@ -466,9 +307,9 @@ class UXPersistComponent extends XRAnchorCartography {
 			entity.remote=1
 			entity.dirty=1
 			entity.relocalized=0
-			console.log("UX load: made entity kind="+entity.kind+" uuid="+entity.uuid+" anchor="+entity.anchorUID)
+			this.logging(entity.anchorUID + " << entityLoadAll: made entity kind="+entity.kind+" uuid="+entity.uuid+" anchor="+entity.anchorUID)
 		}
-		console.log("UX load: loading done - entities in total is " + count )
+		this.logging("entityLoadAll: loading done - entities in total is " + count )
 		return 1
 	}
 
@@ -487,7 +328,7 @@ class UXPersistComponent extends XRAnchorCartography {
 		let previous = this.entities[entity.uuid]
 		if(!previous) {
 			this.entities[entity.uuid] = entity
-			console.log("UX entityReceive: saving new remote entity")
+			this.logging("entityReceive: saving new remote entity " + entity.uuid)
 			console.log(entity)
 		} else {
 			// scavenge choice morsels from the network traffic and throw network traffic away
@@ -495,7 +336,7 @@ class UXPersistComponent extends XRAnchorCartography {
 			previous.art = entity.art
 			previous.tags = entity.tags
 			previous.gps = entity.gps
-			console.log("UX entityReceive: remote entity found again and updated")
+			this.logging("entityReceive: remote entity found again and updated " + entity.uuid)
 			console.log(entity)
 		}
 	}
@@ -509,7 +350,7 @@ class UXPersistComponent extends XRAnchorCartography {
 	entityPublish(entity) {
 
 		if(!entity.cartesian) {
-			console.warning("publish: entity has no cartesian " + entity.uuid )
+			this.logging("entityPublish: [error] entity has no cartesian " + entity.uuid )
 			return
 		}
 
@@ -558,11 +399,180 @@ class UXPersistComponent extends XRAnchorCartography {
 		if(entity.debugged) return
 		if(!entity.pose) return
 		entity.debugged = 1
-		console.log("UX *********************** entity status " + entity.anchorUID + " relocalized="+entity.relocalized)
-		if(entity.pose) console.log("UX entity=" + entity.anchorUID + " is at x=" + entity.pose.x + " y="+entity.pose.y+" z="+entity.pose.z)
-		if(entity.gps) console.log("UX entity=" + entity.anchorUID + " latitude="+entity.gps.latitude+" longitude="+entity.gps.longitude+" accuracy="+entity.gps.accuracy)
-		if(entity.cartesian) console.log("UX entity cartesian x=" + entity.cartesian.x + " y=" + entity.cartesian.y + " z="+entity.cartesian.z)
+		this.logging("entityDebug: *********************** entity status " + entity.anchorUID + " relocalized="+entity.relocalized + " kind="+entity.kind)
+		if(entity.anchor) this.logging("  *** is using an anchor *** kind=" + entity.kind)
+		if(entity.pose) this.logging("entity=" + entity.anchorUID + " is at x=" + entity.pose.x + " y="+entity.pose.y+" z="+entity.pose.z)
+		if(entity.gps) this.logging("entity=" + entity.anchorUID + " latitude="+entity.gps.latitude+" longitude="+entity.gps.longitude+" accuracy="+entity.gps.accuracy)
+		if(entity.cartesian) this.logging("entity cartesian x=" + entity.cartesian.x + " y=" + entity.cartesian.y + " z="+entity.cartesian.z)
 		console.log(entity)
 	}
+
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///
+/// UXEntityComponent
+///
+/// Manages display and user interaction for entities
+///
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+class UXEntityComponent extends XRExampleBase {
+
+	constructor(element,zone,party,logging=0) {
+        super(element,false,true,false,true,true)
+        this.logging = logging || function(msg) { console.log(msg) }
+        this.em = new EntityManager(zone,party,logging)
+	}
+
+	async restart(args) {
+		// start networking
+		// wipe any art
+		this._entitySelected = 0
+		this.em.entityAll((entity)=>{
+			if(!entity.node) return
+			this.scene.remove(entity.node)
+			entity.node = 0
+		})
+		// reset entities too
+		this.em.entitySystemReset()
+		// start network or restart it
+		await this.em.entityNetworkRestart(args)
+	}
+
+	selected() { return this._entitySelected || 0 }
+
+	///////////////////////////////////////////////
+	// support for externally driven command messages
+	///////////////////////////////////////////////
+
+	action(command,args) {
+		// some commands can be done now... of which none exist at the moment in the current app design
+		// some must be deferred
+		this.command = command
+	}
+
+	async actionResolve(frame) {
+		// resolve frame related chores synchronously with access to 'frame'
+		// TODO I'm not happy with this approach - see EventBus for something more flexible
+		let command = this.command
+		this.command = 0
+		if(!command) return 0
+		this.logging("UXEntityComponent::actionResolve doing command="+command)
+		frame._session = this.session // HACK
+		switch(command) {
+			case "gps": await this.em.entityAddGPS(frame); break
+			case "make": this._entitySelected = await this.em.entityAddArt(frame); break
+			case "move": await this.em.entityAddParty(frame); break
+			case "save": await this.em.mapSave(frame); break
+			default: break
+		}
+		return 1
+	}
+
+	///////////////////////////////////////////////
+	// scene geometry and update callback helpers
+	///////////////////////////////////////////////
+
+	initializeScene() {
+		this.listenerSetup = false
+
+		// add some light
+		this.scene.add(new THREE.AmbientLight('#FFF', 0.2))
+		let directionalLight = new THREE.DirectionalLight('#FFF', 0.6)
+		directionalLight.position.set(0, 10, 0)
+		this.scene.add(directionalLight)
+
+		// attach something to 0,0,0 (although 0,0,0 doesn't mean a lot since arkit can update anchor positions)
+        this.scene.add( this.AxesHelper( 0.2 ) );
+	}
+
+	///
+	/// Called once per frame by base class, before render, to give the app a chance to update this.scene
+	///
+
+	async updateScene(frame) {
+		await this.actionResolve(frame)
+		this.em.entityUpdateAll(frame)
+		this.paintScene(frame)
+	}
+
+	paintScene(frame) {
+		this.em.entityAll((entity)=>{
+			if(!entity.pose) return
+			if(!entity.node) {
+				entity.node = this.createSceneGraphNode(entity.art)
+				this.scene.add(entity.node)
+			}
+			// locally created entities with anchors can in fact go directly from the anchor to the display
+			if(entity.transform) {
+				entity.node.matrix.fromArray(entity.transform)
+				entity.node.matrixAutoUpdate = false
+				entity.node.updateMatrixWorld(true)
+			} else {
+				entity.node.position.set(entity.pose.x,entity.pose.y,entity.pose.z)
+			}
+		})
+	}
+
+	AxesHelper( size ) {
+		size = size || 1;
+			var vertices = [
+			0, 0, 0,	size, 0, 0,
+			0, 0, 0,	0, size, 0,
+			0, 0, 0,	0, 0, size
+		];
+			var colors = [
+			1, 0, 0,	1, 0.6, 0,
+			0, 1, 0,	0.6, 1, 0,
+			0, 0, 1,	0, 0.6, 1
+		];
+		var geometry = new THREE.BufferGeometry();
+		geometry.addAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+		geometry.addAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
+		var material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors } );
+		return new THREE.LineSegments(geometry, material);
+	}
+
+	createSceneGraphNode(args = 0) {
+		let geometry = 0
+
+		// test
+
+		if(args.startsWith("duck")) {
+			let group = new THREE.Group()
+			let path = "/raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
+			loadGLTF(path).then(gltf => {
+				group.add(gltf.scene)
+			}).catch((...params) =>{
+				this.logging('UXEntityComponent::createSceneGraphNode:: [error] could not load gltf', ...params)
+			})
+			return group
+		}
+
+		// examine the string and decide what the content is - TODO this needs a real proxy such as moz hubs
+
+		if(args.startsWith("http")) {
+			let group = new THREE.Group()
+			let path = args // "/raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
+			loadGLTF(path).then(gltf => {
+				group.add(gltf.scene)
+			}).catch((...params) =>{
+				this.logging('UXEntityComponent::createSceneGraphNode:: [error] cannot load gltf', ...params)
+			})
+			return group
+		}
+
+		switch(args) {
+			default: geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1); break;
+			case "cylinder": geometry = new THREE.CylinderGeometry( 0.1, 0.1, 0.1, 32 ); break;
+			case "sphere":   geometry = new THREE.SphereGeometry( 0.07, 32, 32 ); break;
+			case "box":      geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1); break;
+		}
+		let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
+		let mesh = new THREE.Mesh(geometry, material)
+		return mesh
+	}
+
 
 }
