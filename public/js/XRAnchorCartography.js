@@ -115,6 +115,7 @@ class XRAnchorCartography {
 	async featureRelocalize(frame,feature,gpsfeature=0) { return this.constructor.featureAtGPS(frame,feature,gpsfeature) }
 	static featureRelocalize(frame,feature,gpsfeature=0) {
 		if(feature.kind == "gps") {
+			// only features of the kind gps can be relocalized using their gps...
 			if(!feature.gps) {
 				console.error("featureRelocalize: corrupt feature")
 				return
@@ -140,12 +141,16 @@ class XRAnchorCartography {
 			}
 			feature.anchor = frame.getAnchor(feature.anchorUID)
 			if(feature.anchor) {
-				// although some features may have anchors, it's arguable if these should be used or if the system should just use cartesian at some point
+				// if a feature has an anchor then the cartesian can be recomputed over and over (and it can change every frame)
 				feature.offset = new XRAnchorOffset(feature.anchorUID)
 				feature.transform = feature.offset.getOffsetTransform(feature.anchor.coordinateSystem)
 				feature.cartesian = this._toCartesian(feature.transform,gpsfeature.transform,gpsfeature.fixed)
 				feature.fixed = Cesium.Transforms.eastNorthUpToFixedFrame(feature.cartesian)
 				feature.inverse = Cesium.Matrix4.inverseTransformation(feature.fixed, new Cesium.Matrix4())
+
+				// may as well also remember gps coordinates (so server needs to think less) - TODO calculate elevation
+				let carto  = Cesium.Ellipsoid.WGS84.cartesianToCartographic(feature.cartesian);
+				feature.gps = { latitude: Cesium.Math.toDegrees(carto.latitude), longitude: Cesium.Math.toDegrees(carto.longitude), altitude: 0}
 			}
 		}
 		// can compute screen pose of any feature (gps or otherwise) that has cartesian coordinates (if there is a local gps+anchor available as a reference)
@@ -203,14 +208,6 @@ class XRAnchorCartography {
 		//console.log("debug - absolutely in ecef at")
 		//console.log(cartesian)
 		//console.log(ev2)
-
-		if(false) {
-			// debug
-			let carto  = Cesium.Ellipsoid.WGS84.cartesianToCartographic(cartesian);
-			let lon = Cesium.Math.toDegrees(carto.longitude);
-			let lat = Cesium.Math.toDegrees(carto.latitude);
-			console.log("toCartesian: lon="+lon + " lat="+lat)
-		}
 
 		return cartesian
 	}

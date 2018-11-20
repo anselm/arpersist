@@ -11,6 +11,7 @@ class Entity {
 
   constructor(db,tablename="entity") {
     this.entities = {}
+    this.socket_locations = {}
   }
 
   async init() {
@@ -102,10 +103,21 @@ class Entity {
   }
 
   async query(query) {
-    console.log("query is")
-    console.log(query)
-    console.log(this.entities)
-    return this.entities
+    let results = {}
+    if(this.entities && query.gps) {
+      let keys = Object.keys(this.entities)
+      for(let i = 0; i < keys.length;i++) {
+        let key = keys[i]
+        let entity = this.entities[key]
+        if(!entity || !entity.gps) continue
+        let dist = this.getDistanceFromLatLonInKm(query.gps.latitude,query.gps.longitude,entity.gps.latitude,entity.gps.longitude)
+        if(dist > 1) continue
+          console.log("server side entity query: query has decided this entity is close enough to return " + key)
+          // I need to use the cesium libraries here to get to gps or i need to use cartesian coordinates or something... debate
+        results[key] = entity
+      }
+    }
+    return results
   }
 
   async map_save(filepath,args) {
@@ -156,6 +168,40 @@ class Entity {
     return({status:"thanks"})
   }
 
+
+  getDistanceFromLatLonInKm(lat1,lon1,lat2,lon2) { // haversine - https://stackoverflow.com/questions/27928/calculate-distance-between-two-latitude-longitude-points-haversine-formula
+
+    function deg2rad(deg) {
+      return deg * (Math.PI/180)
+    }
+
+    var R = 6371; // Radius of the earth in km
+    var dLat = deg2rad(lat2-lat1);  // deg2rad below
+    var dLon = deg2rad(lon2-lon1); 
+    var a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2)
+      ; 
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    var d = R * c; // Distance in km
+    return d;
+  }
+
+  socket_remember(id,location) {
+    console.log(location)
+    console.log("entity: associating socket " + id + " with location " + location.latitude + " " + location.longitude )
+    this.socket_locations[id] = location
+  }
+
+  socket_nearby(a,b) {
+    let la = this.socket_locations[a]
+    let lb = this.socket_locations[b]
+    if(!la || !lb) return false
+    let ld = this.getDistanceFromLatLonInKm(la.latitude,la.longitude,lb.latitude,lb.longitude)
+    if(ld > 1.00) return false
+    return true
+  }
 }
 
 const instance = new Entity()

@@ -6,7 +6,7 @@ function getUrlParams(vars={}) {
 
 ///////////////////////////////////////////////
 ///
-/// A zero weight logger that stays out of the way - kind of hack
+/// a bit of on screen logging for this app
 ///
 ///////////////////////////////////////////////
 
@@ -23,32 +23,6 @@ function uxlog(...args) {
 	scope.msgs.unshift(blob)
 	scope.target.innerHTML = scope.msgs.slice(0,10).join("<br/>")
 }
-
-/*
-
-let previous_console = window.console
-window.console = {
-	log: function(...args) {
-		//previous_console.log(args[0])
-		//if(args.length > 0 && args[0].startsWith("UX")) {
-			uxlog(args)
-		//}
-		previous_console.log(args)
-	},
-	warn: function(...args) {
-		//if(args.length > 0 && args[0].startsWith("UX")) {
-		//	uxlog(args)
-		//}
-		previous_console.warn(args)
-	},
-	error: function(...args) {
-		//if(args.length > 0 && args[0].startsWith("UX")) {
-		//	uxlog(args)
-		//}
-		previous_console.error(args)
-	}
-}
-*/
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -319,30 +293,21 @@ window.addEventListener('DOMContentLoaded', () => {
 })
 
 //
-// bugs
+// todo
 //
-//  - validate that math is correct; i see recoveries that move things around
-//  - i notice glitch is not saving maps - why
-
-//	- i notice i get a lot of other maps and anchors that i am not actually that interested in... debate the wisdom of this or how to prune better...
+//	- looks like north and south are swapped and oriented at an angle too - or the compass support is way way off
 //
-///	- edit page to write
-//		[done] populate based on current entity
-//		[done] save changes
-//		[done] mark as dirty and refetch art
-//		- wire up map widget
-//		- add a thing picker
-//		- put a halo around current picked thing
-//		- maybe support some built in primitives
+//	- we need cartographic math on the server probably as well
 //
-//  - glitch support
+//	- ux
+//		- looks like we will badly need to re-orient the maps and place them -> the ux needs this badly
+//		- be able to repick things
+//		- be able to move things at least
+//		- have some primitives or default glyphs
+//
+//  - server
 //		- sqlite
 //		- flush
-//		- area constraints
-//
-// - prettier
-//		- show a map of everything
-//		- a globe or world map view or something
 //
 
 

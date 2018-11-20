@@ -50,25 +50,35 @@ app.post('/api/map/save', upload.single('blob'), async (request, response) => {
   response.json(results)
 })
 
-app.post('/api/map/query', upload.single('blob'), async (request, response) => {
-  let results = await entity.map_query(request.body)
-  response.json(results)
-})
-
 var ip = require("ip");
 console.dir ( "Your server http address is http://" + ip.address() + ":" + port )
 
 app.use(express.static('public'))
 
+// Logic for long connections
+
 io.on('connection', (socket) => {
-  socket.on('publish', async (msg) => {
-    let results = await entity.save(msg)
-    // TODO understand the location of all sockets
-    // TODO filter by layer / zone also
-    // TODO filter by trust network distance
-    // TODO filter by geography
-    io.emit('publish', results )
+  console.log("Server: a new connection has shown up " + socket.id)
+
+  // Sockets will tell server where they are at some point
+  socket.on('location', (location) => {
+    entity.socket_remember(socket.id,location)
   })
+
+  // Sockets also tell server about publishing events
+  socket.on('publish', async (msg) => {
+    // save
+    let results = await entity.save(msg)
+    // publish to all nearby and also to self
+    let ids = Object.keys(io.sockets.sockets)
+    for(let i = 0; i < ids.length; i++) {
+      let id = ids[i]
+      if(!entity.socket_nearby(socket.id,id) ) continue
+      socket.emit('publish',results)
+    }
+  })
+
+
 })
 
 http.listen(port, () => {
