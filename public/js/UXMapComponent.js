@@ -21,8 +21,6 @@ class UXMapComponent {
 
 	marker(marker,pos) {
 		pos = {lat:parseFloat(pos.latitude),lng:parseFloat(pos.longitude)}
-		console.log("******** settubng")
-		console.log(pos)
 		if(marker) {
 			marker.setPosition(pos)
 		} else {

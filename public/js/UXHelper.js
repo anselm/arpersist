@@ -150,8 +150,8 @@ class UXHelper {
 			dynamic_list.appendChild(element)
 			element.onclick = (e) => {
 				let filename = e.srcElement.innerText
-				window.arapp.em.mapLoad(window.arapp.session,filename)
 				this.main()
+				window.arapp.em.mapLoad(window.arapp.session,filename)
 				return 0
 			}
 			element = document.createElement("br")

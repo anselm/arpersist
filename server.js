@@ -74,7 +74,11 @@ io.on('connection', (socket) => {
     let ids = Object.keys(io.sockets.sockets)
     for(let i = 0; i < ids.length; i++) {
       let id = ids[i]
-      if(!entity.socket_nearby(socket.id,id) ) continue
+      if(!entity.socket_nearby(socket.id,id) ) {
+        console.log("socket not nearby " + socket.id )
+        continue
+      }
+      console.log("sending to socket " + socket.id + " " + msg.uuid)
       socket.emit('publish',results)
     }
   })
