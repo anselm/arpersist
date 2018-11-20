@@ -195,6 +195,10 @@ class Entity {
     this.socket_locations[id] = location
   }
 
+  socket_forget(id) {
+    delete this.socket_locations[id]
+  }
+
   socket_nearby(a,b) {
     let la = this.socket_locations[a]
     let lb = this.socket_locations[b]

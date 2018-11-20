@@ -67,19 +67,20 @@ io.on('connection', (socket) => {
 
   // Sockets also tell server about publishing events
   socket.on('publish', async (msg) => {
+    let srcid = socket.id
     // save
-    msg.socket_id = socket.id
+    msg.socket_id = srcid
     let results = await entity.save(msg)
     // publish to all nearby and also to self
     let ids = Object.keys(io.sockets.sockets)
     for(let i = 0; i < ids.length; i++) {
       let id = ids[i]
-      if(!entity.socket_nearby(socket.id,id) ) {
-        console.log("socket not nearby " + socket.id )
+      let target = io.socket.sockets[id]
+      if(!entity.socket_nearby(srcid,id) ) {
+        console.log("not sending msg to socket " + id + " " + msg.uuid)
         continue
       }
-      console.log("sending to socket " + socket.id + " " + msg.uuid)
-      socket.emit('publish',results)
+      target.emit('publish',results)
     }
   })
 
@@ -87,7 +88,7 @@ io.on('connection', (socket) => {
     // TODO periodically flush boring things that are attached to dead sockets - such as ghosts of participants past
     // TODO also flush participants on a dead socket now
     console.log("Socket disconnect " + socket.id)
-    io.emit('user disconnected');
+    entity.socket_forget(socket.id)
   })
 
 
