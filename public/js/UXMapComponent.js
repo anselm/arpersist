@@ -70,6 +70,12 @@ class UXMapComponent {
 		button.onclick = function(e) { window.ux.pop() } // TODO a message bus would prevent this component knowing about other stuff
 		map.controls[google.maps.ControlPosition.LEFT_TOP].push(button);
 
+		button = document.createElement('button');
+		button.className = "uxbutton"
+		button.innerHTML = "refresh"
+		button.onclick = function(e) { window.ux.map_overview_update() } // TODO a message bus would prevent this component knowing about other stuff
+		map.controls[google.maps.ControlPosition.LEFT_TOP].push(button);
+
 		let infoWindow = this.infoWindow = new google.maps.InfoWindow
 
 		// listen for change events for an entity placement
@@ -84,10 +90,10 @@ class UXMapComponent {
 			navigator.geolocation.getCurrentPosition((position) => {
 				this.mapCenter(position.coords)
 			}, () => {
-				mapError('Error: The Geolocation service failed.', infoWindow, map.getCenter())
+				//this.mapError('Error: The Geolocation service failed.', infoWindow, map.getCenter())
 			})
 		} else {
-			mapError('Error: Your browser does not support geolocation.', infoWindow, map.getCenter())
+			//this.mapError('Error: Your browser does not support geolocation.', infoWindow, map.getCenter())
 		}
 	}
 }
