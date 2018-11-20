@@ -13,6 +13,7 @@ class UXEntityComponent extends XRExampleBase {
         super(element,false,true,false,true,true)
         this.logging = logging || function(msg) { console.log(msg) }
         this.em = new EntityManager(zone,party,logging)
+        this.entity_system_active = 0
 	}
 
 	async restart(args) {
@@ -28,6 +29,8 @@ class UXEntityComponent extends XRExampleBase {
 		this.em.entitySystemReset()
 		// start network or restart it
 		await this.em.entityNetworkRestart(args)
+		// flag mode
+		this.entity_system_active = 1
 	}
 
 	selected() { return this._entitySelected || 0 }
@@ -43,6 +46,7 @@ class UXEntityComponent extends XRExampleBase {
 	}
 
 	async actionResolve(frame) {
+		if(!this.entity_system_active) return
 		// resolve frame related chores synchronously with access to 'frame'
 		// TODO I'm not happy with this approach - see EventBus for something more flexible
 		let command = this.command
@@ -82,24 +86,47 @@ class UXEntityComponent extends XRExampleBase {
 	///
 
 	async updateScene(frame) {
+
+		// prefer not to hit below subsystems until ready
+		if(!this.entity_system_active) return
+
+		// some events have to be synchronous with the frame - handle those
 		await this.actionResolve(frame)
+
+		// visit all the entities and do useful frame related work
 		this.em.entityUpdateAll(frame)
+
+		// paint stuff for userland
 		this.paintScene(frame)
+
+		// update the players position every n refreshes
+		if(!this.counter) this.counter = 1
+ 		this.counter++
+		if(this.counter > 60) {
+			this.em.entityAddParty(frame)
+			this.counter = 1
+		}
 	}
 
 	paintScene(frame) {
 		this.em.entityAll((entity)=>{
+			// pose is resolved elsewhere - do nothing till it arrives
 			if(!entity.pose) return
+			// associate visual art with an entity if needed
 			if(!entity.node) {
 				entity.node = this.createSceneGraphNode(entity.art)
+				entity.node.entity = entity // backpointer
 				this.scene.add(entity.node)
 			}
-			// locally created entities with anchors can in fact go directly from the anchor to the display
-			if(entity.transform) {
+			// local or remote?
+			if(entity.transform && entity.anchor) {
+				// locally created entities with anchors can in fact go directly from the anchor to the display... it's arguable if this is desired
 				entity.node.matrix.fromArray(entity.transform)
 				entity.node.matrixAutoUpdate = false
 				entity.node.updateMatrixWorld(true)
 			} else {
+				// the architecture of this system is designed for remote entities over the network with no anchor and just a pose
+				// TODO deal with orientation
 				entity.node.position.set(entity.pose.x,entity.pose.y,entity.pose.z)
 			}
 		})

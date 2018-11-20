@@ -16,7 +16,7 @@ class XRAnchorCartography {
 
 			if (!("geolocation" in navigator)) {
 				// fake it for now
-				let gps = { latitude: 0, longitude: 0, altitude: 0 }
+				let gps = { latitude: 45.5577417, longitude: -122.6758163, altitude: 100 }
 				resolve(gps)
 			}
 
@@ -27,7 +27,7 @@ class XRAnchorCartography {
 
 			function error(err) {
 				// fake it
-				let gps = { latitude: 0, longitude: 0, altitude: 0 }
+				let gps = { latitude: 45.5577417, longitude: -122.6758163, altitude: 100 }
 				resolve(gps)
 				//reject(err)
 			}
@@ -61,6 +61,10 @@ class XRAnchorCartography {
 		}
 	}
 
+	static removeAnchor(frame,anchorUID) {
+		frame.removeAnchor(anchorUID)
+	}
+
 	async featureAtIntersection(frame,x=0.5,y=0.5) { return featureAtIntersection(frame,x,y) }
 	static async featureAtIntersection(frame,x=0.5,y=0.5) {
 
@@ -88,7 +92,7 @@ class XRAnchorCartography {
 		const anchorUID = frame.addAnchor(wc, [xyz.x, xyz.y, xyz.z], [q.x, q.y, q.z, q.w])
 
 		// TODO is it ok to to delete unused anchor? does it make sense / save any memory / have any impact?
-		//frame.removeAnchor(anchor); anchor = 0
+		frame.removeAnchor(anchor.anchorUID); anchor = 0
 		console.log("*** will ignore this anchor from now on " + anchorOffset.anchorUID)
 
 		return {

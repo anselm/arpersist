@@ -93,7 +93,10 @@ class Entity {
   async save(entity) {
     console.log("saving ******")
     console.log(entity)
+    let previous = this.entities[entity.uuid]
     this.entities[entity.uuid] = entity
+    if(!previous) entity.createdAt = Date.now()
+    entity.updatedAt = Date.now()
     return entity
   }
 

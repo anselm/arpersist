@@ -19,23 +19,40 @@ class UXMapComponent {
 		this.mapInit()
 	}
 
-	add(pos) {
-		return new google.maps.Marker({title: pos.title, position: pos, map: this.map})
-	}
-
-	mapMarker(pos) {
-		let c = this.map.getCenter()
-		if(!this.markerCenter) {
-			this.markerCenter = new google.maps.Marker({position: pos, map: this.map})
+	marker(marker,pos) {
+		pos = {lat:parseFloat(pos.latitude),lng:parseFloat(pos.longitude)}
+		console.log("******** settubng")
+		console.log(pos)
+		if(marker) {
+			marker.setPosition(pos)
 		} else {
-			this.markerCenter.setPosition( pos )
+			marker = new google.maps.Marker({title: pos.title, position: pos, map: this.map})
 		}
+		return marker
 	}
 
 	mapError(message, infoWindow, pos) {
 		infoWindow.setPosition(pos)
 		infoWindow.setContent(message)
 		infoWindow.open(this.map)
+	}
+
+	_mapMarker(pos) {
+		if(!this.markerCenter) {
+			this.markerCenter = new google.maps.Marker({position: pos, map: this.map})
+		} else {
+			this.markerCenter.setPosition( pos )
+		}
+		this.latitude = pos.lat
+		this.longitude = pos.lng
+		this.latitude_longitude_updated = 1
+	}
+
+	mapCenter(pos) {
+		if(!this.map) return
+		pos = {lat:parseFloat(pos.latitude),lng:parseFloat(pos.longitude)}
+		this.map.setCenter(pos)
+		this._mapMarker(pos)
 	}
 
 	mapInit() {
@@ -47,24 +64,26 @@ class UXMapComponent {
 		})
 
 		//### Add a button on Google Maps ...
-		var home = document.createElement('button');
-		home.className = "uxbutton"
-		home.innerHTML = "back"
-		home.onclick = function(e) { window.ux.pop() }
-		map.controls[google.maps.ControlPosition.LEFT_TOP].push(home);
+		var button = document.createElement('button');
+		button.className = "uxbutton"
+		button.innerHTML = "back"
+		button.onclick = function(e) { window.ux.pop() } // TODO a message bus would prevent this component knowing about other stuff
+		map.controls[google.maps.ControlPosition.LEFT_TOP].push(button);
 
 		let infoWindow = this.infoWindow = new google.maps.InfoWindow
 
+		// listen for change events for an entity placement
 		map.addListener('center_changed', (e) => {
-			this.mapMarker(this.map.getCenter())
+			let pos = this.map.getCenter()
+			pos = { lat: pos.lat(), lng: pos.lng() }
+			this._mapMarker(pos)
 		})
 
+		// establish initial map position
 		if (navigator.geolocation) {
 			navigator.geolocation.getCurrentPosition((position) => {
-				let pos = { lat: position.coords.latitude, lng: position.coords.longitude }
-				this.map.setCenter(pos)
-				this.mapMarker(pos)
-			}, function() {
+				this.mapCenter(position.coords)
+			}, () => {
 				mapError('Error: The Geolocation service failed.', infoWindow, map.getCenter())
 			})
 		} else {

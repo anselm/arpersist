@@ -40,25 +40,30 @@ function uxlog(...args) {
 class UXHelper {
 
 	constructor(name) {
-		this.zone = "azurevidian"
-		this.party = "King Tut"
+
+		// optional params
+		let params = getUrlParams()
+		this.zone = params.zone || "ZON"
+		this.party = params.party || "BOB"
+
+		// goto this page now (basically a named div in the custom page management scheme this helper implements)
 		this.push(name)
 
+		// the push/pop handler provided by javascript seems flakey? some debugging is left here to keep an eye on it
 		window.onpopstate = (e) => {
 			if(!e || !e.state) {
-				console.error("popstate: bad input for popstate; or external push state?")
+				console.error("UXHelper::popstate: bad input for popstate; or external push state?")
 				console.log(e)
 				return
 			}
-			console.log("popstate: user browser hit back button")
-			console.log("popstate: location: " + document.location + ", state: " + JSON.stringify(event.state));
+			console.log("UXHelper::popstate: user browser hit back button")
+			console.log("UXHelper::popstate: location: " + document.location + ", state: " + JSON.stringify(event.state));
 			this.show(e.state.name)
 		}
 
-		// start ar app in general in background for now
+		// start the ux for managing entities as a background camera view ... seems like a nice visual aesthetic and it's handy to have it around
 		if(!window.arapp) {
 			let target = document.getElementById('main_arview_target')
-			console.log(target)
 			this.arapp = window.arapp = new UXEntityComponent(target,this.zone,this.party,uxlog)
 		}
 
@@ -70,7 +75,7 @@ class UXHelper {
 	}
 
 	pop() {
-		console.log("some code has a back event")
+		console.log("UXHelper: somebody issued a back event")
 		history.back()
 	}
 
@@ -106,7 +111,7 @@ class UXHelper {
 		// get a gps hopefully
 		let gps = await XRAnchorCartography.gpsPromise()
 
-		console.log("picker gps results")
+		console.log("UXHelper::picker gps results")
 		console.log(gps)
 		if(!gps) {
 			alert("Hmm no gps error")
@@ -114,7 +119,7 @@ class UXHelper {
 		}
 
 		// restart component - listening for changes near an area (or restart listening)
-		await window.arapp.restart({kind:0,zone:this.zone,gps:gps})
+		await window.arapp.restart({kind:0,gps:gps})
 
 		// are there any maps near here?
 		// TODO slightly inelegant to reveal arapp em property
@@ -169,29 +174,43 @@ class UXHelper {
 	}
 
 	map_nudge() {
+		let entity = this.arapp.selected()
+		if(!entity || !entity.gps) {
+			return 0
+		}
 		this.push("map")
 		if(!this.uxmap) {
 			this.uxmap = new UXMapComponent("map")
 		}
+		this.uxmap.mapCenter(entity.gps)
+		return 0
+	}
+
+	map_overview_update() {
+		if(!this.uxmap) {
+			this.uxmap = new UXMapComponent("map")
+		}
+		window.arapp.em.entityAll((entity)=>{
+			if(entity.gps) {
+				let blob  = { latitude: entity.gps.latitude, longitude:entity.gps.longitude, title:entity.uuid }
+				entity.marker = this.uxmap.marker(entity.marker,blob)
+			}
+		})
 		return 0
 	}
 
 	map_overview() {
 		this.push("map")
-		if(!this.uxmap) {
-			this.uxmap = new UXMapComponent("map")
+
+		// run for some number of seconds - relatively harmless if reinvoked
+		let scope = this
+		function helper(count) {
+			scope.map_overview_update()
+			count--
+			if(count > 0) setTimeout(helper,1000)
 		}
-		window.arapp.em.entityAll((entity)=>{
-			if(entity.mapped) return
-			if(!entity.cartesian) return
-			let blob  = Cesium.Ellipsoid.WGS84.cartesianToCartographic(entity.cartesian);
-			blob.lat = Cesium.Math.toDegrees(blob.latitude)
-			blob.lng = Cesium.Math.toDegrees(blob.longitude)
-			blob.title = entity.uuid
-			entity.mapped = this.uxmap.add(blob)
-			console.log("mapped")
-			console.log(blob)
-		})
+		helper(10)
+
 		return 0
 	}
 
@@ -201,80 +220,96 @@ class UXHelper {
 	}
 
 	edit() {
-		this.push("edit")
+		// get entity if any
 		let entity = this.arapp.selected()
-		if(entity) {
-			let elem = document.getElementById("edit_art")
-			elem.value = entity.art
-			elem = document.getElementById("edit_uuid")
-			elem.innerHTML = entity.uuid
-
-			// these are the tags - set all the checkboxes off - TODO could generate the entire checkbox system programmatically later
-			let tags = "upright eyelevel billboard wall floor persist public priority"
-			tags.split(" ").map(tag => {
-				let e = document.getElementById("edit_"+tag)
-				if(!e)return // weird
-				e.checked = false				
-				console.log("resettting " + tag)
-			})
-
-			// bust out the tags from entity and set those to true
-			entity.tags.split(" ").map(tag => {
-				let e = document.getElementById("edit_"+tag)
-				if(!e)return // weird
-				e.checked = true
-				console.log("upsettting " + tag)
-			})
-
+		if(!entity) {
+			return 0
 		}
+		if(this.uxmap) {
+			this.uxmap.latitude_longitude_updated = 0
+		}
+		// goto this page
+		this.push("edit")
+		// get layout for it
+		let elem = document.getElementById("edit_art")
+		elem.value = entity.art
+		elem = document.getElementById("edit_uuid")
+		elem.innerHTML = entity.uuid
+
+		// these are the tags - set all the checkboxes off - TODO could generate the entire checkbox system programmatically later
+		let tags = "upright eyelevel billboard wall floor persist public priority"
+		tags.split(" ").map(tag => {
+			let e = document.getElementById("edit_"+tag)
+			if(!e)return // weird
+			e.checked = false				
+			console.log("resettting " + tag)
+		})
+
+		// bust out the tags from entity and set those to true
+		entity.tags.split(" ").map(tag => {
+			let e = document.getElementById("edit_"+tag)
+			if(!e)return // weird
+			e.checked = true
+			console.log("upsettting " + tag)
+		})
 		return 0
 	}
 
 	editdone() {
 
 		let entity = this.arapp.selected()
-		if(entity) {
-
-			entity.published = 0
-			entity.dirty = 1
-
-			// set art and force reload art
-			// TODO sanitize
-			entity.art = document.getElementById("edit_art").value
-			if(entity.node) {
-				// TODO this should be in the above component not here
-				this.arapp.scene.remove(entity.node)
-				entity.node = 0;
-			}
-			console.log("entity has new art = " + entity.art )
-
-			// set tags
-			let buildset = []
-			let tags = "upright eyelevel billboard wall floor persist public priority"
-			tags.split(" ").map(tag => {
-				let e = document.getElementById("edit_"+tag)
-				if(!e)return // weird
-				if(!e.checked) return
-				buildset.push(tag)
-			})
-			console.log("entity tags set to " + buildset + " on " + entity.uuid )
-			entity.tags = buildset.join(" ")
+		if(!entity) {
+			this.main()
+			return 0
 		}
 
-		this.main() // TODO I should be able to pop... study
+		if(this.uxmap.latitude_longitude_updated && entity.gps) {
+			// the latitude and longitude have been updated... will only affect gps entities since other kinds have this computed from cartesian
+			console.log("UXHelper: updated lat lon " + entity.uuid + " lat=" + this.uxmap.latitude + " " + this.uxmap.longitude )
+			entity.gps.latitude = this.uxmap.latitude
+			entity.gps.longitude = this.uxmap.longitude
+		}
+
+		entity.published = 0
+		entity.dirty = 1
+
+		// set art and force reload art
+		// TODO sanitize - also this isn't the cleanest possible way to do this overall; scope concerns should be managed in scope
+		entity.art = document.getElementById("edit_art").value
+		if(entity.node) {
+			console.log("UXHelper::entity has new art = " + entity.art )
+			this.arapp.scene.remove(entity.node)
+			entity.node = 0;
+		}
+
+		// set tags
+		let buildset = []
+		let tags = "upright eyelevel billboard wall floor persist public priority"
+		tags.split(" ").map(tag => {
+			let e = document.getElementById("edit_"+tag)
+			if(!e)return // weird
+			if(!e.checked) return
+			buildset.push(tag)
+		})
+		console.log("UXHelper:: entity tags set to " + buildset + " on " + entity.uuid )
+		entity.tags = buildset.join(" ")
+
+		this.main() // TODO I should be able to pop but it fails... why?
 		return 0
 	}
 
 	action(act) {
 		switch(act) {
 			case 'make': this.arapp.action(act); break
-			case 'edit': return this.ux.exit()
+			case 'edit': return this.edit(); break
 			case 'move': this.arapp.action(act); break
 			case 'del':  alert("tbd"); break
 			case 'gps':  this.arapp.action(act); break
 			case 'save': this.arapp.action(act); break
 			case 'maps': this.map_overview(); break
+			case 'maps_update': this.map_overview_update(); break
 			case 'nudg': this.map_nudge(); break
+			default: break
 		}
 		return 0
 	}
@@ -291,25 +326,3 @@ window.addEventListener('DOMContentLoaded', () => {
 		window.ux = new UXHelper("login")
 	}, 100)
 })
-
-//
-// todo
-//
-//	- looks like north and south are swapped and oriented at an angle too - or the compass support is way way off
-//
-//	- we need cartographic math on the server probably as well
-//
-//	- ux
-//		- looks like we will badly need to re-orient the maps and place them -> the ux needs this badly
-//		- be able to repick things
-//		- be able to move things at least
-//		- have some primitives or default glyphs
-//
-//  - server
-//		- sqlite
-//		- flush
-//
-
-
-
-

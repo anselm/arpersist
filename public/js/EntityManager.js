@@ -21,6 +21,9 @@ class EntityManager {
 
 		// tags - default props per entity
 		this.tags = "aesthetic"
+
+		// manage entities
+		this.entities = {}
 	}
 
 	entityUUID(id) {
@@ -165,14 +168,14 @@ class EntityManager {
 			return 0
 		}
 		if(this.entityParty) {
-			// TODO - should I throw away the previous anchor?
+			XRAnchorCartography.removeAnchor(frame,this.entityParty.anchorUID)
 			this.entityParty.anchorUID = feature.anchorUID
 			this.entityParty.cartesian = 0
 			this.entityParty.published = 0
 			this.entityParty.dirty = 0
 			return this.entityParty
 		}
-		let entity = this.entityParty = {
+		let entity = {
 			       uuid: this.entityUUID(feature.anchorUID),
 			  anchorUID: feature.anchorUID,
 			        gps: feature.gps || 0,
@@ -192,7 +195,7 @@ class EntityManager {
 			     remote: 0,
 			      dirty: 1
 		}
-		this.entities[entity.uuid] = entity
+		this.entities[entity.uuid] = this.entityParty = entity
 		return entity
 	}
 
@@ -293,8 +296,6 @@ class EntityManager {
 			return 0
 		}
 		this.logging("entityLoadAll: getting all entities near latitude="+gps.latitude+" longitude="+gps.longitude)
-
-		gps.zone = this.zone
 
 		let response = await fetch("/api/entity/query", {
 			method: 'POST',
