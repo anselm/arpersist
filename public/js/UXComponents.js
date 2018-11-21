@@ -176,9 +176,11 @@ export class UXLog extends UXComponent {
 			buffer = args.value.join(" ")
 		}
 		if(args.kind=="err") {
+			console.error("className log: " + args.className + " message: " + buffer)			
 			buffer = "<font color=red> " + buffer + "</font>"
+		} else {
+			console.log("className log: " + args.className + " message: " + buffer)			
 		}
-		console.log("className log: " + args.className + " message: " + buffer)
 		this.display.unshift(buffer)
 		this.display = this.display.slice(0,10)
 		this.target.innerHTML = this.display.join("<br/>")

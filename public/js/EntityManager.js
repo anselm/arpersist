@@ -12,7 +12,7 @@ import {XRAnchorCartography} from './XRAnchorCartography.js'
 
 export class EntityManager {
 
-	constructor(zone,party,logging=0) {
+	constructor(zone,party,logging=0,errors=0) {
 		// zone concept - TODO this may go away or be improved
 		this.zone = zone || "ZZZ"
 
@@ -21,6 +21,7 @@ export class EntityManager {
 
 		// some error logging support - a callback handler
 		this.logging = logging || console.log
+		this.errors = errors || console.error
 
 		// tags - default props per entity
 		this.tags = "aesthetic"
@@ -119,7 +120,7 @@ export class EntityManager {
 		if(!frame) return
 		let feature = await XRAnchorCartography.featureAtGPS(frame)
 		if(!feature || !feature.gps) {
-			this.logging("entityAddGPS: could not make gps anchor!")
+			this.errors("entityAddGPS: could not make gps anchor!")
 			return 0
 		}
 		let entity = {
@@ -158,7 +159,7 @@ export class EntityManager {
 
 		let feature = await XRAnchorCartography.featureAtIntersection(frame,0.5,0.5)
 		if(!feature) {
-			this.logging("entityAddArt: anchor failed")
+			this.errors("entityAddArt: anchor failed")
 			return 0
 		}
 		let entity = {
@@ -197,7 +198,7 @@ export class EntityManager {
 
 		let feature = await XRAnchorCartography.featureAtPose(frame)
 		if(!feature) {
-			this.logging("entityAddParty: [error] anchor failed")
+			this.errors("entityAddParty: [error] anchor failed")
 			return 0
 		}
 		if(this.entityParty) {
@@ -235,7 +236,7 @@ export class EntityManager {
 	async mapSave() {
 
 		if(!this._frame || !this._session) {
-			this.logging("entity mapSave: no frame or session")
+			this.errors("entity mapSave: no frame or session")
 			return
 		}
 		let frame = this._frame
@@ -248,13 +249,13 @@ export class EntityManager {
 			// if no gps entity was added then force add one now
 			entity = await this.entityAddGPS(frame)
 			if(!entity) {
-				this.logging("entity MapSave: [error] failed to add gps entity - no gps yet?")
+				this.errors("entity MapSave: [error] failed to add gps entity - no gps yet?")
 				return
 			}
 			// force promote the entity to the gps entity
 			XRAnchorCartography.featureRelocalize(frame, entity)
 			if(!entity.relocalized) {
-				this.logging("entity mapSave: [error] failed to relocalize entity - which is odd")
+				this.errors("entity mapSave: [error] failed to relocalize entity - which is odd")
 				return
 			}
 			this.entityGPS = entity
@@ -267,7 +268,7 @@ export class EntityManager {
 
 		let results = await session.getWorldMap()
 		if(!results) {
-			this.logging("entity MapSave: [error] this engine does not have a good map from arkit yet")
+			this.errors("entity MapSave: [error] this engine does not have a good map from arkit yet")
 			return 0
 		}
 		const data = new FormData()
@@ -297,7 +298,7 @@ export class EntityManager {
 		this.logging("will try load map named " + filename )
 
 		if(!this._frame || !this._session) {
-			this.logging("entity mapLoad: no frame or session")
+			this.errors("entity mapLoad: no frame or session")
 			return
 		}
 		let session = this._session
@@ -309,7 +310,9 @@ export class EntityManager {
 			session.addEventListener(XRSession.NEW_WORLD_ANCHOR,(event) => {
 				//this.logging(event.detail.uid + " << arkit callback - saw an anchor re-appear " )
 				if(this.entities[event.detail.uid]) {
-					this.logging("*** ANCHOR RECOVERED " + event.detail.uid )
+					this.logging("mapLoad: " + event.detail.uid + " *** ANCHOR GOOD" )
+				} else {
+					this.errors("mapLoad: " + event.detail.uid + " *** ANCHOR BAD" )
 				}
 			})
 		}

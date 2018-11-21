@@ -106,7 +106,7 @@ window.addEventListener('DOMContentLoaded',async function() {
   // if(!params.admin) document.getElementById("save").style.display = "none"
 
   // start an entity network state manager
-  let entity_manager = new EntityManager(params.zone || "ZZZ",params.party || "ME",UXPage.log)
+  let entity_manager = new EntityManager(params.zone || "ZZZ",params.party || "ME",UXPage.log,UXPage.err)
 
   // wait for network
   await entity_manager.entityNetworkRestart()
