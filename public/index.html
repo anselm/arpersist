@@ -4,153 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 <link rel="stylesheet" type="text/css" href="/css/main.css">
-<link rel="stylesheet" href="/css/common.css"/>
 <script src="/libs/three.js"></script>
 <script src="/libs/three-gltf-loader.js"></script>
-<script src="/js/webxr-polyfill.js"></script>
-<script src="/js/common.js"></script>
-<script src="/js/Cesium.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/chance.js"></script>
-<script src="/js/XRAnchorCartography.js"></script>
-<script src="/js/EntityManager.js"></script>
-<script src="/js/UXEntityComponent.js"></script>
-<script src="/js/UXMapComponent.js"></script>
-<script src="/js/UXHelper.js"></script>
+<script src="/js/Cesium.js"></script>
+<script src="/js/webxr-polyfill.js"></script>
 <link href="https://fonts.googleapis.com/css?family=Monofett|Roboto+Mono" rel="stylesheet">
 <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBrirea7OVV4aKJ9Y0UAp6Nbr6-fXtr-50" type="text/javascript"></script>
 </head>
 <body>
-<div id="main_arview_target">
 
-<!-- style used by pages below ------------------------------------------------------------------------------------------------->
-<style>
-.page {
-  background-color:	   transparent;
-  width:               100%;
-  height:              100%;
-  position:            absolute;
-  top:                 0;
-  left:                0;
-  font-family:         'Press Start 2P',monospace;
-  font-family: 'Monofett', cursive;
-  font-family: 'Roboto Mono', monospace;
-  font-weight:         normal;
-  font-style:          normal;
-  font-size:           normal;
-  line-height:         18px;
-  color:               white;
-  white-space:         pre;
-  overflow:            hidden;
-  box-sizing:          border-box;
-  background-repeat:   no-repeat;
-  background-size:     auto;
-  display:             none;
-  text-align:          left;
-}
-
-button, input {
-    font-size:18pt;
-    border-radius: 8px;
-    background: #aaaaee;
-    border-style: solid;
-    border-color: #cceeff;
-   	margin: 2px;
-	padding: 2px;
-}
-input {
-	width: 80%;
-}
-button {
-	width: 60%;
-}
-label {
-    font-size:18pt;
-}
-.uxbutton {
-    font-size:14pt;
-    border-radius: 4px;
-    background: #aaaaee;
-    border-style: solid;
-    border-color: #cceeff;
-   	margin: 2px;
-	padding: 2px;
-	width: auto;
-}
-::placeholder { /* Chrome, Firefox, Opera, Safari 10.1+ */
-    color: red;
-    opacity: 1; /* Firefox */
-}
-
-:-ms-input-placeholder { /* Internet Explorer 10-11 */
-    color: red;
-}
-
-::-ms-input-placeholder { /* Microsoft Edge */
-    color: red;
-}
-
-
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 60px;
-  height: 34px;
-}
-
-.switch input { 
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  -webkit-transition: .4s;
-  transition: .4s;
-}
-
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 26px;
-  width: 26px;
-  left: 4px;
-  bottom: 4px;
-  background-color: white;
-  -webkit-transition: .4s;
-  transition: .4s;
-}
-
-input:checked + .slider {
-  background-color: #2196F3;
-}
-
-input:focus + .slider {
-  box-shadow: 0 0 1px #2196F3;
-}
-
-input:checked + .slider:before {
-  -webkit-transform: translateX(26px);
-  -ms-transform: translateX(26px);
-  transform: translateX(26px);
-}
-
-.slider.round {
-  border-radius: 34px;
-}
-
-.slider.round:before {
-  border-radius: 50%;
-}
-
-</style>
+<div id="arview_target">
 
 <!-- Login page ------------------------------------------------------------------------------------------------->
 <form class="page" id="login">
@@ -160,40 +25,27 @@ input:checked + .slider:before {
 <br/><label>请选择一个名字</label>
 <br/><label>يرجى اختيار الاسم</label>
 <br/><label>בחר שם</label> 
-<br/><input id="login_moniker" placeholder="Pick a handle"></input>
-<br/><button>Join</button>
+<br/><input placeholder="Pick a handle"></input>
+<br/><button> Join </button>
+<!-- <br/><button id="logindone" onClick="event.preventDefault(); window.ux.action('logindone'); return 0;"> Join </button> -->
 </center>
 </form>
-<script>
-(function () {
-	let form = document.getElementById("login")
-	form.elements[0].placeholder = window.chance.first() + " " + window.chance.last() + " " + window.chance.animal()
-	form.onsubmit = (e) => {
-		e.preventDefault()
-		let moniker = e.srcElement.elements[0]; // or form.elements[0]
-		window.ux.login(moniker.value || moniker.placeholder)
-		return false
-	}
-})()
-</script>
 
 <!-- Picker ------------------------------------------------------------------------------------------------->
-<form class="page" id="pick">
+<form class="page" id="picker">
 <center>
 <br/><label>Please pick a map </label>
 <div id="picker_dynamic_list"><label>...loading...</label></div>
 </center>
 </form>
 
-
-<!-- Map page ------------------------------------------------------------------------------------------------->
-<div class="page" id="map">
+<!-- Map  ------------------------------------------------------------------------------------------------->
+<div class="page" id="maps">
+this is the map page
 </div>
 
-
-<!-- Edit page ------------------------------------------------------------------------------------------------->
-
-<form class="page" id="edit">
+<!-- Edit ------------------------------------------------------------------------------------------------->
+<form class="page" id="editor">
 <center>
 <label>Edit</label>
 <br/><input id="edit_name" placeholder="a name"></input>
@@ -206,26 +58,132 @@ input:checked + .slider:before {
 <br/><label id="xedit_persist"  >   Persist </label><label class="switch">      <input id="edit_persist" type="checkbox"><span class="slider"></span></label>
 <br/><label id="xedit_public"   >    Public </label><label class="switch">      <input id="edit_public" type="checkbox"><span class="slider"></span></label>
 <br/><label id="xedit_priority" >  Priority </label><label class="switch">      <input id="edit_priority" type="checkbox"><span class="slider"></span></label>
-<br/><button onClick="return window.ux.action('del')"> delete</button>
+<br/><button id="delete" onClick="event.preventDefault();window.ux.action('delete'); return 0;"> delete</button>
 <br/>
-<br/><button onClick="event.preventDefault(); window.ux.action('nudg'); return 0;"> map</button>
-<br/><button onClick="event.preventDefault(); window.ux.editdone(); return 0;"> done</button>
+<br/><button id="nudgemap" onClick="event.preventDefault(); window.ux.action('nudgemap'); return 0;"> map</button>
+<br/><button id="editdone" onClick="event.preventDefault(); window.ux.action('editdone'); return 0;"> done</button>
 <br/>
 <div id="edit_uuid">object uid if any</div>
 <div>object location if any</div>
 </center>
 </form>
 
-
-<!-- Main page ------------------------------------------------------------------------------------------------->
-<div class="page" id="main">
+<!-- Augmented view ------------------------------------------------------------------------------------------------->
+<div class="page" id="arview">
 <button id="make" class=uxbutton onClick="window.ux.action(this.id)"> Make </button> <!-- make a fresh asset -->
 <button id="edit" class=uxbutton onClick="window.ux.action(this.id)"> Edit </button> <!-- edit an asset -->
-<button id="save" class=uxbutton onClick="window.ux.action(this.id)"> Save </button> <!-- admin: save the map -->
 <button id="maps" class=uxbutton onClick="window.ux.action(this.id)"> Maps </button> <!-- map mode -->
-<div id="description"><div id="ux_help"> all systems nominal </div></div>
+<button id="save" class=uxbutton onClick="window.ux.action(this.id)"> Save </button> <!-- admin: save the map -->
+<div id="description"><div id="helper"> all systems nominal </div></div>
 </div>
 
 </div>
 </body>
 </html>
+
+<script type=module>
+
+// code to manage entity state and networking for this app
+import {EntityManager} from '/js/EntityManager.js'
+
+// code for a general purpose ux framework
+import {UXUrlParams,UXComponent,UXPage,UXLog} from '/js/UXComponents.js'
+
+// code to manage user interactions for this specific app
+import {UXLogin} from '/js/UXLogin.js'
+import {UXPicker} from '/js/UXPicker.js'
+import {UXAugmentedView} from '/js/UXAugmentedView.js'
+import {UXEditor} from '/js/UXEditor.js'
+import {UXMap} from '/js/UXMap.js'
+
+// start up
+window.addEventListener('DOMContentLoaded',async function() {
+
+  // fetch browser url params
+  let params = UXUrlParams()
+
+  // hide save button if not in admin mode
+  // if(!params.admin) document.getElementById("save").style.display = "none"
+
+  // start an entity network state manager
+  let entity_manager = new EntityManager(params.zone || "ZZZ",params.party || "ME",UXPage.log)
+
+  // wait for network
+  await entity_manager.entityNetworkRestart()
+
+  // connect ux control logic to existing html
+  new UXLog("helper")
+  new UXLogin("login")
+  let picker = new UXPicker()
+  let editor = new UXEditor()
+  let map = new UXMap("maps")
+
+  new UXAugmentedView(entity_manager,"arview_target",UXPage.log,UXPage.err)
+
+  // expose messaging to the html to allow inline onclick handlers in html for convenience
+  window.ux = new UXPage()
+
+  // make login page visible now
+  UXPage.push("login")
+
+  // connect buttons to actions
+  UXPage.listen("action",(args)=> {
+    UXPage.log("handling an action " + args.value)
+    map.markerHelper(0)
+    switch(args.value) {
+      case "logindone":
+        // TODO do something with name
+        UXPage.push("picker")
+        picker.layout("picker_dynamic_list",entity_manager.entityQuery({kind:"map"}))
+        break
+      case "pickerdone":
+        UXPage.push("arview")
+        if(args.subvalue) {
+          UXPage.log("loading map " + args.subvalue )
+          entity_manager.mapLoad(args.subvalue)
+        }
+        break
+      case "maps":
+        map.markerHelper( entity_manager.entityQuery.bind(entity_manager) )
+        UXPage.push("maps")
+        break
+      case "edit":
+        if( entity_manager.entityGetSelected() ) {
+          editor.edit("editor",entity_manager.entityGetSelected())
+          UXPage.push("editor")
+        }
+        break
+      case "nudgemap":
+        UXPage.push("maps")
+        break
+      case "editdone":
+        {
+          let entity = entity_manager.entityGetSelected()
+          if(entity && map && map.latitude_longitude_updated && entity.gps) {
+            UXPage.log("editor updated location of entity to lat="+map.latitude+ " lon="+map.longitude)
+            entity.gps.latitude = map.latitude
+            entity.gps.longitude = map.longitude
+            map.latitude_longitude_updated = 0
+          }
+          editor.editdone(entity)
+          UXPage.pop()
+        }
+        break
+      case "make":
+        entity_manager.entityAddArt()
+        break
+      case "delete":
+        // TBD
+        UXPage.err("Not written yet")
+        break
+      case "save":
+        entity_manager.mapSave()
+        break
+    }
+  })
+
+})
+
+</script>
+
+

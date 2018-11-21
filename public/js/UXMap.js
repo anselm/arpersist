@@ -2,7 +2,7 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///
-/// UXMapComponent
+/// UXMap
 ///
 /// Controls the view for the map page
 /// This is a google maps page used in several ways
@@ -10,16 +10,44 @@
 ///
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class UXMapComponent {
+import {UXPage} from './UXComponents.js'
 
-	constructor() {
+export class UXMap {
+
+	constructor(dom_element_id) {
+
+console.log(window.google)
+
 		this.map = 0
 		this.infoWindow = 0
 		this.markerCenter = 0
-		this.mapInit()
+		this.latitude_longitude_updated = 0
+		this.mapInit(dom_element_id)
+		this.markers = {}
 	}
 
-	marker(marker,pos) {
+	markerHelper(callback) {
+		if(!callback) {
+			return
+		}
+		let results = callback()
+		if(!results || !results.length) {
+			return
+		}
+		// TODO mark all markers as not surviving
+		results.forEach((entity) => {
+			console.log("examining " + entity.uuid )
+			if(!entity.gps) return
+	        let pos  = { latitude: entity.gps.latitude, longitude:entity.gps.longitude, title:entity.uuid }
+	    	let marker = this.markers[entity.uuid]
+	    	marker = this._marker(marker,pos)
+	    	this.markers[entity.uuid] = marker
+		})
+		// sweep
+		// TODO do this every few frames while this display is up
+	}
+
+	_marker(marker,pos) {
 		pos = {lat:parseFloat(pos.latitude),lng:parseFloat(pos.longitude)}
 		if(marker) {
 			marker.setPosition(pos)
@@ -53,11 +81,15 @@ class UXMapComponent {
 		this._mapMarker(pos)
 	}
 
-	mapInit() {
-
-		let map = this.map = new google.maps.Map(document.getElementById('map'), {
-			center: {lat: 45.397, lng: -120.644},
-			zoom: 13,
+	mapInit(dom_element_id) {
+		let element = document.getElementById(dom_element_id)
+		if(!element) {
+			this.err("No map div")
+			return
+		}
+		let map = this.map = new google.maps.Map(element, {
+			center: {lat: 45.5577417, lng: -122.6758163, altitude: 100 },
+			zoom: 15,
 			mapTypeId: 'satellite'
 		})
 
@@ -65,16 +97,8 @@ class UXMapComponent {
 		var button = document.createElement('button');
 		button.className = "uxbutton"
 		button.innerHTML = "back"
-		button.onclick = function(e) { window.ux.pop() } // TODO a message bus would prevent this component knowing about other stuff
+		button.onclick = function(e) { UXPage.pop() }
 		map.controls[google.maps.ControlPosition.LEFT_TOP].push(button);
-
-		button = document.createElement('button');
-		button.className = "uxbutton"
-		button.innerHTML = "refresh"
-		button.onclick = function(e) { window.ux.map_overview_update() } // TODO a message bus would prevent this component knowing about other stuff
-		map.controls[google.maps.ControlPosition.LEFT_TOP].push(button);
-
-		let infoWindow = this.infoWindow = new google.maps.InfoWindow
 
 		// listen for change events for an entity placement
 		map.addListener('center_changed', (e) => {
@@ -84,6 +108,8 @@ class UXMapComponent {
 		})
 
 		// establish initial map position
+
+		let infoWindow = this.infoWindow = new google.maps.InfoWindow
 		if (navigator.geolocation) {
 			navigator.geolocation.getCurrentPosition((position) => {
 				this.mapCenter(position.coords)

@@ -1,4 +1,7 @@
 
+// a helper to get gps location
+import {XRAnchorCartography} from './XRAnchorCartography.js'
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///
 /// Client side entity state mirroring and networking
@@ -7,26 +10,33 @@
 ///
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class EntityManager {
+export class EntityManager {
 
 	constructor(zone,party,logging=0) {
 		// zone concept - TODO this may go away or be improved
-		this.zone = zone
+		this.zone = zone || "ZZZ"
 
 		// party - this may be improved - used to distinguish players right now but is not non-collidant
-		this.party = party
+		this.party = party || "ME"
 
 		// some error logging support - a callback handler
-		this.logging = logging || function(message) { console.log(message) }
+		this.logging = logging || console.log
 
 		// tags - default props per entity
 		this.tags = "aesthetic"
 
 		// manage entities
 		this.entities = {}
+
+		// set selected to nothing
+		this.entitySetSelected(0)
+
+		// trying to keep a cached copy of the temporally in the past session and frame - TEST
+		this._session = 0
+		this._frame = 0
 	}
 
-	entityUUID(id) {
+	_entityUUID(id) {
 		// uuid has to be deterministic yet unique for all client instances so build it out of known parts and hope for best
 		return this.zone + "_" + this.party + "_" + id
 	}
@@ -38,12 +48,7 @@ class EntityManager {
 		}
 	}
 
-	entitySystemReset() {
-		// local flush - not network
-		this.entities = {}
-	}
-
-	entityQuery(args) {
+	entityQuery(args={}) {
 		// local query only - not network
 		let results = []
 		this.entityAll((entity)=>{
@@ -53,14 +58,30 @@ class EntityManager {
 		return results
 	}
 
-	entityUpdateAll(frame) {
+	entityUpdate(session,frame) {
+
+		// as a test see if I can keep a useful copy of previous frame and session around - so that I can do work outside of the update callback
+		this._session = session
+		this._frame = frame
+
+		// update the players position every n refreshes (if a map is loaded)
+		if(this.allowParticipant) {
+			if(!this.partyUpdateCounter) this.partyUpdateCounter = 1
+	 		this.partyUpdateCounter++
+			if(this.partyUpdateCounter > 60) {
+				this.entityAddParty(frame)
+				this.counter = 1
+			}
+		}
+
+		// update all entities
 		this.entityAll((entity)=>{
-			this.entityUpdateOne(frame,entity)
-			this.entityDebugging(entity)
+			this._entityUpdateOne(frame,entity)
+			this._entityDebugging(entity)
 		})
 	}
 
-	entityUpdateOne(frame,entity) {
+	_entityUpdateOne(frame,entity) {
 
 		// ignore maps for now
 		if(entity.kind=="map") return
@@ -80,23 +101,29 @@ class EntityManager {
 
 		// publish changes? (only entities that have a location can have their changes published)
 		if(!entity.published && entity.cartesian) {
-			this.entityPublish(entity)
+			this._entityPublish(entity)
 			entity.published = 1
 		}
 	}
+
+	entitySetSelected(entity) { this.entitySelected = entity }
+
+	entityGetSelected() { return this.entitySelected }
 
 	///
 	/// Make a gps entity - at the moment multiple of these are allowed - note that this.entityGPS is not set here (since it could arrive over network)
 	///
 
-	async entityAddGPS(frame) {
+	async entityAddGPS() {
+		let frame = this._frame
+		if(!frame) return
 		let feature = await XRAnchorCartography.featureAtGPS(frame)
 		if(!feature || !feature.gps) {
 			this.logging("entityAddGPS: could not make gps anchor!")
 			return 0
 		}
 		let entity = {
-			       uuid: this.entityUUID(feature.anchorUID),
+			       uuid: this._entityUUID(feature.anchorUID),
 			     anchor: feature.anchor,
 			  anchorUID: feature.anchorUID,
 			        gps: feature.gps || 0,
@@ -117,6 +144,7 @@ class EntityManager {
 			      dirty: 1
 		}
 		this.entities[entity.uuid] = entity
+		this.entitySetSelected(entity)
 		return entity
 	}
 
@@ -124,7 +152,9 @@ class EntityManager {
 	/// Create an entity as per the users request - it is ok to make these before gps anchors show up
 	///
 
-	async entityAddArt(frame) {
+	async entityAddArt() {
+		let frame = this._frame
+		if(!frame) return
 
 		let feature = await XRAnchorCartography.featureAtIntersection(frame,0.5,0.5)
 		if(!feature) {
@@ -132,7 +162,7 @@ class EntityManager {
 			return 0
 		}
 		let entity = {
-			       uuid: this.entityUUID(feature.anchorUID),
+			       uuid: this._entityUUID(feature.anchorUID),
 			  anchorUID: feature.anchorUID,
 			     anchor: feature.anchor,
 			        gps: feature.gps || 0,
@@ -153,6 +183,7 @@ class EntityManager {
 			      dirty: 1
 		}
 		this.entities[entity.uuid] = entity
+		this.entitySetSelected(entity)
 		return entity
 	}
 
@@ -160,7 +191,9 @@ class EntityManager {
 	/// Create or update a partys position
 	/// TODO could fold into above and reduce amount of code
 
-	async entityAddParty(frame) {
+	async entityAddParty() {
+		let frame = this._frame
+		if(!frame) return
 
 		let feature = await XRAnchorCartography.featureAtPose(frame)
 		if(!feature) {
@@ -176,7 +209,7 @@ class EntityManager {
 			return this.entityParty
 		}
 		let entity = {
-			       uuid: this.entityUUID(feature.anchorUID),
+			       uuid: this._entityUUID(feature.anchorUID),
 			  anchorUID: feature.anchorUID,
 			        gps: feature.gps || 0,
 			  transform: feature.transform || 0,
@@ -199,7 +232,14 @@ class EntityManager {
 		return entity
 	}
 
-	async mapSave(frame) {
+	async mapSave() {
+
+		if(!this._frame || !this._session) {
+			this.logging("entity mapSave: no frame or session")
+			return
+		}
+		let frame = this._frame
+		let session = this._session
 
 		// a slight hack - make and fully prep a gps anchor if one is not made yet
 
@@ -225,7 +265,7 @@ class EntityManager {
 
 		this.logging("entity mapSave: UX saving map")
 
-		let results = await frame._session.getWorldMap()
+		let results = await session.getWorldMap()
 		if(!results) {
 			this.logging("entity MapSave: [error] this engine does not have a good map from arkit yet")
 			return 0
@@ -252,13 +292,25 @@ class EntityManager {
 		return json		
 	}
 
-	async  mapLoad(session,filename) {
+	async mapLoad(filename) {
 
-		// observe anchors showing up again - this code doesn't have to do any work since update loop will busy poll till it rebinds anchors to maps
+		this.logging("will try load map named " + filename )
+
+		if(!this._frame || !this._session) {
+			this.logging("entity mapLoad: no frame or session")
+			return
+		}
+		let session = this._session
+
+		// observe anchors showing up again
+		// (this code doesn't have to do any work here since update loop will busy poll till it rebinds anchors to maps)
 		if (!this.listenerSetup) {
 			this.listenerSetup = true
 			session.addEventListener(XRSession.NEW_WORLD_ANCHOR,(event) => {
 				this.logging(event.detail.uid + " << arkit callback - saw an anchor re-appear " )
+				if(this.entities[event.detail.uid]) {
+					this.logging("**** FOUND A MATCHING ANCHOR ON RELOAD ***")
+				}
 			})
 		}
 
@@ -266,7 +318,7 @@ class EntityManager {
 		let response = await fetch("uploads/"+filename)
 		let data = await response.text()
 		let results = await session.setWorldMap({worldMap:data})
-		this.logging("entity mapLoad: a fresh map file arrived " + filename )
+		this.logging("fresh map file arrived " + filename + " results=" + results.loaded )
 	}
 
 
@@ -274,28 +326,41 @@ class EntityManager {
 	// network
 	//////////////////////////////////////////////////////////////////////////////////
 
-	async entityNetworkRestart(args) {
-		// flush local entities
+	async entityNetworkRestart() {
+
+		// get a gps location hopefully
+		this.gps = await XRAnchorCartography.gpsPromise()
+		this.logging("Got GPS")
+		this.logging(this.gps)
+
+		// local flush - not network
+		this.entities = {}
+
+		// unset anything selected
+		this.entitySetSelected(0)
+
+		// open connection if none
 		if(!this.socket) {
 			this.socket = io()
-			this.socket.on('publish', this.entityReceive.bind(this) )
-			this.socket.emit('location',args.gps)
+			this.socket.on('publish', this._entityReceive.bind(this) )
+			this.socket.emit('location',this.gps)
 		}
-		// reload or load everything (typically AFTER the network is started to avoid missing chatter)
-		await this.entityLoadAll(args.gps)
+
+		// reload or load everything (typically AFTER the network is started to avoid missing chatter) - can happen before map load - can be called over and over
+		await this._entityLoadAll(this.gps)
 	}
 
 	///
 	/// Get everything near player gps from server (typically AFTER starting to listen to ongoing chatter due to possibility of a gap)
 	///
 
-	async entityLoadAll(gps) {
+	async _entityLoadAll() {
 		// load all the entities from the server in one go - and rebinding/gluing state back together will happen later on in update()
-		if(!gps) {
+		if(!this.gps) {
 			this.logging("entityLoadAll: this engine needs a gps location before loading maps")
 			return 0
 		}
-		this.logging("entityLoadAll: getting all entities near latitude="+gps.latitude+" longitude="+gps.longitude)
+		this.logging("entityLoadAll: getting all entities near latitude="+this.gps.latitude+" longitude="+this.gps.longitude)
 
 		let response = await fetch("/api/entity/query", {
 			method: 'POST',
@@ -303,7 +368,7 @@ class EntityManager {
 		      'Accept': 'application/json',
 		      'Content-Type': 'application/json'
 		    },
-    		body: JSON.stringify({gps:gps})
+    		body: JSON.stringify({gps:this.gps})
 		})
 
 		let json = await response.json()
@@ -328,7 +393,7 @@ class EntityManager {
 	/// TODO deletion events
 	///
 
-	entityReceive(entity) {
+	_entityReceive(entity) {
 		// TODO rebuild trans/rot
 		entity.cartesian = entity.cartesian ? new Cesium.Cartesian3(entity.cartesian.x,entity.cartesian.y,entity.cartesian.z) : 0
 		entity.published = 1
@@ -357,7 +422,7 @@ class EntityManager {
 	/// TODO when publishing an update there's no point in sending all the fields
 	///
 
-	entityPublish(entity) {
+	_entityPublish(entity) {
 
 		if(!entity.cartesian) {
 			this.logging("entityPublish: [error] entity has no cartesian " + entity.uuid )
@@ -392,19 +457,7 @@ class EntityManager {
 		this.socket.emit('publish',blob);
 	}
 
-	/* TODO - I need some kind of admin flush mode
-	async flushServer() {
-
-		// flush server
-		let response = await fetch("/api/entity/flush",{ method: 'POST', body: this.zone })
-		console.log("server state after flush")
-		console.log(response)
-
-		this.flushClient()
-	}
-	*/
-
-	entityDebugging(entity) {
+	_entityDebugging(entity) {
 		if(entity.debugged) return
 		if(!entity.pose) return
 		entity.debugged = 1
