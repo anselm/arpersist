@@ -307,9 +307,9 @@ export class EntityManager {
 		if (!this.listenerSetup) {
 			this.listenerSetup = true
 			session.addEventListener(XRSession.NEW_WORLD_ANCHOR,(event) => {
-				this.logging(event.detail.uid + " << arkit callback - saw an anchor re-appear " )
+				//this.logging(event.detail.uid + " << arkit callback - saw an anchor re-appear " )
 				if(this.entities[event.detail.uid]) {
-					this.logging("**** FOUND A MATCHING ANCHOR ON RELOAD ***")
+					this.logging("*** ANCHOR RECOVERED " + event.detail.uid )
 				}
 			})
 		}
