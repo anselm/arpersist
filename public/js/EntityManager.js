@@ -324,10 +324,10 @@ await this.mapLoad(entity.anchorUID)
 		if (!this.listenerSetup) {
 			this.listenerSetup = true
 			session.addEventListener(XRSession.NEW_WORLD_ANCHOR,(event) => {
-				let success = false
-				this.entityAll(e=>{ if(!e.anchor && e.anchorUID == event.detail.uid) success = true })
-				if(success) {
-					this.logging("mapLoad: " + event.detail.uid + " *** ANCHOR GOOD" )
+				let entity = 0
+				this.entityAll(e=>{ if(e.anchorUID == event.detail.uid) entity = e })
+				if(entity) {
+					if(!entity.anchor) this.logging("<font color=green>mapLoad: " + event.detail.uid + " *** ANCHOR GOOD</font>" )
 				} else {
 					this.errors("mapLoad: " + event.detail.uid + " *** ANCHOR BAD" )
 				}
