@@ -289,8 +289,12 @@ export class EntityManager {
 		data.append('altitude',    entity.gps.altitude )
 		let response = await fetch('/api/map/save', { method: 'POST', body: data })
 		let json = await response.json()
-		this.logging("entity mapSave: succeeded")
-		return json		
+		this.logging("entity mapSave: succeeded ")
+
+// - reload the map
+// - rename anchors to our anchors?
+await this.mapLoad(entity.anchorUID)
+
 	}
 
 	async mapLoad(filename) {
