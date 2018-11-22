@@ -28,10 +28,10 @@ export class UXMap {
 	markerSource(callback) { this.markerCallback = callback }
 
 	_markerUpdate() {
-		if(!this.callback) {
+		if(!this.markerCallback) {
 			return
 		}
-		let results = this.callback()
+		let results = this.markerCallback()
 		if(!results || !results.length) {
 			return
 		}

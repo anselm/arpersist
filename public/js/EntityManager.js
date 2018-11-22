@@ -432,8 +432,7 @@ await this.mapLoad(entity.anchorUID)
 			previous.art = entity.art
 			previous.tags = entity.tags
 			previous.gps = entity.gps
-			this.logging("entityReceive: remote entity found again and updated " + entity.uuid)
-			console.log(entity)
+			//this.logging("entityReceive: remote entity found again and updated " + entity.uuid)
 		}
 	}
 
