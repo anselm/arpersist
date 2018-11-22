@@ -29,6 +29,9 @@ export class EntityManager {
 		// manage entities
 		this.entities = {}
 
+		// has loaded a mpa?
+		this.mapLoaded = 0
+
 		// set selected to nothing
 		this.entitySetSelected(0)
 
@@ -53,7 +56,8 @@ export class EntityManager {
 		// local query only - not network
 		let results = []
 		this.entityAll((entity)=>{
-			if(args.kind && entity.kind == args.kind) results.push(entity)
+			if(args.kind && entity.kind != args.kind) return
+			results.push(entity)
 			// TODO add gps filtering
 		})
 		return results
@@ -66,7 +70,7 @@ export class EntityManager {
 		this._frame = frame
 
 		// update the players position every n refreshes (if a map is loaded)
-		if(this.allowParticipant) {
+		if(this.mapLoaded) {
 			if(!this.partyUpdateCounter) this.partyUpdateCounter = 1
 	 		this.partyUpdateCounter++
 			if(this.partyUpdateCounter > 60) {
@@ -333,6 +337,7 @@ await this.mapLoad(entity.anchorUID)
 		let data = await response.text()
 		let results = await session.setWorldMap({worldMap:data})
 		this.logging("fresh map file arrived " + filename + " results=" + results.loaded )
+		this.mapLoaded = true
 	}
 
 

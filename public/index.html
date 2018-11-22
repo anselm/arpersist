@@ -129,7 +129,7 @@ window.addEventListener('DOMContentLoaded',async function() {
   // connect buttons to actions
   UXPage.listen("action",(args)=> {
     UXPage.log("handling an action " + args.value)
-    map.markerHelper(0)
+    map.markerSource(0)
     switch(args.value) {
       case "logindone":
         // TODO do something with name
@@ -144,7 +144,7 @@ window.addEventListener('DOMContentLoaded',async function() {
         }
         break
       case "maps":
-        map.markerHelper( entity_manager.entityQuery.bind(entity_manager) )
+        map.markerSource( entity_manager.entityQuery.bind(entity_manager) )
         UXPage.push("maps")
         break
       case "edit":

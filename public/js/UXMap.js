@@ -15,28 +15,28 @@ import {UXPage} from './UXComponents.js'
 export class UXMap {
 
 	constructor(dom_element_id) {
-
-console.log(window.google)
-
 		this.map = 0
 		this.infoWindow = 0
 		this.markerCenter = 0
 		this.latitude_longitude_updated = 0
 		this.mapInit(dom_element_id)
 		this.markers = {}
+		this.markerCallback = 0
+		setInterval( this._markerUpdate.bind(this), 1000 )
 	}
 
-	markerHelper(callback) {
-		if(!callback) {
+	markerSource(callback) { this.markerCallback = callback }
+
+	_markerUpdate() {
+		if(!this.callback) {
 			return
 		}
-		let results = callback()
+		let results = this.callback()
 		if(!results || !results.length) {
 			return
 		}
 		// TODO mark all markers as not surviving
 		results.forEach((entity) => {
-			console.log("examining " + entity.uuid )
 			if(!entity.gps) return
 	        let pos  = { latitude: entity.gps.latitude, longitude:entity.gps.longitude, title:entity.uuid }
 	    	let marker = this.markers[entity.uuid]
