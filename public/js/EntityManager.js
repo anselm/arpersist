@@ -29,8 +29,11 @@ export class EntityManager {
 		// manage entities
 		this.entities = {}
 
-		// has loaded a mpa?
+		// has loaded a map?
 		this.mapLoaded = 0
+
+		// allow party to update
+		this.partyUpdateCounter = 1
 
 		// set selected to nothing
 		this.entitySetSelected(0)
@@ -70,12 +73,11 @@ export class EntityManager {
 		this._frame = frame
 
 		// update the players position every n refreshes (if a map is loaded)
-		if(this.mapLoaded) {
-			if(!this.partyUpdateCounter) this.partyUpdateCounter = 1
+		if(this.mapLoaded && this.partyUpdateCounter) {
 	 		this.partyUpdateCounter++
-			if(this.partyUpdateCounter > 60) {
+			if(this.partyUpdateCounter > 120) {
 				this.entityAddParty(frame)
-				this.counter = 1
+				this.partyUpdateCounter = 1
 			}
 		}
 
@@ -323,7 +325,7 @@ await this.mapLoad(entity.anchorUID)
 			this.listenerSetup = true
 			session.addEventListener(XRSession.NEW_WORLD_ANCHOR,(event) => {
 				let success = false
-				this.entityAll(e=>{ if(e.anchorUID == event.detail.uid) success = true })
+				this.entityAll(e=>{ if(!e.anchor && e.anchorUID == event.detail.uid) success = true })
 				if(success) {
 					this.logging("mapLoad: " + event.detail.uid + " *** ANCHOR GOOD" )
 				} else {
