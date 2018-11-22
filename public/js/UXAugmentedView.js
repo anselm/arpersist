@@ -17,6 +17,9 @@ export class UXAugmentedView extends XRExampleBase {
 
         super(document.getElementById(arview_target),false,true,false,true,true)
 
+        // block the parent class from doing some work that could add a spurious anchor
+		this.requestedFloor = true
+
 		this.entity_manager = entity_manager
 
 		this.log = logging || console.log

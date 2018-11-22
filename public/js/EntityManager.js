@@ -291,8 +291,8 @@ export class EntityManager {
 		let json = await response.json()
 		this.logging("entity mapSave: succeeded ")
 
-// - reload the map
-// - rename anchors to our anchors?
+// - TEST: reload the map
+// - I could reload and rename anchors to our anchors?
 await this.mapLoad(entity.anchorUID)
 
 	}
