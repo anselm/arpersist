@@ -1,8 +1,4 @@
 
-import {UXPage} from './UXComponents.js'
-
-import {EntityManager} from './EntityManager.js'
-
 import {XRExampleBase} from './common.js'
 
 ///

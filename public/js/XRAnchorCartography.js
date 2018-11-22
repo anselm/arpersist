@@ -51,8 +51,8 @@ export class XRAnchorCartography {
 		// TODO does the final anchor that is created end up with XRCoordinateSystem.TRACKER??
 		let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
 		let anchorUID = frame.addAnchor(headCoordinateSystem,[0,0,0])
-		console.log("*** Built pose anchor")
-		console.log(anchorUID)
+console.log("*** Built pose anchor")
+console.log(anchorUID)
 		return {
 			  anchorUID: anchorUID,
 			       kind: "local",

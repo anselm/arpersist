@@ -92,11 +92,18 @@ export class EntityManager {
 			return
 		}
 
+		let previousAnchor = entity.anchor
+
 		// attempt to relocalize
 		XRAnchorCartography.featureRelocalize(frame,entity,this.entityGPS)
 
+		if(!previousAnchor && entity.anchor) {
+			this.logging("*** entity anchored " + entity.anchorUID )
+		}
+
 		// attempt to set an entityGPS
 		if(entity.kind == "gps" && entity.relocalized && !this.entityGPS) {
+			this.logging("*** entityGPS found " + entity.uuid)
 			this.entityGPS = entity
 		}
 
@@ -307,13 +314,13 @@ await this.mapLoad(entity.anchorUID)
 		}
 		let session = this._session
 
-		// observe anchors showing up again
-		// (this code doesn't have to do any work here since update loop will busy poll till it rebinds anchors to maps)
+		// observe anchors showing up again - actual work is elsewhere in a busy poll loop - this is purely for debugging
 		if (!this.listenerSetup) {
 			this.listenerSetup = true
 			session.addEventListener(XRSession.NEW_WORLD_ANCHOR,(event) => {
-				//this.logging(event.detail.uid + " << arkit callback - saw an anchor re-appear " )
-				if(this.entities[event.detail.uid]) {
+				let success = false
+				this.entityAll(e=>{ if(e.anchorUID == event.detail.uid) success = true })
+				if(success) {
 					this.logging("mapLoad: " + event.detail.uid + " *** ANCHOR GOOD" )
 				} else {
 					this.errors("mapLoad: " + event.detail.uid + " *** ANCHOR BAD" )
