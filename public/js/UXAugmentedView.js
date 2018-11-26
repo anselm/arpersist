@@ -22,6 +22,7 @@ export class UXAugmentedView extends XRExampleBase {
 		this.err = errors || console.error
 
 		this.nodes = {}
+
 	}
 
 	///
@@ -45,7 +46,13 @@ export class UXAugmentedView extends XRExampleBase {
 	/// Called once per frame by base class, before render, to give the app a chance to update this.scene
 	///
 
-	async updateScene(frame) {
+	updateScene(frame) {
+
+		if(this.isUpdating) {
+			this.err("updateScene: called while still busy")
+			return
+		}
+		this.isUpdating = 1
 
 		// visit all the entities and do useful frame related work
 		this.entity_manager.entityUpdate(this.session,frame)
@@ -90,6 +97,7 @@ export class UXAugmentedView extends XRExampleBase {
 		}
 		this.nodes = freshnodes
 
+		this.isUpdating = 0
 	}
 
 	AxesHelper( size ) {

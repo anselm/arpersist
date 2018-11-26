@@ -208,6 +208,11 @@ export class XRAnchorCartography {
 
 		if(focus.cartesian && !focus.anchor && focus.kind != "gps" && parent && parent.inverse) {
 
+			if(!parent.xyz) {
+				// weird
+				return;
+			}
+
 			// get a vector that is relative to the gps anchor (transform from ECEF to be relative to gps anchor)
 
 			let temp = Cesium.Matrix4.multiplyByPoint(parent.inverse, focus.cartesian, new Cesium.Cartesian3());
@@ -222,11 +227,11 @@ export class XRAnchorCartography {
 
 			// and also add on the gps anchor arkit offset to regenerate xyz
 
-			focus.xyz = {
+			focus.xyz = new THREE.Vector3(
 				x: parent.xyz.x + temp2.x,
 				y: parent.xyz.y + temp2.y,
 				z: parent.xyz.z + temp2.z
-			}
+			)
 
 			// TODO orientation isn't being transformed by latitude and longitude sadly (fix later)
 
@@ -234,14 +239,13 @@ export class XRAnchorCartography {
 
 			let m = new THREE.Matrix4()
 			let s = new THREE.Vector3(1,1,1)
-			let xyz = new THREE.Vector3(focus.xyz.x, focus.xyz.y, focus.xyz.z)
 			let q = focus.quaternion ? new THREE.Quaternion(
 				parseFloat(focus.quaternion.x),
 				parseFloat(focus.quaternion.y),
 				parseFloat(focus.quaternion.z),
 				parseFloat(focus.quaternion.w) ) : new THREE.Quaternion()
 			m.fromArray(focus.transform)
-			m.compose(xyz,q,s)
+			m.compose(focus.xyz,q,s)
 			focus.transform = m
 
 			// mark as relocalized

@@ -135,7 +135,6 @@ export class EntityManager {
 		       zone: this.zone,
 		       tags: this.tags,
 		      party: this.party,
-		     parent: 0,
 		  cartesian: 0,
 		  transform: 0,
 		 quaternion: 0,
@@ -181,7 +180,6 @@ export class EntityManager {
 		       zone: this.zone,
 		       tags: this.tags,
 		      party: this.party,
-		     parent: 0,
 		  cartesian: 0,
 		  transform: 0,
 		 quaternion: 0,
@@ -226,7 +224,6 @@ export class EntityManager {
 		       zone: this.zone,
 		       tags: this.tags,
 		      party: this.party,
-		     parent: 0,
 		  cartesian: 0,
 		  transform: 0,
 		 quaternion: 0,
@@ -445,12 +442,13 @@ await this.mapLoad(entity.anchorUID)
 			// scavenge choice morsels from the network traffic and throw network traffic away
 			previous.art = entity.art
 			previous.tags = entity.tags
-			previous.parent = entity.parent
 			previous.cartesian = entity.cartesian
 			previous.quaternion = entity.quaternion
 			previous.scale = entity.scale
 			previous.xyz = entity.xyz
 			previous.gps = entity.gps
+			previous.published = 1
+			previous.relocalized = 0
 			//this.logging("entityReceive: remote entity found again and updated " + entity.uuid)
 		}
 	}
@@ -484,7 +482,6 @@ await this.mapLoad(entity.anchorUID)
 			       zone: entity.zone,
 			       tags: entity.tags,
 			      party: entity.party,
-			     parent: entity.parent,
 			  cartesian: entity.cartesian || 0,
 			  //transform: entity.transform || 0,
 			 quaternion: entity.quaternion || 0,
