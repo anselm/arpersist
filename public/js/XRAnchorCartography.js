@@ -210,7 +210,7 @@ export class XRAnchorCartography {
 
 			if(!parent.xyz) {
 				// weird
-				return;
+				return
 			}
 
 			// get a vector that is relative to the gps anchor (transform from ECEF to be relative to gps anchor)
@@ -228,9 +228,9 @@ export class XRAnchorCartography {
 			// and also add on the gps anchor arkit offset to regenerate xyz
 
 			focus.xyz = new THREE.Vector3(
-				x: parent.xyz.x + temp2.x,
-				y: parent.xyz.y + temp2.y,
-				z: parent.xyz.z + temp2.z
+				parent.xyz.x + temp2.x,
+				parent.xyz.y + temp2.y,
+				parent.xyz.z + temp2.z
 			)
 
 			// TODO orientation isn't being transformed by latitude and longitude sadly (fix later)
