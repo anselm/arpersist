@@ -431,6 +431,11 @@ await this.mapLoad(entity.anchorUID)
 				parseFloat(entity.cartesian.y),
 				parseFloat(entity.cartesian.z)
 				)
+		entity.quaternion = entity.quaternion ? new THREE.Quaternion(
+				parseFloat(entity.quaternion.x),
+				parseFloat(entity.quaternion.y),
+				parseFloat(entity.quaternion.z),
+				parseFloat(entity.quaternion.w) ) : new THREE.Quaternion()
 		entity.published = 1
 		entity.relocalized = 0
 		let previous = this.entities[entity.uuid]

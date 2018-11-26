@@ -239,12 +239,7 @@ export class XRAnchorCartography {
 
 			let m = new THREE.Matrix4()
 			let s = new THREE.Vector3(1,1,1)
-			let q = focus.quaternion ? new THREE.Quaternion(
-				parseFloat(focus.quaternion.x),
-				parseFloat(focus.quaternion.y),
-				parseFloat(focus.quaternion.z),
-				parseFloat(focus.quaternion.w) ) : new THREE.Quaternion()
-			m.fromArray(focus.transform)
+			let q = focus.quaternion || new THREE.Quaternion()
 			m.compose(focus.xyz,q,s)
 			focus.transform = m
 

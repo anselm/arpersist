@@ -49,10 +49,11 @@ export class UXAugmentedView extends XRExampleBase {
 	updateScene(frame) {
 
 		if(this.isUpdating) {
-			this.err("updateScene: called while still busy")
+			if(this.isUpdating < 99) this.err("updateScene: failed somewhere or called while still busy")
+				else this.isUpdating = 0
 			return
 		}
-		this.isUpdating = 1
+		this.isUpdating = this.isUpdating ? this.isUpdating + 1 : 1
 
 		// visit all the entities and do useful frame related work
 		this.entity_manager.entityUpdate(this.session,frame)
