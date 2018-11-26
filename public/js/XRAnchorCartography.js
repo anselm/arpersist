@@ -57,15 +57,7 @@ export class XRAnchorCartography {
 	/// As well, this engine introduces another concept on top of that of a gpsAnchor which associates an arkit anchor with a gps.
 	///
 
-	static async manufacture(args) {
-
-		let frame           = args.frame
-		let session         = args.session
-		let focus           = args.focus || {}
-		let get_location    = args.get_location
-		let get_raytest     = args.get_raytest
-		let screenx         = args.screenx || 0.5
-		let screeny         = args.screeny || 0.5
+	static async manufacture(session,frame,focus,get_location,get_raytest,screenx=0.5,screeny=0.5) {
 
 		// get a gps reading?
 
@@ -139,12 +131,7 @@ export class XRAnchorCartography {
 		return focus
 	}
 
-	static relocalize(args) {
-
-		let frame           = args.frame
-		let session         = args.session
-		let focus           = args.focus || {}
-		let parent			= args.parent || 0
+	static relocalize(session,frame,focus,parent) {
 
 		// try recover local anchor
 

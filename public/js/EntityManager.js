@@ -35,9 +35,6 @@ export class EntityManager {
 		// set selected to nothing
 		this.entitySetSelected(0)
 
-		// trying to keep a cached copy of the temporally in the past session and frame - TEST
-		this._session = 0
-		this._frame = 0
 	}
 
 	entityAll(callback) {
@@ -57,28 +54,44 @@ export class EntityManager {
 		return results
 	}
 
-	entityUpdate(session,frame) {
+	async entityUpdateAll(session,frame) {
 
-		this._session = session
-		this._frame = frame
+		// add an art?
+		if(this.pleaseAddArt) {
+			this.pleaseAddArt = 0
+			await this._entityAddArt(session,frame)
+		}
+
+		// save?
+		if(this.pleaseSaveMap) {
+			this.pleaseSaveMap = 0
+			await this._mapSave(session,frame)
+		}
+
+		// load?
+		if(this.pleaseLoadMap) {
+			let filename = this.pleaseLoadMap
+			this.pleaseLoadMap = 0
+			await this._mapLoad(session,frame,filename)
+		}
 
 		// update the player every n refreshes (if a map is loaded)
 		if(this.entityGPS && this.partyUpdateCounter) {
 	 		this.partyUpdateCounter++
 			if(this.partyUpdateCounter > 120) {
-				this.entityUpdateParty(frame)
+				this.entityUpdateParty(session,frame)
 				this.partyUpdateCounter = 1
 			}
 		}
 
 		// update all entities
 		this.entityAll((entity)=>{
-			this._entityUpdateOne(entity)
+			this._entityUpdateOne(session,frame,entity)
 			this._entityDebugging(entity)
 		})
 	}
 
-	_entityUpdateOne(entity) {
+	_entityUpdateOne(session,frame,entity) {
 
 		// ignore maps completely for now
 		if(entity.kind=="map") return
@@ -88,12 +101,7 @@ export class EntityManager {
 			return
 		}
 
-		XRAnchorCartography.relocalize({
-			session:this._session,
-			frame:this._frame,
-			focus:entity,
-			parent:this.entityGPS
-			})
+		XRAnchorCartography.relocalize(session,frame,entity,this.entityGPS)
 
 		// attempt to set an entityGPS once only for now - always using first one that fits
 		if(!this.entityGPS && entity && entity.kind == "gps" && entity.relocalized) {
@@ -123,9 +131,7 @@ export class EntityManager {
 	/// * note that this.entityGPS is not set here - this system is a lazy loader and these things can arrive over network
 	///
 
-	async entityAddGPS() {
-
-		if(!this._session || !this._frame) return
+	async entityAddGPS(session,frame) {
 
 		let entity = {
 		       name: "a gps anchor!",
@@ -145,13 +151,7 @@ export class EntityManager {
 		  published: 0
 		}
 
-		let results = await XRAnchorCartography.manufacture({
-			session:this._session,
-			frame:this._frame,
-			focus:entity,
-			get_location:true,
-			get_raytest:false
-			})
+		let results = await XRAnchorCartography.manufacture(session,frame,entity,true,false)
 
 		if(!results) {
 			this.errors("entityAddGPS: could not make gps anchor!")
@@ -168,9 +168,11 @@ export class EntityManager {
 	/// * it is ok to make these before gps anchors show up (this system uses a lazy loading philosophy)
 	///
 
-	async entityAddArt() {
+	entityAddArt() {
+		this.pleaseAddArt = 1
+	}
 
-		if(!this._session || !this._frame) return
+	async _entityAddArt(session,frame) {
 
 		let	entity = {
 		       name: "art!",
@@ -190,13 +192,7 @@ export class EntityManager {
 		  published: 0
 		}
 
-		let results = await XRAnchorCartography.manufacture({
-			session:this._session,
-			frame:this._frame,
-			focus:entity,
-			get_location:false,
-			get_raytest:true
-			})
+		let results = await XRAnchorCartography.manufacture(session,frame,entity,false,true)
 
 		if(!results) {
 			this.errors("entityAddArt: anchor failed")
@@ -212,9 +208,7 @@ export class EntityManager {
 	/// Create or update the player
 	/// 
 
-	async entityUpdateParty() {
-
-		if(!this._session || !this._frame) return
+	async entityUpdateParty(session,frame) {
 
 		let entity = this.entityParty || {
 		       name: this.party || "party?!",
@@ -234,13 +228,7 @@ export class EntityManager {
 		  published: 0
 		}
 
-		let results = await XRAnchorCartography.manufacture({
-			session:this._session,
-			frame:this._frame,
-			focus:entity,
-			get_location:false,
-			get_raytest:false
-			})
+		let results = await XRAnchorCartography.manufacture(session,frame,entity,false,false)
 
 		if(!results) {
 			this.errors("entityAddParty: fail?")
@@ -258,21 +246,19 @@ export class EntityManager {
 		return entity
 	}
 
-	async mapSave() {
+	mapSave() {
+		this.pleaseSaveMap = 1
+		return
+	}
 
-		if(!this._frame || !this._session) {
-			this.errors("entity mapSave: no frame or session")
-			return 0
-		}
-		let frame = this._frame
-		let session = this._session
+	async _mapSave(session,frame) {
 
 		// a slight hack - make and fully prep a gps anchor if one is not made yet
 
 		let entity = this.entityGPS
 		if(!entity) {
 			// if no gps entity was added then force add one now
-			entity = await this.entityAddGPS(frame)
+			entity = await this.entityAddGPS(session,frame)
 			if(!entity) {
 				this.errors("entity MapSave: [error] failed to add gps entity - no gps yet?")
 				return 0
@@ -315,22 +301,19 @@ export class EntityManager {
 		let json = await response.json()
 		this.logging("entity mapSave: succeeded ")
 
-// - TEST: reload the map - REMOVE ONCE STABLE
-// - I could reload and rename anchors to our anchors?
-await this.mapLoad(entity.anchorUID)
+		// - TEST: reload the map - REMOVE ONCE STABLE
+		this.mapLoad(entity.anchorUID)
 
 		return 1
 	}
 
-	async mapLoad(filename) {
+	mapLoad(filename) {
+		this.pleaseLoadMap = filename
+	}
+
+	async _mapLoad(session,frame,filename) {
 
 		this.logging("will try load map named " + filename )
-
-		if(!this._frame || !this._session) {
-			this.errors("entity mapLoad: no frame or session")
-			return 0
-		}
-		let session = this._session
 
 		// observe anchors showing up again - actual work is elsewhere in a busy poll loop - this is purely for debugging
 		if (!this.listenerSetup) {

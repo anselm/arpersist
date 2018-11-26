@@ -46,7 +46,7 @@ export class UXAugmentedView extends XRExampleBase {
 	/// Called once per frame by base class, before render, to give the app a chance to update this.scene
 	///
 
-	updateScene(frame) {
+	async updateScene(frame) {
 
 		if(this.isUpdating) {
 			if(this.isUpdating < 99) this.err("updateScene: failed somewhere or called while still busy")
@@ -56,7 +56,7 @@ export class UXAugmentedView extends XRExampleBase {
 		this.isUpdating = this.isUpdating ? this.isUpdating + 1 : 1
 
 		// visit all the entities and do useful frame related work
-		this.entity_manager.entityUpdate(this.session,frame)
+		await this.entity_manager.entityUpdateAll(this.session,frame)
 
 		// mark and sweep
 		for(let uuid in this.nodes) { this.nodes[uuid].survives = 0 }

@@ -174,11 +174,12 @@ export class UXLog extends UXComponent {
 		} else if(args.value instanceof Array || Array.isArray(args.value)) {
 			buffer = args.value.join(" ")
 		}
+		let cname = args.className || ""
 		if(args.kind=="err") {
-			console.error("className log: " + args.className + " message: " + buffer)			
+			console.error(cname + " message: " + buffer)			
 			buffer = "<font color=red> " + buffer + "</font>"
 		} else {
-			console.log("className log: " + args.className + " message: " + buffer)			
+			console.log(cname + " message: " + buffer)			
 		}
 		this.display.unshift(buffer)
 		this.display = this.display.slice(0,10)
