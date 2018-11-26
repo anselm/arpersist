@@ -13,7 +13,7 @@ export class UXAugmentedView extends XRExampleBase {
 
         super(document.getElementById(arview_target),false,true,false,true,true)
 
-        // block the parent class from doing some work that could add a spurious anchor
+        // block the parent class from doing some work
 		this.requestedFloor = true
 
 		this.entity_manager = entity_manager
@@ -37,7 +37,7 @@ export class UXAugmentedView extends XRExampleBase {
 		directionalLight.position.set(0, 10, 0)
 		this.scene.add(directionalLight)
 
-		// attach something to 0,0,0 (although 0,0,0 doesn't mean a lot since arkit can update anchor positions)
+		// attach something to 0,0,0
         this.scene.add( this.AxesHelper( 0.2 ) );
 	}
 
@@ -55,8 +55,8 @@ export class UXAugmentedView extends XRExampleBase {
 
 		// visit all the entities again and attach art to them
 		this.entity_manager.entityAll((entity)=>{
-			// pose is resolved elsewhere - do nothing till it arrives
-			if(!entity.pose) return
+			// do nothing till ready
+			if(!entity.relocalized) return
 			// associate visual art with an entity if needed
 			let node = this.nodes[entity.uuid]
 			// did art change? throw node away
@@ -74,16 +74,11 @@ export class UXAugmentedView extends XRExampleBase {
 			}
 			// mark as surviving
 			node.survives = 1
-			// local or remote?
-			if(entity.transform && entity.anchor) {
-				// locally created entities with anchors can in fact go directly from the anchor to the display... it's arguable if this is desired
+			// transform to pose
+			if(entity.transform) {
 				node.matrix.fromArray(entity.transform)
 				node.matrixAutoUpdate = false
 				node.updateMatrixWorld(true)
-			} else {
-				// the architecture of this system is designed for remote entities over the network with no anchor and just a pose
-				// TODO deal with orientation
-				node.position.set(entity.pose.x,entity.pose.y,entity.pose.z)
 			}
 		})
 

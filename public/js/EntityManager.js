@@ -24,16 +24,13 @@ export class EntityManager {
 		this.errors = errors || console.error
 
 		// tags - default props per entity
-		this.tags = "aesthetic"
+		this.tags = ""
 
 		// manage entities
 		this.entities = {}
 
-		// has loaded a map?
-		this.mapLoaded = 0
-
 		// allow party to update
-		this.partyUpdateCounter = 1
+		this.partyUpdateCounter = 0
 
 		// set selected to nothing
 		this.entitySetSelected(0)
@@ -43,13 +40,7 @@ export class EntityManager {
 		this._frame = 0
 	}
 
-	_entityUUID(id) {
-		// uuid has to be deterministic yet unique for all client instances so build it out of known parts and hope for best
-		return this.zone + "_" + this.party + "_" + id
-	}
-
 	entityAll(callback) {
-		if(!this.entities) return
 		for(let uuid in this.entities) {
 			callback(this.entities[uuid])
 		}
@@ -68,53 +59,55 @@ export class EntityManager {
 
 	entityUpdate(session,frame) {
 
-		// as a test see if I can keep a useful copy of previous frame and session around - so that I can do work outside of the update callback
 		this._session = session
 		this._frame = frame
 
-		// update the players position every n refreshes (if a map is loaded)
-		if(this.mapLoaded && this.partyUpdateCounter) {
+		// update the player every n refreshes (if a map is loaded)
+		if(this.entityGPS && this.partyUpdateCounter) {
 	 		this.partyUpdateCounter++
 			if(this.partyUpdateCounter > 120) {
-				this.entityAddParty(frame)
+				this.entityUpdateParty(frame)
 				this.partyUpdateCounter = 1
 			}
 		}
 
 		// update all entities
 		this.entityAll((entity)=>{
-			this._entityUpdateOne(frame,entity)
+			this._entityUpdateOne(entity)
 			this._entityDebugging(entity)
 		})
 	}
 
-	_entityUpdateOne(frame,entity) {
+	_entityUpdateOne(entity) {
 
-		// ignore maps for now
+		// ignore maps completely for now
 		if(entity.kind=="map") return
 
 		// ignore things that are not gps until a entityGPS exists
-		if(entity.kind != "gps" && !this.entityGPS) {
+		if(!this.entityGPS && entity.kind != "gps") {
 			return
 		}
 
-		let previousAnchor = entity.anchor
+		XRAnchorCartography.relocalize({
+			session:this._session,
+			frame:this._frame,
+			focus:entity,
+			parent:this.entityGPS
+			})
 
-		// attempt to relocalize
-		XRAnchorCartography.featureRelocalize(frame,entity,this.entityGPS)
-
-		if(!previousAnchor && entity.anchor) {
-			this.logging("*** entity anchored " + entity.anchorUID )
-		}
-
-		// attempt to set an entityGPS
-		if(entity.kind == "gps" && entity.relocalized && !this.entityGPS) {
+		// attempt to set an entityGPS once only for now - always using first one that fits
+		if(!this.entityGPS && entity && entity.kind == "gps" && entity.relocalized) {
 			this.logging("*** entityGPS found " + entity.uuid)
 			this.entityGPS = entity
 		}
 
+		// never publish before relocalization of the system as a whole
+		if(!this.entityGPS) {
+			return
+		}
+
 		// publish changes? (only entities that have a location can have their changes published)
-		if(!entity.published && entity.cartesian) {
+		if(!entity.published && entity.relocalized) {
 			this._entityPublish(entity)
 			entity.published = 1
 		}
@@ -125,124 +118,146 @@ export class EntityManager {
 	entityGetSelected() { return this.entitySelected }
 
 	///
-	/// Make a gps entity - at the moment multiple of these are allowed - note that this.entityGPS is not set here (since it could arrive over network)
+	/// Make a gps entity
+	/// * at the moment multiple of these are allowed
+	/// * note that this.entityGPS is not set here - this system is a lazy loader and these things can arrive over network
 	///
 
 	async entityAddGPS() {
-		let frame = this._frame
-		if(!frame) return
-		let feature = await XRAnchorCartography.featureAtGPS(frame)
-		if(!feature || !feature.gps) {
+
+		if(!this._session || !this._frame) return
+
+		let entity = {
+		       name: "a gps anchor!",
+		      descr: "such gps anchor!",
+		       kind: "gps",
+		        art: "cylinder",
+		       zone: this.zone,
+		       tags: this.tags,
+		      party: this.party,
+		     parent: 0,
+		  cartesian: 0,
+		  transform: 0,
+		 quaternion: 0,
+		      scale: 0,
+		        xyz: 0,
+		        gps: 0,
+		relocalized: 0,
+		  published: 0
+		}
+
+		let results = await XRAnchorCartography.manufacture({
+			session:this._session,
+			frame:this._frame,
+			focus:entity,
+			get_location:true,
+			get_raytest:false
+			})
+
+		if(!results) {
 			this.errors("entityAddGPS: could not make gps anchor!")
 			return 0
 		}
-		let entity = {
-			       uuid: this._entityUUID(feature.anchorUID),
-			     anchor: feature.anchor,
-			  anchorUID: feature.anchorUID,
-			        gps: feature.gps || 0,
-			  transform: feature.transform || 0,
-		    translation: feature.translation || 0,
-			orientation: feature.orientation || 0,
-			relocalized: feature.relocalized || 0,
-			  cartesian: feature.cartesian || 0,
-			       name: "a gps anchor at " + feature.gps.latitude + " " + feature.gps.longitude,
-			      descr: "a gps anchor at " + feature.gps.latitude + " " + feature.gps.longitude,
-			       kind: "gps",
-			        art: "cylinder",
-			       zone: this.zone,
-			       tags: this.tags,
-			      party: this.party,
-			  published: 0,
-			     remote: 0,
-			      dirty: 1
-		}
+
 		this.entities[entity.uuid] = entity
 		this.entitySetSelected(entity)
 		return entity
 	}
 
 	///
-	/// Create an entity as per the users request - it is ok to make these before gps anchors show up
+	/// Create an entity as per the users request
+	/// * it is ok to make these before gps anchors show up (this system uses a lazy loading philosophy)
 	///
 
 	async entityAddArt() {
-		let frame = this._frame
-		if(!frame) return
 
-		let feature = await XRAnchorCartography.featureAtIntersection(frame,0.5,0.5)
-		if(!feature) {
+		if(!this._session || !this._frame) return
+
+		let	entity = {
+		       name: "art!",
+		      descr: "user art!",
+		       kind: "content",
+		        art: "box",
+		       zone: this.zone,
+		       tags: this.tags,
+		      party: this.party,
+		     parent: 0,
+		  cartesian: 0,
+		  transform: 0,
+		 quaternion: 0,
+		      scale: 0,
+		        xyz: 0,
+		        gps: 0,
+		relocalized: 0,
+		  published: 0
+		}
+
+		let results = await XRAnchorCartography.manufacture({
+			session:this._session,
+			frame:this._frame,
+			focus:entity,
+			get_location:false,
+			get_raytest:true
+			})
+
+		if(!results) {
 			this.errors("entityAddArt: anchor failed")
 			return 0
 		}
-		let entity = {
-			       uuid: this._entityUUID(feature.anchorUID),
-			  anchorUID: feature.anchorUID,
-			     anchor: feature.anchor,
-			        gps: feature.gps || 0,
-			  transform: feature.transform || 0,
-		    translation: feature.translation || 0,
-			orientation: feature.orientation || 0,
-			relocalized: feature.relocalized || 0,
-			  cartesian: feature.cartesian || 0,
-			       name: "art",
-			      descr: "some user art",
-			       kind: "content",
-			        art: "box",
-			       zone: this.zone,
-			       tags: this.tags,
-			      party: this.party,
-			  published: 0,
-			     remote: 0,
-			      dirty: 1
-		}
+
 		this.entities[entity.uuid] = entity
 		this.entitySetSelected(entity)
 		return entity
 	}
 
 	///
-	/// Create or update a partys position
-	/// TODO could fold into above and reduce amount of code
+	/// Create or update the player
+	/// 
 
-	async entityAddParty() {
-		let frame = this._frame
-		if(!frame) return
+	async entityUpdateParty() {
 
-		let feature = await XRAnchorCartography.featureAtPose(frame)
-		if(!feature) {
-			this.errors("entityAddParty: [error] anchor failed")
+		if(!this._session || !this._frame) return
+
+		let entity = this.entityParty || {
+		       name: this.party || "party?!",
+		      descr: "a representation of a person",
+		       kind: "party",
+		        art: "box",
+		       zone: this.zone,
+		       tags: this.tags,
+		      party: this.party,
+		     parent: 0,
+		  cartesian: 0,
+		  transform: 0,
+		 quaternion: 0,
+		      scale: 0,
+		        xyz: 0,
+		        gps: 0,
+		relocalized: 0,
+		  published: 0
+		}
+
+		let results = await XRAnchorCartography.manufacture({
+			session:this._session,
+			frame:this._frame,
+			focus:entity,
+			get_location:false,
+			get_raytest:false
+			})
+
+		if(!results) {
+			this.errors("entityAddParty: fail?")
 			return 0
 		}
-		if(this.entityParty) {
-			XRAnchorCartography.removeAnchor(frame,this.entityParty.anchorUID)
-			this.entityParty.anchorUID = feature.anchorUID
-			this.entityParty.cartesian = 0
-			this.entityParty.published = 0
-			this.entityParty.dirty = 0
-			return this.entityParty
-		}
-		let entity = {
-			       uuid: this._entityUUID(feature.anchorUID),
-			  anchorUID: feature.anchorUID,
-			        gps: feature.gps || 0,
-			  transform: feature.transform || 0,
-		    translation: feature.translation || 0,
-			orientation: feature.orientation || 0,
-			relocalized: feature.relocalized || 0,
-			  cartesian: feature.cartesian || 0,
-			       name: this.party,
-			      descr: "a representation for a person named " + this.party,
-			       kind: "party",
-			        art: "cylinder",
-			       zone: this.zone,
-			       tags: this.tags,
-			      party: this.party,
-			  published: 0,
-			     remote: 0,
-			      dirty: 1
-		}
-		this.entities[entity.uuid] = this.entityParty = entity
+
+		// force mark as needing republishing
+		entity.published = 0
+
+		// set as the party
+
+		this.entityParty = entity
+
+		this.entities[entity.uuid] = entity
 		return entity
 	}
 
@@ -250,7 +265,7 @@ export class EntityManager {
 
 		if(!this._frame || !this._session) {
 			this.errors("entity mapSave: no frame or session")
-			return
+			return 0
 		}
 		let frame = this._frame
 		let session = this._session
@@ -263,13 +278,7 @@ export class EntityManager {
 			entity = await this.entityAddGPS(frame)
 			if(!entity) {
 				this.errors("entity MapSave: [error] failed to add gps entity - no gps yet?")
-				return
-			}
-			// force promote the entity to the gps entity
-			XRAnchorCartography.featureRelocalize(frame, entity)
-			if(!entity.relocalized) {
-				this.errors("entity mapSave: [error] failed to relocalize entity - which is odd")
-				return
+				return 0
 			}
 			this.entityGPS = entity
 		}
@@ -279,7 +288,13 @@ export class EntityManager {
 
 		this.logging("entity mapSave: UX saving map")
 
-		let results = await session.getWorldMap()
+		let results = 0
+		try {
+			results = await session.getWorldMap()
+		} catch(e) {
+			this.errors(e)
+			return 0
+		}
 		if(!results) {
 			this.errors("entity MapSave: [error] this engine does not have a good map from arkit yet")
 			return 0
@@ -296,7 +311,6 @@ export class EntityManager {
 		data.append('zone',        entity.zone )
 		data.append('tags',        entity.tags )
 		data.append('party',       entity.party )
-		data.append('relocalized', 0)
 		data.append('latitude',    entity.gps.latitude )
 		data.append('longitude',   entity.gps.longitude )
 		data.append('altitude',    entity.gps.altitude )
@@ -304,10 +318,11 @@ export class EntityManager {
 		let json = await response.json()
 		this.logging("entity mapSave: succeeded ")
 
-// - TEST: reload the map
+// - TEST: reload the map - REMOVE ONCE STABLE
 // - I could reload and rename anchors to our anchors?
 await this.mapLoad(entity.anchorUID)
 
+		return 1
 	}
 
 	async mapLoad(filename) {
@@ -316,7 +331,7 @@ await this.mapLoad(entity.anchorUID)
 
 		if(!this._frame || !this._session) {
 			this.errors("entity mapLoad: no frame or session")
-			return
+			return 0
 		}
 		let session = this._session
 
@@ -327,7 +342,7 @@ await this.mapLoad(entity.anchorUID)
 				let entity = 0
 				this.entityAll(e=>{ if(e.anchorUID == event.detail.uid) entity = e })
 				if(entity) {
-					if(!entity.anchor) this.logging("<font color=green>mapLoad: " + event.detail.uid + " *** ANCHOR GOOD</font>" )
+					if(!entity.anchor && entity.kind == "gps") this.logging("<font color=green>mapLoad: " + event.detail.uid + " *** ANCHOR GOOD</font>" )
 				} else {
 					this.errors("mapLoad: " + event.detail.uid + " *** ANCHOR BAD" )
 				}
@@ -339,7 +354,8 @@ await this.mapLoad(entity.anchorUID)
 		let data = await response.text()
 		let results = await session.setWorldMap({worldMap:data})
 		this.logging("fresh map file arrived " + filename + " results=" + results.loaded )
-		this.mapLoaded = true
+
+		return 1
 	}
 
 
@@ -400,8 +416,6 @@ await this.mapLoad(entity.anchorUID)
 			let entity = json[uuid]
 			this.entities[entity.uuid]=entity
 			entity.published=1
-			entity.remote=1
-			entity.dirty=1
 			entity.relocalized=0
 			this.logging(entity.anchorUID + " << entityLoadAll: made entity kind="+entity.kind+" uuid="+entity.uuid+" anchor="+entity.anchorUID)
 		}
@@ -415,11 +429,12 @@ await this.mapLoad(entity.anchorUID)
 	///
 
 	_entityReceive(entity) {
-		// TODO rebuild trans/rot
-		entity.cartesian = entity.cartesian ? new Cesium.Cartesian3(entity.cartesian.x,entity.cartesian.y,entity.cartesian.z) : 0
+		entity.cartesian = new Cesium.Cartesian3(
+				parseFloat(entity.cartesian.x),
+				parseFloat(entity.cartesian.y),
+				parseFloat(entity.cartesian.z)
+				)
 		entity.published = 1
-		entity.remote = 1
-		entity.dirty = 1
 		entity.relocalized = 0
 		let previous = this.entities[entity.uuid]
 		if(!previous) {
@@ -428,9 +443,13 @@ await this.mapLoad(entity.anchorUID)
 			console.log(entity)
 		} else {
 			// scavenge choice morsels from the network traffic and throw network traffic away
-			previous.cartesian = entity.cartesian
 			previous.art = entity.art
 			previous.tags = entity.tags
+			previous.parent = entity.parent
+			previous.cartesian = entity.cartesian
+			previous.quaternion = entity.quaternion
+			previous.scale = entity.scale
+			previous.xyz = entity.xyz
 			previous.gps = entity.gps
 			//this.logging("entityReceive: remote entity found again and updated " + entity.uuid)
 		}
@@ -444,7 +463,7 @@ await this.mapLoad(entity.anchorUID)
 
 	_entityPublish(entity) {
 
-		if(!entity.cartesian) {
+		if(!entity.relocalized || !entity.cartesian) {
 			this.logging("entityPublish: [error] entity has no cartesian " + entity.uuid )
 			return
 		}
@@ -458,11 +477,6 @@ await this.mapLoad(entity.anchorUID)
 		let blob = {
 			       uuid: entity.uuid,
 			  anchorUID: entity.anchorUID,
-			        gps: entity.gps || 0,
-		    translation: entity.translation || 0,
-			orientation: entity.orientation || 0,
-			relocalized: entity.relocalized || 0,
-			  cartesian: entity.cartesian || 0,
 			       name: entity.name,
 			      descr: entity.descr,
 			       kind: entity.kind,
@@ -470,20 +484,23 @@ await this.mapLoad(entity.anchorUID)
 			       zone: entity.zone,
 			       tags: entity.tags,
 			      party: entity.party,
-			  published: entity.published || 0,
-			     remote: entity.remote || 0,
-			      dirty: entity.dirty || 0
+			     parent: entity.parent,
+			  cartesian: entity.cartesian || 0,
+			  //transform: entity.transform || 0,
+			 quaternion: entity.quaternion || 0,
+			      scale: entity.scale || 0,
+			        //xyz: entity.xyz || 0,
+			        gps: entity.gps || 0,
+			//relocalized: entity.relocalized ? 1 : 0,
+			  //published: entity.published ? 1 : 0
 		}
 		this.socket.emit('publish',blob);
 	}
 
 	_entityDebugging(entity) {
 		if(entity.debugged) return
-		if(!entity.pose) return
 		entity.debugged = 1
-		this.logging("entityDebug: *********************** entity status " + entity.anchorUID + " relocalized="+entity.relocalized + " kind="+entity.kind)
-		if(entity.anchor) this.logging("  *** is using an anchor *** kind=" + entity.kind)
-		if(entity.pose) this.logging("entity=" + entity.anchorUID + " is at x=" + entity.pose.x + " y="+entity.pose.y+" z="+entity.pose.z)
+		this.logging("entityDebug: *** anchorUID=" + entity.anchorUID + " relocalized="+entity.relocalized + " kind="+entity.kind)
 		if(entity.gps) this.logging("entity=" + entity.anchorUID + " latitude="+entity.gps.latitude+" longitude="+entity.gps.longitude+" accuracy="+entity.gps.accuracy)
 		if(entity.cartesian) this.logging("entity cartesian x=" + entity.cartesian.x + " y=" + entity.cartesian.y + " z="+entity.cartesian.z)
 		console.log(entity)

@@ -137,9 +137,7 @@ class Entity {
              tags: args.tags,
             party: args.party,
               gps: { latitude: args.latitude, longitude: args.longitude, altitude: args.altitude },
-        published: 0,
-           remote: 0,
-            dirty: 0
+        published: 0
     }
 
     console.log("*** mapSave: injecting a map into list of entities") // TODO may remove this concept

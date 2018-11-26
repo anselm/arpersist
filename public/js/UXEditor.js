@@ -51,7 +51,6 @@ export class UXEditor extends UXPage {
 		}
 
 		entity.published = 0
-		entity.dirty = 1
 
 		// revise art
 		entity.art = document.getElementById("edit_art").value

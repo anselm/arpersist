@@ -24,7 +24,6 @@ export class UXComponent {
 	}
 
 	static msg(args) {
-		// calls EVERY listener for now with a raw hash of args - TODO later make it filter based on listener matching 'kind' prop
 		let listeners = ux_listeners[args.kind] || []
 		listeners.forEach((callback) => {
 			callback(args)
@@ -45,7 +44,7 @@ export class UXComponent {
 	}
 
 	static log(obj) {
-		// add a log convenience method that actually just talks to msg
+		// add an object logging convenience method that actually just talks to msg
 		let args = { kind:"log", value:obj }
 		UXComponent.msg(args)
 	}
@@ -55,7 +54,7 @@ export class UXComponent {
 	}
 
 	static err(obj) {
-		// add a log convenience method that actually just talks to msg
+		// add an error logging convenience method that actually just talks to msg
 		let args = { kind:"err", value:obj }
 		UXComponent.msg(args)
 	}
@@ -65,7 +64,7 @@ export class UXComponent {
 	}
 
 	static action(name,subvalue=0) {
-		// add an action (post a string to everybody) convenience method that actually just talks to msg
+		// add an action (post an object to everybody) convenience method that actually just talks to msg
 		let args = {kind:'action',value:name,subvalue:subvalue}
 		UXPage.msg(args)
 	}
@@ -75,7 +74,7 @@ export class UXComponent {
 	}
 
 	static save(name,value) {
-		// save and load global variables
+		// save and load shared state variables visible to component subclasses
 		ux_state[name] = value
 	}
 	save(name,value) {
@@ -94,7 +93,7 @@ export class UXComponent {
 ///
 /// UXPages
 /// - a way to relate a dom element to a component
-/// - each div or dom element has a one to one relationship with a single component
+/// - each div or dom element has a one to one relationship with a single component (this idea is less strongly enforced and optional)
 ///	- manage hiding and showing html dom components in relationship with the browsers built in navigator page stack
 /// - the name of the div id is equal to the name of the navigator path hash
 /// - notifies components when shown or hidden using the message bus
