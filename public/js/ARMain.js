@@ -7,7 +7,7 @@ import {XRExampleBase} from './common.js'
 /// Manages display and user interaction for entities
 ///
 
-export class UXAugmentedView extends XRExampleBase {
+class AugmentedView extends XRExampleBase {
 
 	constructor(entity_manager,arview_target,logging,errors) {
 
@@ -162,4 +162,35 @@ export class UXAugmentedView extends XRExampleBase {
 
 
 }
+
+export class ARMain extends HTMLElement {
+
+	content() {
+		return `
+		<div>
+		<button id="make" class=uxbutton onClick="window.ux.action(this.id)"> Make </button> <!-- make a fresh asset -->
+		<button id="edit" class=uxbutton onClick="window.ux.action(this.id)"> Edit </button> <!-- edit an asset -->
+		<button id="maps" class=uxbutton onClick="window.ux.action(this.id)"> Maps </button> <!-- map mode -->
+		<button id="save" class=uxbutton onClick="window.ux.action(this.id)"> Save </button> <!-- admin: save the map -->
+		<div id="description"><div id="helper"> all systems nominal </div></div>
+		</div>
+		`
+	}
+
+	constructor(_id=0,_class=0,entity_manager,arview_target,log,err) {
+		super()
+  		if(_id) this.id = _id
+  		if(_class) this.className = _class
+  		this.entity_manager = entity_manager
+  		this.log = log
+  		this.err = err
+	}
+
+	connectedCallback() {
+		this.innerHTML = this.content()
+		this.view = new AugmentedView(this.entity_manager,this.id,this.log,this.err)
+	}
+}
+
+customElements.define('ar-main', ARMain)
 

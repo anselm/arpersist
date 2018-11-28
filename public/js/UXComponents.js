@@ -9,19 +9,20 @@ export function UXUrlParams(vars={}) {
 
 ///
 /// UXComponent
-/// - a minimalist message bus to send and receive messages between components
-/// - to help decouple and de-stress formal relationships between pieces of code
-/// - so that code pieces don't have to know about each other in the global namespace
-/// - so that code pieces can be notified about events as they happen with less brittle entanglements
+///
+///	- a base class for components
+///	- provides inter component messaging
+///	- doesn't support an observables pattern yet - wouldn't be hard to add
+///	- does have some sugar with log() and action() wrappers for msg()
+///	- right now msg takes a single hash and the 'kind' attribute is the message target; arguably this could be two params but thats bulkier
+///	- does have a state storage system to allow state to be shared between things easily; may remove?
 ///
 
 let ux_listeners = {}
 let ux_state = {}
 
 export class UXComponent {
-	constructor() {
-		// TODO could have a global instance rather than global variables
-	}
+
 
 	static msg(args) {
 		let listeners = ux_listeners[args.kind] || []
@@ -43,8 +44,9 @@ export class UXComponent {
 		return this.constructor.listen(kind,callback)
 	}
 
+
 	static log(obj) {
-		// add an object logging convenience method that actually just talks to msg
+		// for convenience - just forwards as a message
 		let args = { kind:"log", value:obj }
 		UXComponent.msg(args)
 	}
@@ -54,7 +56,7 @@ export class UXComponent {
 	}
 
 	static err(obj) {
-		// add an error logging convenience method that actually just talks to msg
+		// for convenience - just forwards as a message
 		let args = { kind:"err", value:obj }
 		UXComponent.msg(args)
 	}
@@ -63,8 +65,9 @@ export class UXComponent {
 		UXComponent.msg(args)
 	}
 
+
 	static action(name,subvalue=0) {
-		// add an action (post an object to everybody) convenience method that actually just talks to msg
+		// for convenienve - send a message called action
 		let args = {kind:'action',value:name,subvalue:subvalue}
 		UXPage.msg(args)
 	}
@@ -72,6 +75,7 @@ export class UXComponent {
 		let args = {kind:'action',value:name,subvalue:subvalue,className:this.__proto__.constructor.name}
 		return this.constructor.msg(args)
 	}
+
 
 	static save(name,value) {
 		// save and load shared state variables visible to component subclasses
@@ -91,13 +95,38 @@ export class UXComponent {
 }
 
 ///
-/// UXPages
-/// - a way to relate a dom element to a component
-/// - each div or dom element has a one to one relationship with a single component (this idea is less strongly enforced and optional)
-///	- manage hiding and showing html dom components in relationship with the browsers built in navigator page stack
-/// - the name of the div id is equal to the name of the navigator path hash
-/// - notifies components when shown or hidden using the message bus
-/// - could be used as a top level page management construct for an app
+/// A concept of a dom painter that lets a developer build up a dom with some minimal help
+///
+
+export class UXDOM {
+
+	constructor() {
+		this.buffer = "";
+	}
+
+	raw(str) {
+		this.buffer += str + "\n";
+	}
+	div(contents,_class="",style="") {
+		this.buffer += "<div class='"+_class+"' style='"+style+"'>"+contents+"</div>";
+	}
+	h1(contents,_class="",style="") {
+		this.buffer += "<h1 class='"+_class+"' style='"+style+"'>"+contents+"</h1>";
+	}
+	finish() {
+		//document.getElementById("root").innerHTML = buffer;
+	}
+
+}
+
+///
+/// UXPage
+///
+/// - a base class to support an idea of components to render a display
+/// - uses push/pop navigation (but routing page transitions is outside of local scope here)
+/// - builds on top of a messaging bus to let components ostensibly talk to each other
+/// - doesn't really have any idea of a shared state kind of automatic refreshing thing (but there is a message bus one can listen to)
+///
 ///
 
 let ux_pages = {}

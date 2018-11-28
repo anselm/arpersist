@@ -21,6 +21,7 @@
     "mysql": "^2.16.0",
     "node-fetch": "^2.2.1",
     "request": "^2.88.0",
+    "riot": "^3.13.2",
     "shortid": "^2.2.13",
     "socket.io": "^2.1.1",
     "sqlite3": "^4.0.3"

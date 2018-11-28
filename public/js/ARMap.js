@@ -1,24 +1,38 @@
 
 
 ///
-/// UXMap
+/// ARMap
 ///
 /// Controls the view for the map page
 /// This is a google maps page used in several ways
 /// One way it is used is to help fine tine the position of an arkit anchor
 ///
 
+export class ARMap extends HTMLElement {
 
-import {UXPage} from './UXComponents.js'
+	content() {
+		return `
+		<div>
+		this is the map page
+		</div>
+		`
+	}
 
-export class UXMap {
+	constructor(_id=0,_class=0) {
+		super()
+  		if(_id) this.id = _id
+  		if(_class) this.className = _class
+	}
 
-	constructor(dom_element_id) {
+	connectedCallback() {
+
+		this.innerHTML = this.content()
+
 		this.map = 0
 		this.infoWindow = 0
 		this.markerCenter = 0
 		this.latitude_longitude_updated = 0
-		this.mapInit(dom_element_id)
+		this.mapInit(this.id)
 		this.markers = {}
 		this.markerCallback = 0
 		setInterval( this._markerUpdate.bind(this), 1000 )
@@ -96,7 +110,7 @@ export class UXMap {
 		var button = document.createElement('button');
 		button.className = "uxbutton"
 		button.innerHTML = "back"
-		button.onclick = function(e) { UXPage.pop() }
+		button.onclick = function(e) { this.pop() }
 		map.controls[google.maps.ControlPosition.LEFT_TOP].push(button);
 
 		// listen for change events for an entity placement
@@ -121,3 +135,4 @@ export class UXMap {
 	}
 }
 
+customElements.define('ar-map', ARMap)

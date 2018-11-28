@@ -35,6 +35,11 @@ export class EntityManager {
 		// set selected to nothing
 		this.entitySetSelected(0)
 
+		// wait for network
+        return (async () => {
+			await this.entityNetworkRestart()
+            return this;
+        })();
 	}
 
 	entityAll(callback) {
@@ -322,7 +327,7 @@ export class EntityManager {
 				let entity = 0
 				this.entityAll(e=>{ if(e.anchorUID == event.detail.uid) entity = e })
 				if(entity) {
-					if(!entity.anchor && entity.kind == "gps") this.logging("<font color=green>mapLoad: " + event.detail.uid + " *** ANCHOR GOOD</font>" )
+					if(entity.kind == "gps") this.logging("<font color=green>mapLoad: " + event.detail.uid + " *** ANCHOR GOOD</font>" )
 				} else {
 					this.errors("mapLoad: " + event.detail.uid + " *** ANCHOR BAD" )
 				}

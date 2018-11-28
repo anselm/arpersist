@@ -1,9 +1,30 @@
-import {UXPage} from './UXComponents.js'
 
-export class UXPicker extends UXPage {
+export class ARZones extends HTMLElement {
 
-  layout(picker_dynamic_list,results) {
+  content() {
+    return `
+    <form>
+    <center>
+    <br/><label>Please pick a map </label>
+    <div id="picker_dynamic_list"><label>...loading...</label></div>
+    </center>
+    </form>
+    `
+  }
 
+  constructor(_id,_class) {
+    super()
+      if(_id) this.id = _id
+      if(_class) this.className = _class
+  }
+
+  connectedCallback() {
+    this.innerHTML = this.content()
+  }
+
+  layout(results) {
+
+    let picker_dynamic_list = 'picker_dynamic_list' // TODO clearly terrible
     let elements = document.getElementById(picker_dynamic_list)
 
     // flush just in case this is re-run
@@ -39,4 +60,6 @@ export class UXPicker extends UXPage {
     }
   }
 }
+
+customElements.define('ar-zones', ARZones)
 
