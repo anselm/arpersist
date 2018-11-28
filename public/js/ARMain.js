@@ -9,9 +9,9 @@ import {XRExampleBase} from './common.js'
 
 class AugmentedView extends XRExampleBase {
 
-	constructor(entity_manager,arview_target,logging,errors) {
+	constructor(entity_manager,dom_element,logging,errors) {
 
-        super(document.getElementById(arview_target),false,true,false,true,true)
+        super(dom_element,false,true,false,true,true)
 
         // block the parent class from doing some work
 		this.requestedFloor = true
@@ -165,19 +165,31 @@ class AugmentedView extends XRExampleBase {
 
 export class ARMain extends HTMLElement {
 
-	content() {
-		return `
-		<div>
-		<button id="make" class=uxbutton onClick="window.ux.action(this.id)"> Make </button> <!-- make a fresh asset -->
-		<button id="edit" class=uxbutton onClick="window.ux.action(this.id)"> Edit </button> <!-- edit an asset -->
-		<button id="maps" class=uxbutton onClick="window.ux.action(this.id)"> Maps </button> <!-- map mode -->
-		<button id="save" class=uxbutton onClick="window.ux.action(this.id)"> Save </button> <!-- admin: save the map -->
-		<div id="description"><div id="helper"> all systems nominal </div></div>
-		</div>
-		`
-	}
+content() {
+return `
+<style>
+.uxbutton {
+border-radius: 2px;
+background: transparent;
+border-style: solid;
+border-color: #aaeeaa;
+margin: 2px;
+padding: 2px;
+width: 64px;
+}
+.uxbutton img {
+width: 60px;
+filter: invert(0) hue-rotate(90deg) drop-shadow(16px 16px 10px rgba(0,0,0,0.9));
+}
+</style>
+<button style="position:absolute;right:10;bottom:10" class=uxbutton><img alt="make" src="assets/flatsplatterred.png" onClick="window.route('make')"></img></button>
+<button style="position:absolute;right:10;bottom:90" class=uxbutton><img alt="maps" src="assets/flatglobered.png" onClick="window.route('maps')"></img></button>
+<button style="position:absolute;right:10;bottom:170" class=uxbutton><img alt="profile" src="assets/flatheadred.png" onClick="window.route('profile')"></img></button>
+<button style="position:absolute;right:10;bottom:250" class=uxbutton><img alt="zones" src="assets/flatshellred.png" onClick="window.route('zones')"></img></button>
+`
+}
 
-	constructor(_id=0,_class=0,entity_manager,arview_target,log,err) {
+	constructor(_id=0,_class=0,entity_manager,log,err) {
 		super()
   		if(_id) this.id = _id
   		if(_class) this.className = _class
@@ -188,7 +200,10 @@ export class ARMain extends HTMLElement {
 
 	connectedCallback() {
 		this.innerHTML = this.content()
-		this.view = new AugmentedView(this.entity_manager,this.id,this.log,this.err)
+
+		// augmented view takes over the dom element backdrop to paint the pass through camera and overlay 3d geometry
+
+		this.view = new AugmentedView(this.entity_manager,this,this.log,this.err)
 	}
 }
 

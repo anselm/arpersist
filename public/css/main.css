@@ -114,16 +114,6 @@ button {
 label {
     font-size:18pt;
 }
-.uxbutton {
-    font-size:14pt;
-    border-radius: 4px;
-    background: #aaaaee;
-    border-style: solid;
-    border-color: #cceeff;
-    margin: 2px;
-  padding: 2px;
-  width: auto;
-}
 ::placeholder { /* Chrome, Firefox, Opera, Safari 10.1+ */
     color: red;
     opacity: 1; /* Firefox */

@@ -12,16 +12,17 @@ import {XRAnchorCartography} from './XRAnchorCartography.js'
 
 export class EntityManager {
 
-	constructor(zone,party,logging=0,errors=0) {
+	constructor(log=0,err=0) {
+
 		// zone concept - TODO this may go away or be improved
-		this.zone = zone || "ZZZ"
+		this.zone = "ZZZ"
 
 		// party - this may be improved - used to distinguish players right now but is not non-collidant
-		this.party = party || "ME"
+		this.party = "ME"
 
-		// some error logging support - a callback handler
-		this.logging = logging || console.log
-		this.errors = errors || console.error
+		// debug output
+		this.log = log || console.log
+		this.err = err || console.error
 
 		// tags - default props per entity
 		this.tags = ""
@@ -110,7 +111,7 @@ export class EntityManager {
 
 		// attempt to set an entityGPS once only for now - always using first one that fits
 		if(!this.entityGPS && entity && entity.kind == "gps" && entity.relocalized) {
-			this.logging("*** entityGPS found " + entity.uuid)
+			this.log("*** entityGPS found " + entity.uuid)
 			this.entityGPS = entity
 		}
 
@@ -159,7 +160,7 @@ export class EntityManager {
 		let results = await XRAnchorCartography.manufacture(session,frame,entity,true,false)
 
 		if(!results) {
-			this.errors("entityAddGPS: could not make gps anchor!")
+			this.err("entityAddGPS: could not make gps anchor!")
 			return 0
 		}
 
@@ -200,7 +201,7 @@ export class EntityManager {
 		let results = await XRAnchorCartography.manufacture(session,frame,entity,false,true)
 
 		if(!results) {
-			this.errors("entityAddArt: anchor failed")
+			this.err("entityAddArt: anchor failed")
 			return 0
 		}
 
@@ -236,7 +237,7 @@ export class EntityManager {
 		let results = await XRAnchorCartography.manufacture(session,frame,entity,false,false)
 
 		if(!results) {
-			this.errors("entityAddParty: fail?")
+			this.err("entityAddParty: fail?")
 			return 0
 		}
 
@@ -265,7 +266,7 @@ export class EntityManager {
 			// if no gps entity was added then force add one now
 			entity = await this.entityAddGPS(session,frame)
 			if(!entity) {
-				this.errors("entity MapSave: [error] failed to add gps entity - no gps yet?")
+				this.err("entity MapSave: [error] failed to add gps entity - no gps yet?")
 				return 0
 			}
 			this.entityGPS = entity
@@ -274,17 +275,17 @@ export class EntityManager {
 		// for now the entity is also written into the map - it's arguable if this is needed - will likely remove since it's mostly just extraneous TODO
 		// the idea was that I could search for maps, but if I assume each map has one and only one gps anchor entity then I know what maps exist based on entities whose kind is == gps
 
-		this.logging("entity mapSave: UX saving map")
+		this.log("entity mapSave: UX saving map")
 
 		let results = 0
 		try {
 			results = await session.getWorldMap()
 		} catch(e) {
-			this.errors(e)
+			this.err(e)
 			return 0
 		}
 		if(!results) {
-			this.errors("entity MapSave: [error] this engine does not have a good map from arkit yet")
+			this.err("entity MapSave: [error] this engine does not have a good map from arkit yet")
 			return 0
 		}
 		const data = new FormData()
@@ -304,7 +305,7 @@ export class EntityManager {
 		data.append('altitude',    entity.gps.altitude )
 		let response = await fetch('/api/map/save', { method: 'POST', body: data })
 		let json = await response.json()
-		this.logging("entity mapSave: succeeded ")
+		this.log("entity mapSave: succeeded ")
 
 		// - TEST: reload the map - REMOVE ONCE STABLE
 		this.mapLoad(entity.anchorUID)
@@ -318,7 +319,7 @@ export class EntityManager {
 
 	async _mapLoad(session,frame,filename) {
 
-		this.logging("will try load map named " + filename )
+		this.log("will try load map named " + filename )
 
 		// observe anchors showing up again - actual work is elsewhere in a busy poll loop - this is purely for debugging
 		if (!this.listenerSetup) {
@@ -327,9 +328,9 @@ export class EntityManager {
 				let entity = 0
 				this.entityAll(e=>{ if(e.anchorUID == event.detail.uid) entity = e })
 				if(entity) {
-					if(entity.kind == "gps") this.logging("<font color=green>mapLoad: " + event.detail.uid + " *** ANCHOR GOOD</font>" )
+					if(entity.kind == "gps") this.log("<font color=green>mapLoad: " + event.detail.uid + " *** ANCHOR GOOD</font>" )
 				} else {
-					this.errors("mapLoad: " + event.detail.uid + " *** ANCHOR BAD" )
+					this.err("mapLoad: " + event.detail.uid + " *** ANCHOR BAD" )
 				}
 			})
 		}
@@ -338,7 +339,7 @@ export class EntityManager {
 		let response = await fetch("uploads/"+filename)
 		let data = await response.text()
 		let results = await session.setWorldMap({worldMap:data})
-		this.logging("fresh map file arrived " + filename + " results=" + results.loaded )
+		this.log("fresh map file arrived " + filename + " results=" + results.loaded )
 
 		return 1
 	}
@@ -352,8 +353,8 @@ export class EntityManager {
 
 		// get a gps location hopefully
 		this.gps = await XRAnchorCartography.gpsPromise()
-		this.logging("Got GPS")
-		this.logging(this.gps)
+		this.log("Got GPS")
+		this.log(this.gps)
 
 		// local flush - not network
 		this.entities = {}
@@ -379,10 +380,10 @@ export class EntityManager {
 	async _entityLoadAll() {
 		// load all the entities from the server in one go - and rebinding/gluing state back together will happen later on in update()
 		if(!this.gps) {
-			this.logging("entityLoadAll: this engine needs a gps location before loading maps")
+			this.log("entityLoadAll: this engine needs a gps location before loading maps")
 			return 0
 		}
-		this.logging("entityLoadAll: getting all entities near latitude="+this.gps.latitude+" longitude="+this.gps.longitude)
+		this.log("entityLoadAll: getting all entities near latitude="+this.gps.latitude+" longitude="+this.gps.longitude)
 
 		let response = await fetch("/api/entity/query", {
 			method: 'POST',
@@ -402,9 +403,9 @@ export class EntityManager {
 			this.entities[entity.uuid]=entity
 			entity.published=1
 			entity.relocalized=0
-			this.logging(entity.anchorUID + " << entityLoadAll: made entity kind="+entity.kind+" uuid="+entity.uuid+" anchor="+entity.anchorUID)
+			this.log(entity.anchorUID + " << entityLoadAll: made entity kind="+entity.kind+" uuid="+entity.uuid+" anchor="+entity.anchorUID)
 		}
-		this.logging("entityLoadAll: loading done - entities in total is " + count )
+		this.log("entityLoadAll: loading done - entities in total is " + count )
 		return 1
 	}
 
@@ -429,7 +430,7 @@ export class EntityManager {
 		let previous = this.entities[entity.uuid]
 		if(!previous) {
 			this.entities[entity.uuid] = entity
-			this.logging("entityReceive: saving new remote entity " + entity.uuid)
+			this.log("entityReceive: saving new remote entity " + entity.uuid)
 			console.log(entity)
 		} else {
 			// scavenge choice morsels from the network traffic and throw network traffic away
@@ -442,7 +443,7 @@ export class EntityManager {
 			previous.gps = entity.gps
 			previous.published = 1
 			previous.relocalized = 0
-			//this.logging("entityReceive: remote entity found again and updated " + entity.uuid)
+			//this.log("entityReceive: remote entity found again and updated " + entity.uuid)
 		}
 	}
 
@@ -455,7 +456,7 @@ export class EntityManager {
 	_entityPublish(entity) {
 
 		if(!entity.relocalized || !entity.cartesian) {
-			this.logging("entityPublish: [error] entity has no cartesian " + entity.uuid )
+			this.log("entityPublish: [error] entity has no cartesian " + entity.uuid )
 			return
 		}
 
@@ -490,9 +491,9 @@ export class EntityManager {
 	_entityDebugging(entity) {
 		if(entity.debugged) return
 		entity.debugged = 1
-		this.logging("entityDebug: *** anchorUID=" + entity.anchorUID + " relocalized="+entity.relocalized + " kind="+entity.kind)
-		if(entity.gps) this.logging("entity=" + entity.anchorUID + " latitude="+entity.gps.latitude+" longitude="+entity.gps.longitude+" accuracy="+entity.gps.accuracy)
-		if(entity.cartesian) this.logging("entity cartesian x=" + entity.cartesian.x + " y=" + entity.cartesian.y + " z="+entity.cartesian.z)
+		this.log("entityDebug: *** anchorUID=" + entity.anchorUID + " relocalized="+entity.relocalized + " kind="+entity.kind)
+		if(entity.gps) this.log("entity=" + entity.anchorUID + " latitude="+entity.gps.latitude+" longitude="+entity.gps.longitude+" accuracy="+entity.gps.accuracy)
+		if(entity.cartesian) this.log("entity cartesian x=" + entity.cartesian.x + " y=" + entity.cartesian.y + " z="+entity.cartesian.z)
 		console.log(entity)
 	}
 

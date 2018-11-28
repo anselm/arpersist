@@ -129,7 +129,6 @@ export class UXDOM {
 ///
 ///
 
-let ux_pages = {}
 let ux_showing = 0
 
 export class UXPage extends UXComponent {
@@ -146,11 +145,6 @@ export class UXPage extends UXComponent {
 			}
 		}
 	}
-
-	static bind(name,component) {
-		ux_pages[name] = component
-	}
-	bind(name,component) { return this.constructor.bind(name,component) }
 
 	static push(name) {
 		history.pushState({name:name},name,"#" + name );

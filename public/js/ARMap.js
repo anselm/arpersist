@@ -12,39 +12,37 @@ export class ARMap extends HTMLElement {
 
 	content() {
 		return `
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBrirea7OVV4aKJ9Y0UAp6Nbr6-fXtr-50" type="text/javascript"></script>
 		<div>
 		this is the map page
 		</div>
 		`
 	}
 
-	constructor(_id=0,_class=0) {
+	constructor(_id=0,_class=0,entity_manager) {
 		super()
   		if(_id) this.id = _id
   		if(_class) this.className = _class
+  		this.entity_manager = entity_manager
 	}
 
 	connectedCallback() {
+		setTimeout(this.prepare.bind(this),1000)
+	}
 
+	prepare() {
 		this.innerHTML = this.content()
-
 		this.map = 0
 		this.infoWindow = 0
 		this.markerCenter = 0
 		this.latitude_longitude_updated = 0
 		this.mapInit(this.id)
 		this.markers = {}
-		this.markerCallback = 0
 		setInterval( this._markerUpdate.bind(this), 1000 )
 	}
 
-	markerSource(callback) { this.markerCallback = callback }
-
 	_markerUpdate() {
-		if(!this.markerCallback) {
-			return
-		}
-		let results = this.markerCallback()
+        let results = this.entity_manager.entityQuery()
 		if(!results || !results.length) {
 			return
 		}
@@ -100,6 +98,10 @@ export class ARMap extends HTMLElement {
 			this.err("No map div")
 			return
 		}
+		if(typeof google === 'undefined') {
+			this.err("cannot find google maps")
+			return
+		}
 		let map = this.map = new google.maps.Map(element, {
 			center: {lat: 45.5577417, lng: -122.6758163, altitude: 100 },
 			zoom: 15,
@@ -110,6 +112,7 @@ export class ARMap extends HTMLElement {
 		var button = document.createElement('button');
 		button.className = "uxbutton"
 		button.innerHTML = "back"
+		button.style.backgroundColor = "white"
 		button.onclick = function(e) { this.pop() }
 		map.controls[google.maps.ControlPosition.LEFT_TOP].push(button);
 

@@ -12,36 +12,73 @@ export class ARZones extends HTMLElement {
     `
   }
 
-  constructor(_id,_class) {
+  constructor(_id,_class,entity_manager) {
     super()
       if(_id) this.id = _id
       if(_class) this.className = _class
+      this.entity_manager = entity_manager
   }
 
   connectedCallback() {
     this.innerHTML = this.content()
+    let entities = this.entity_manager.entityQuery({kind:"map"})
+    this.layout(entities)
   }
 
   layout(results) {
 
     let picker_dynamic_list = 'picker_dynamic_list' // TODO clearly terrible
     let elements = document.getElementById(picker_dynamic_list)
+    if(!elements) {
+      this.err("No picker")
+      return
+    }
 
     // flush just in case this is re-run
     while (elements.firstChild) elements.removeChild(elements.firstChild);
 
-    // say "a fresh map"
+    // exit
     {
       let element = document.createElement("button")
-      element.innerHTML = "a fresh map"
+      element.innerHTML = "back"
+      element.style.color = "green"
       element.onclick = (e) => {
         e.preventDefault()
-        this.log("Picked fresh map")
-        this.action("pickerdone",0)
+        this.pop()
         return false
       }
       elements.appendChild(element)
     }
+
+    // save
+    {
+      let element = document.createElement("button")
+      element.innerHTML = "save"
+      element.onclick = (e) => {
+        e.preventDefault()
+        this.entity_manager.mapSave()
+        this.pop()
+        return false
+      }
+      elements.appendChild(element)
+      elements.appendChild(document.createElement("br"))
+    }
+
+    // reset
+    {
+      let element = document.createElement("button")
+      element.innerHTML = "reset"
+      element.style.color = "red"
+      element.onclick = (e) => {
+        e.preventDefault()
+        alert("to be done")
+        this.pop()
+        return false
+      }
+      elements.appendChild(element)
+      elements.appendChild(document.createElement("br"))
+    }
+
 
     // say other cases - could use a slider and limit etc TODO
     for(let i = 0; i < results.length; i++) {
@@ -53,7 +90,9 @@ export class ARZones extends HTMLElement {
         e.preventDefault()
         let choice = e.srcElement.innerText
         this.log("Picked map " + choice)
-        this.action("pickerdone",choice)
+        //this.action("pickerdone",choice)
+        this.entity_manager.mapLoad(choice)
+        this.pop()
         return false
       }
       elements.appendChild(document.createElement("br"))
