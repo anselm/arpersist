@@ -182,10 +182,10 @@ export class ARMain extends HTMLElement {
 		filter: invert(0) hue-rotate(90deg) drop-shadow(16px 16px 10px rgba(0,0,0,0.9));
 		}
 		</style>
-		<button style="position:absolute;right:10;bottom:10" class=uxbutton><img alt="make" src="assets/flatsplatterred.png" onClick="window.push('editor')"></img></button>
-		<button style="position:absolute;right:10;bottom:90" class=uxbutton><img alt="maps" src="assets/flatglobered.png" onClick="window.push('maps')"></img></button>
-		<button style="position:absolute;right:10;bottom:170" class=uxbutton><img alt="profile" src="assets/flatheadred.png" onClick="window.push('profile')"></img></button>
-		<button style="position:absolute;right:10;bottom:250" class=uxbutton><img alt="zones" src="assets/flatshellred.png" onClick="window.push('zones')"></img></button>
+		<button style="position:absolute;right:10;top:10" class=uxbutton><img alt="make" src="assets/flatsplatterred.png" onClick="window.push('editor')"></img></button>
+		<button style="position:absolute;right:10;top:90" class=uxbutton><img alt="maps" src="assets/flatglobered.png" onClick="window.push('maps')"></img></button>
+		<button style="position:absolute;right:10;top:170" class=uxbutton><img alt="profile" src="assets/flatheadred.png" onClick="window.push('profile')"></img></button>
+		<button style="position:absolute;right:10;top:250" class=uxbutton><img alt="zones" src="assets/flatshellred.png" onClick="window.push('zones')"></img></button>
 		`
 	}
 

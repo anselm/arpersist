@@ -43,22 +43,23 @@ export class AREditor extends HTMLElement {
 		observer.observe(this, { attributes: true });
 	}
 
-	onshow() {
+	async onshow() {
 
-		// TODO make new if none
+		// TODO make new only if none
 
-		let entity = this.entity_manager.entityGetSelected()
-		if(!entity) return
+        let entity = await this.entity_manager._entityAddArt()
 
-		let dom_element_id = this._id
-		this.target = document.getElementById(dom_element_id)
-		if(!this.target) {
-			this.err("no target page " + dom_element_id)
+//		let entity = this.entity_manager.entityGetSelected()
+		if(!entity) {
+			this.pop()
 			return
 		}
 
+		let dom_element_id = this._id
+		this.target = document.getElementById(dom_element_id)
+
 		// get layout for it - TODO could look inside of target rather than in whole document
-		let elem = document.getElementById("edit_art")
+		let elem = document.getElementById("edit_art") // TODO sloppy
 		elem.value = entity.art
 		elem = document.getElementById("edit_uuid")
 		elem.innerHTML = entity.uuid
@@ -87,6 +88,9 @@ export class AREditor extends HTMLElement {
 		if(!entity) {
 			return 0
 		}
+
+		console.log("saving entity")
+
 
 		entity.published = 0
 

@@ -37,9 +37,8 @@ export class ARLogin extends HTMLElement {
 		  this.entity_manager.party = {
 		  	name:name,
 		  	pass:pass,
-		  	admin: name == "anselm" ? 9 : 0
+		  	admin: (name == "anselm" || name == "Anselm" || name=="Josh" || name=="josh" || name=="Blair" || name=="blair") ? 9 : 0
 		  }
-		  console.log(this.entity_manager.party)
 
 	      this.pop()
 	      return false

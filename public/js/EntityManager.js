@@ -62,6 +62,9 @@ export class EntityManager {
 
 	async entityUpdateAll(session,frame) {
 
+		this._session = session
+		this._frame = frame
+
 		// add an art?
 		if(this.pleaseAddArt) {
 			this.pleaseAddArt = 0
@@ -175,10 +178,14 @@ export class EntityManager {
 	///
 
 	entityAddArt() {
-		this.pleaseAddArt = 1
+		this.pleaseAddArt = 1	
 	}
 
-	async _entityAddArt(session,frame) {
+	async _entityAddArt(session=0,frame=0) {
+
+		if(!session) session = this._session
+		if(!frame) frame = this._frame
+		if(!session || !frame) return
 
 		let	entity = {
 		       name: "art!",
