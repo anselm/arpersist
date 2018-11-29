@@ -140,7 +140,7 @@ export class UXPage extends UXComponent {
 			if(!e || !e.state) {
 				this.err(" backbutton - bad input for popstate; or external push state?")
 			} else {
-				this.log(" user hit back button " + document.location + ", state: " + JSON.stringify(event.state) )
+				//this.log(" user hit back button " + document.location + ", state: " + JSON.stringify(event.state) )
 				this.show(e.state.name)
 			}
 		}
@@ -161,7 +161,7 @@ export class UXPage extends UXComponent {
 		if(!name) return
 		let element = document.getElementById(name)
 		if(element) element.style.display = "none"
-		UXComponent.msg({kind:"hide",name:name})
+		if(element.onhide) element.onhide()
 	}
 	hide(name) { return this.constructor.hide(name) }
 
@@ -171,7 +171,7 @@ export class UXPage extends UXComponent {
 		ux_showing = name
 		let element = document.getElementById(name)
 		if(element) element.style.display = "block"
-		UXComponent.msg({kind:"show",name:name})
+		if(element.onshow) element.onshow()
 	}
 	show(name) { return this.constructor.show(name) }
 }

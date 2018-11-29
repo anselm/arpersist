@@ -24,9 +24,6 @@ export class ARMap extends HTMLElement {
   		if(_id) this.id = _id
   		if(_class) this.className = _class
   		this.entity_manager = entity_manager
-	}
-
-	connectedCallback() {
 		setTimeout(this.prepare.bind(this),1000)
 	}
 

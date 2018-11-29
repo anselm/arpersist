@@ -18,7 +18,7 @@ export class EntityManager {
 		this.zone = "ZZZ"
 
 		// party - this may be improved - used to distinguish players right now but is not non-collidant
-		this.party = "ME"
+		this.party = { name:"" }
 
 		// debug output
 		this.log = log || console.log
@@ -217,7 +217,7 @@ export class EntityManager {
 	async entityUpdateParty(session,frame) {
 
 		let entity = this.entityParty || {
-		       name: this.party || "party?!",
+		       name: this.party.name || "unknown",
 		      descr: "a representation of a person",
 		       kind: "party",
 		        art: "box",
@@ -299,7 +299,7 @@ export class EntityManager {
 		data.append('art',         entity.art )
 		data.append('zone',        entity.zone )
 		data.append('tags',        entity.tags )
-		data.append('party',       entity.party )
+		data.append('party',       entity.party.name )
 		data.append('latitude',    entity.gps.latitude )
 		data.append('longitude',   entity.gps.longitude )
 		data.append('altitude',    entity.gps.altitude )

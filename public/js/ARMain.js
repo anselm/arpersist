@@ -165,29 +165,29 @@ class AugmentedView extends XRExampleBase {
 
 export class ARMain extends HTMLElement {
 
-content() {
-return `
-<style>
-.uxbutton {
-border-radius: 2px;
-background: transparent;
-border-style: solid;
-border-color: #aaeeaa;
-margin: 2px;
-padding: 2px;
-width: 64px;
-}
-.uxbutton img {
-width: 60px;
-filter: invert(0) hue-rotate(90deg) drop-shadow(16px 16px 10px rgba(0,0,0,0.9));
-}
-</style>
-<button style="position:absolute;right:10;bottom:10" class=uxbutton><img alt="make" src="assets/flatsplatterred.png" onClick="window.route('make')"></img></button>
-<button style="position:absolute;right:10;bottom:90" class=uxbutton><img alt="maps" src="assets/flatglobered.png" onClick="window.route('maps')"></img></button>
-<button style="position:absolute;right:10;bottom:170" class=uxbutton><img alt="profile" src="assets/flatheadred.png" onClick="window.route('profile')"></img></button>
-<button style="position:absolute;right:10;bottom:250" class=uxbutton><img alt="zones" src="assets/flatshellred.png" onClick="window.route('zones')"></img></button>
-`
-}
+	content() {
+	return `
+		<style>
+		.uxbutton {
+		border-radius: 2px;
+		background: transparent;
+		border-style: solid;
+		border-color: #aaeeaa;
+		margin: 2px;
+		padding: 2px;
+		width: 64px;
+		}
+		.uxbutton img {
+		width: 60px;
+		filter: invert(0) hue-rotate(90deg) drop-shadow(16px 16px 10px rgba(0,0,0,0.9));
+		}
+		</style>
+		<button style="position:absolute;right:10;bottom:10" class=uxbutton><img alt="make" src="assets/flatsplatterred.png" onClick="window.push('editor')"></img></button>
+		<button style="position:absolute;right:10;bottom:90" class=uxbutton><img alt="maps" src="assets/flatglobered.png" onClick="window.push('maps')"></img></button>
+		<button style="position:absolute;right:10;bottom:170" class=uxbutton><img alt="profile" src="assets/flatheadred.png" onClick="window.push('profile')"></img></button>
+		<button style="position:absolute;right:10;bottom:250" class=uxbutton><img alt="zones" src="assets/flatshellred.png" onClick="window.push('zones')"></img></button>
+		`
+	}
 
 	constructor(_id=0,_class=0,entity_manager,log,err) {
 		super()
@@ -196,13 +196,7 @@ filter: invert(0) hue-rotate(90deg) drop-shadow(16px 16px 10px rgba(0,0,0,0.9));
   		this.entity_manager = entity_manager
   		this.log = log
   		this.err = err
-	}
-
-	connectedCallback() {
 		this.innerHTML = this.content()
-
-		// augmented view takes over the dom element backdrop to paint the pass through camera and overlay 3d geometry
-
 		this.view = new AugmentedView(this.entity_manager,this,this.log,this.err)
 	}
 }

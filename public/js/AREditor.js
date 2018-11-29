@@ -3,9 +3,10 @@ export class AREditor extends HTMLElement {
 
 	content() {
 		return `
-		<form class="page" id="editor">
+		<form>
 		<center>
-		<label>Edit</label>
+		<br/><button id="editdone" onClick="event.preventDefault(); window.pop(); return 0;"> done</button>
+		<br/><button id="nudgemap" onClick="event.preventDefault(); window.push('maps'); return 0;"> map</button>
 		<br/><input id="edit_name" placeholder="a name"></input>
 		<br/><input id="edit_art" placeholder="url to art OR words to show"></input>
 		<br/><label id="xedit_upright"  >   Upright </label><label class="switch">      <input id="edit_upright" type="checkbox"><span class="slider"></span></label>
@@ -18,8 +19,6 @@ export class AREditor extends HTMLElement {
 		<br/><label id="xedit_priority" >  Priority </label><label class="switch">      <input id="edit_priority" type="checkbox"><span class="slider"></span></label>
 		<br/><button id="delete" onClick="event.preventDefault();window.ux.action('delete'); return 0;"> delete</button>
 		<br/>
-		<br/><button id="nudgemap" onClick="event.preventDefault(); window.ux.action('nudgemap'); return 0;"> map</button>
-		<br/><button id="editdone" onClick="event.preventDefault(); window.ux.action('editdone'); return 0;"> done</button>
 		<br/>
 		<div id="edit_uuid">object uid if any</div>
 		<div>object location if any</div>
@@ -28,22 +27,28 @@ export class AREditor extends HTMLElement {
 		`
 	}
 
-	constructor(_id,_class) {
+	constructor(_id,_class,entity_manager) {
 		super()
   		if(_id) this.id = _id
   		if(_class) this.className = _class
-	}
-
-	connectedCallback() {
+  		this.entity_manager = entity_manager
 		this.innerHTML = this.content()
+
+	    // this is one way to notice if editor is up
+		var observer = new MutationObserver((mutations) => {
+			if(mutations[0].target.style.display != 'none') {
+				console.log("showing editor")
+			}
+		})
+		observer.observe(this, { attributes: true });
 	}
 
-	edit(entity) {
+	onshow() {
 
-		if(!entity) {
-			this.err("no entity to edit")
-			return
-		}
+		// TODO make new if none
+
+		let entity = this.entity_manager.entityGetSelected()
+		if(!entity) return
 
 		let dom_element_id = this._id
 		this.target = document.getElementById(dom_element_id)
@@ -76,7 +81,8 @@ export class AREditor extends HTMLElement {
 		})
 	}
 
-	editdone(entity) {
+	onhide() {
+		let entity = this.entity_manager.entityGetSelected()
 
 		if(!entity) {
 			return 0
@@ -103,4 +109,12 @@ export class AREditor extends HTMLElement {
 
 customElements.define('ar-editor', AREditor)
 
+
+				// TODO fix map
+				//if(entity && map && map.latitude_longitude_updated && entity.gps) {
+				//  UXPage.log("editor updated location of entity to lat="+map.latitude+ " lon="+map.longitude)
+				//   entity.gps.latitude = map.latitude
+				//   entity.gps.longitude = map.longitude
+				//   map.latitude_longitude_updated = 0
+				// }
 
