@@ -47,7 +47,7 @@ export class XRAnchorCartography {
 	}
 
 	///
-	/// Get an anchor
+	/// Get a new anchor
 	///
 	/// The caller has an abstract concept of a point in space they either want to get information about or update their understanding of.
 	/// (In caller terms this can be a point at the camera, or a ray test, or other undefined queries yet to be implemented.)
@@ -137,23 +137,28 @@ export class XRAnchorCartography {
 
 		focus.anchor = focus.anchorUID ? frame.getAnchor(focus.anchorUID) : 0
 
-		// try recover a fresh local arkit transform, xyz position and orientation
+		// relocalize from anchor if desired
 
-		if(focus.anchor) {
+		if(focus.anchor && (focus.kind == "gps" || !focus.relocalized) ) {
 
 			focus.offset = new XRAnchorOffset(focus.anchorUID)
-			focus.transform = focus.offset.getOffsetTransform(focus.anchor.coordinateSystem)
+			focus.xr_transform = focus.offset.getOffsetTransform(focus.anchor.coordinateSystem)
 
 			let m = new THREE.Matrix4()
 			let s = new THREE.Vector3()
 			let xyz = new THREE.Vector3()
 			let q = new THREE.Quaternion()
-			m.fromArray(focus.transform)
+			m.fromArray(focus.xr_transform)
 			m.decompose(xyz,q,s)
 			focus.quaternion = q
 			focus.xyz = xyz
 
-			// try recover cartesian facts for local objects that are not gps anchors
+			// set to threejs transform
+			m.compose(focus.xyz,q, new THREE.Vector3(1,1,1) )
+			focus.transform = m
+
+
+			// non gps objects get their cartesian coordinates set relative to the gps anchor (gps objects already have it set)
 
 			if(focus.kind != "gps" && parent && parent.xyz) {
 
@@ -179,7 +184,7 @@ export class XRAnchorCartography {
 				focus.gps = { latitude: Cesium.Math.toDegrees(carto.latitude), longitude: Cesium.Math.toDegrees(carto.longitude), altitude: 0}
 			}
 
-			// try recover local facts fixed and inverse for convenience (for both gps and non gps)
+			// also recover local facts fixed and inverse for convenience
 
 			if(focus.cartesian) {
 				focus.fixed = Cesium.Transforms.eastNorthUpToFixedFrame(focus.cartesian)
@@ -191,9 +196,9 @@ export class XRAnchorCartography {
 			focus.relocalized = 1
 		}
 
-		// try recover transform for non local non gps objects that do have cartesian details
+		// for entities without an anchor, as long as they have cartesian coordinates they should be recoverable relative to gps anchor
 
-		if(focus.cartesian && !focus.anchor && focus.kind != "gps" && parent && parent.inverse) {
+		else if(focus.cartesian && parent && parent.inverse) {
 
 			if(!parent.xyz) {
 				// weird

@@ -96,7 +96,6 @@ export class EntityManager {
 		// update all entities
 		this.entityAll((entity)=>{
 			this._entityUpdateOne(session,frame,entity)
-			this._entityDebugging(entity)
 		})
 	}
 
@@ -336,7 +335,7 @@ export class EntityManager {
 				this.entityAll(e=>{ if(e.anchorUID == event.detail.uid) entity = e })
 				if(entity) {
 					if(entity.kind == "gps") this.log("<font color=green>mapLoad: " + event.detail.uid + " *** ANCHOR GOOD</font>" )
-				} else {
+				} else if (event.detail.uid.startsWith("anchor")) {
 					this.err("mapLoad: " + event.detail.uid + " *** ANCHOR BAD" )
 				}
 			})
@@ -347,6 +346,7 @@ export class EntityManager {
 		let data = await response.text()
 		let results = await session.setWorldMap({worldMap:data})
 		this.log("fresh map file arrived " + filename + " results=" + results.loaded )
+		console.log(results)
 
 		return 1
 	}
@@ -390,7 +390,6 @@ export class EntityManager {
 			this.log("entityLoadAll: this engine needs a gps location before loading maps")
 			return 0
 		}
-		this.log("entityLoadAll: getting all entities near latitude="+this.gps.latitude+" longitude="+this.gps.longitude)
 
 		let response = await fetch("/api/entity/query", {
 			method: 'POST',
@@ -410,9 +409,7 @@ export class EntityManager {
 			this.entities[entity.uuid]=entity
 			entity.published=1
 			entity.relocalized=0
-			this.log(entity.anchorUID + " << entityLoadAll: made entity kind="+entity.kind+" uuid="+entity.uuid+" anchor="+entity.anchorUID)
 		}
-		this.log("entityLoadAll: loading done - entities in total is " + count )
 		return 1
 	}
 
@@ -493,15 +490,6 @@ export class EntityManager {
 			  //published: entity.published ? 1 : 0
 		}
 		this.socket.emit('publish',blob);
-	}
-
-	_entityDebugging(entity) {
-		if(entity.debugged) return
-		entity.debugged = 1
-		this.log("entityDebug: *** anchorUID=" + entity.anchorUID + " relocalized="+entity.relocalized + " kind="+entity.kind)
-		if(entity.gps) this.log("entity=" + entity.anchorUID + " latitude="+entity.gps.latitude+" longitude="+entity.gps.longitude+" accuracy="+entity.gps.accuracy)
-		if(entity.cartesian) this.log("entity cartesian x=" + entity.cartesian.x + " y=" + entity.cartesian.y + " z="+entity.cartesian.z)
-		console.log(entity)
 	}
 
 }

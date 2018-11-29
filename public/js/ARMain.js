@@ -49,8 +49,8 @@ class AugmentedView extends XRExampleBase {
 	async updateScene(frame) {
 
 		if(this.isUpdating) {
-			if(this.isUpdating < 99) this.err("updateScene: failed somewhere or called while still busy")
-				else this.isUpdating = 0
+			if(this.isUpdating == 1) this.err("updateScene: called before finished")
+			if(this.isUpdating > 99) this.isUpdating = 0
 			return
 		}
 		this.isUpdating = this.isUpdating ? this.isUpdating + 1 : 1
@@ -83,8 +83,13 @@ class AugmentedView extends XRExampleBase {
 			// mark as surviving
 			node.survives = 1
 			// transform to pose
+
+			//if(entity.xyz) {
+			//	node.position.set(entity.xyz.x,entity.xyz.y,entity.xyz.z)
+			//}
+
 			if(entity.transform) {
-				node.matrix.fromArray(entity.transform)
+				node.matrix.fromArray(entity.transform.elements)
 				node.matrixAutoUpdate = false
 				node.updateMatrixWorld(true)
 			}

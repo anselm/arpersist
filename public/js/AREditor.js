@@ -70,7 +70,6 @@ export class AREditor extends HTMLElement {
 			let e = document.getElementById("edit_"+tag)
 			if(!e)return // weird
 			e.checked = false				
-			this.log("resettting " + tag)
 		})
 
 		// bust out the tags from entity and set those to true
@@ -78,7 +77,6 @@ export class AREditor extends HTMLElement {
 			let e = document.getElementById("edit_"+tag)
 			if(!e)return // weird
 			e.checked = true
-			this.log("upsettting " + tag)
 		})
 	}
 
@@ -89,7 +87,7 @@ export class AREditor extends HTMLElement {
 			return 0
 		}
 
-		console.log("saving entity")
+		console.log("SAVED " + entity.uuid )
 
 
 		entity.published = 0
