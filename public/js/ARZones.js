@@ -53,6 +53,7 @@ export class ARZones extends HTMLElement {
     // save
     {
       let element = document.createElement("button")
+      element.id = "login_show_save"
       element.innerHTML = "save"
       element.onclick = (e) => {
         e.preventDefault()
@@ -97,6 +98,13 @@ export class ARZones extends HTMLElement {
       }
       elements.appendChild(document.createElement("br"))
     }
+  }
+
+  onshow() {
+    if(this.entity_manager.party.admin)
+      document.getElementById("login_show_save").style.display = "block"
+    else 
+      document.getElementById("login_show_save").style.display = "none"
   }
 }
 

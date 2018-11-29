@@ -7,6 +7,7 @@ export class ARProfile extends HTMLElement {
 		<center>
 		<br/><label>Your name is </label>
 		<br/><input readonly></input>
+		<br/><button onclick="event.preventDefault(); window.push('login');return 0;"> Logout </button>
 		<br/><button> Back </button>
 		</center>
 		</form>
