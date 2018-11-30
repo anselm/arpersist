@@ -46,13 +46,13 @@ export class EntityManager {
     }
 
     forceGPS() {
-    	let interval = setInterval(5000,() => {
+    	let interval = setInterval(() => {
     		if(!this.entityGPS) {
 		        this.pleaseAddGPS = 1
 		    } else {
 		    	clearInterval(interval)
 		    }
-	    })
+	    },5000)
 	}
 
 	entityAll(callback) {
