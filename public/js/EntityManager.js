@@ -39,11 +39,10 @@ export class EntityManager {
 		// wait for network
         return (async () => {
 			await this.entityNetworkRestart()
+	        this.forceGPS()
             return this;
         })();
 
-        // add a gps marker
-        this.forceGPS()
     }
 
     forceGPS() {
