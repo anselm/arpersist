@@ -99,7 +99,10 @@ class AugmentedView extends XRExampleBase {
 		let freshnodes = {}
 		for(let uuid in this.nodes) {
 			let node = this.nodes[uuid]
-			if(!node.survives) this.scene.remove(node); else freshnodes[uuid] = node
+			if(!node.survives) {
+				console.log("removing unused scene node " + uuid )
+				this.scene.remove(node);
+			} else freshnodes[uuid] = node
 		}
 		this.nodes = freshnodes
 

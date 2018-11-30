@@ -40,7 +40,7 @@ export class EntityManager {
         return (async () => {
 			await this.entityNetworkRestart()
 			// also will just try make a gps anchor if one doesn't show up in a while
-			this.forceGPS(2000)
+			//this.forceGPS(2000)
             return this;
         })();
 
@@ -109,6 +109,12 @@ export class EntityManager {
 	}
 
 	_entityUpdateOne(session,frame,entity) {
+
+		// debug
+		if(!entity.debugged) {
+			entity.debugged = 1
+			this.log(entity.uuid + " loaded kind="+entity.kind+" reloc="+entity.relocalized+" pub="+entity.published)
+		}
 
 		// keep looking for a gps anchor (either made locally or arriving from a network map load) to become defacto gps anchor
 
@@ -347,7 +353,7 @@ export class EntityManager {
 		await this.entityNetworkRestart()
 
 		// and start a timer to make a fresh gps - but give it a sizeable delay for the map one first to succeed
-		this.forceGPS(10000)
+		//this.forceGPS(10000)
 
 		// fetch map itself - which will eventually resolve the anchor loaded above
 		let response = await fetch("uploads/"+filename)
