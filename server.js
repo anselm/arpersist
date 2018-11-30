@@ -8,7 +8,6 @@ const upload = multer({dest:'public/uploads/'})
 const http = require('http').Server(app)
 const io = require('socket.io')(http)
 const fs = require('fs')
-const shortid = require('shortid')
 var proxy = require('express-http-proxy');
 
 const port = 3000
