@@ -27,16 +27,10 @@ export class EntityManager {
 		// tags - default props per entity
 		this.tags = ""
 
-		// manage entities
-		this.entities = {}
-
 		// allow party to update
 		this.partyUpdateCounter = 0
 
-		// set selected to nothing
-		this.entitySetSelected(0)
-
-		// wait for network
+		// restart entities
         return (async () => {
 			await this.entityNetworkRestart()
 			// also will just try make a gps anchor if one doesn't show up in a while
@@ -110,12 +104,6 @@ export class EntityManager {
 
 	_entityUpdateOne(session,frame,entity) {
 
-		// debug
-		if(!entity.debugged) {
-			entity.debugged = 1
-			this.log(entity.uuid + " loaded kind="+entity.kind+" reloc="+entity.relocalized+" pub="+entity.published)
-		}
-
 		// keep looking for a gps anchor (either made locally or arriving from a network map load) to become defacto gps anchor
 
 		if(!this.entityGPS && entity.kind != "gps") {
@@ -123,6 +111,7 @@ export class EntityManager {
 		}
 
 		// relocalize any entity
+		let relocalized = entity.relocalized
 
 		XRAnchorCartography.relocalize(session,frame,entity,this.entityGPS)
 
@@ -131,6 +120,11 @@ export class EntityManager {
 		if(!this.entityGPS && entity && entity.kind == "gps" && entity.relocalized) {
 			this.log("*** entityGPS found " + entity.uuid)
 			this.entityGPS = entity
+		}
+
+		// debug
+		if(!relocalized && entity.relocalized) {
+			this.log(entity.uuid + " relocalized kind="+entity.kind+" pub="+entity.published)
 		}
 
 		// until a gps anchor shows up then there's no point in doing anything else
@@ -394,6 +388,9 @@ export class EntityManager {
 
 		// unset anything selected
 		this.entitySetSelected(0)
+
+		// wipe the gps one also
+		this.entityGPS = 0
 
 		// open connection if none
 		if(!this.socket) {
