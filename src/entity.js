@@ -122,48 +122,8 @@ class Entity {
   }
 
   async map_save(filepath,args) {
-
-    console.log("*** mapSave: server map save request")
-    console.log(args)
-
-    let entity = {
-             uuid: args.uuid,
-        anchorUID: args.anchorUID,
-             name: args.name,
-            descr: args.descr,
-             kind: "map",
-              art: args.art,
-             zone: args.zone,
-             tags: args.tags,
-            party: args.party,
-              gps: { latitude: args.latitude, longitude: args.longitude, altitude: args.altitude },
-        published: 0
-    }
-
-    console.log("*** mapSave: injecting a map into list of entities") // TODO may remove this concept
-    this.save(entity)
-
     let target = "public/uploads/"+args.anchorUID
-
-    try {
-      fs.statSync(target)
-      fs.unlinkSync(target)
-      console.log("deleted")
-    } catch(err) {
-      console.log("not deleted")
-    }
-
     fs.renameSync(filepath, target)
-
-    /*
-    fs.writeFileSync("public/uploads/" + args.zone + ".inf",JSON.stringify({
-      cartesianx:args.cartesianx,
-      cartesiany:args.cartesiany,
-      cartesianz:args.cartesianz,
-      anchor:args.anchor
-    }))
-    */
-
     return({status:"thanks"})
   }
 

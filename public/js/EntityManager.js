@@ -39,21 +39,12 @@ export class EntityManager {
 		// wait for network
         return (async () => {
 			await this.entityNetworkRestart()
-	        this.forceGPS()
+			// also will just try make a gps anchor if one doesn't show up in a while
+			this.forceGPS(2000)
             return this;
         })();
 
     }
-
-    forceGPS() {
-    	let interval = setInterval(() => {
-    		if(!this.entityGPS) {
-		        this.pleaseAddGPS = 1
-		    } else {
-		    	clearInterval(interval)
-		    }
-	    },5000)
-	}
 
 	entityAll(callback) {
 		for(let uuid in this.entities) {
@@ -352,6 +343,12 @@ export class EntityManager {
 			})
 		}
 
+		// let's just reset everything and reload the network - probably overkill but i want to clear any gps anchors
+		await this.entityNetworkRestart()
+
+		// and start a timer to make a fresh gps - but give it a sizeable delay for the map one first to succeed
+		this.forceGPS(10000)
+
 		// fetch map itself - which will eventually resolve the anchor loaded above
 		let response = await fetch("uploads/"+filename)
 		let data = await response.text()
@@ -362,10 +359,22 @@ export class EntityManager {
 		return 1
 	}
 
-
 	//////////////////////////////////////////////////////////////////////////////////
 	// network
 	//////////////////////////////////////////////////////////////////////////////////
+
+    forceGPS(delay) {
+    	// keep retrying to get an anchor - useful on startup and after a map load
+    	if(this.interval) return
+    	this.interval = setInterval(() => {
+    		if(!this.entityGPS) {
+		        this.pleaseAddGPS = 1
+		    } else {
+		    	clearInterval(this.interval)
+		    	this.interval = 0
+		    }
+	    },delay)
+	}
 
 	async entityNetworkRestart() {
 
