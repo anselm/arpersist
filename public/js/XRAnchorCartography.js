@@ -153,8 +153,7 @@ export class XRAnchorCartography {
 			focus.quaternion = q
 			focus.xyz = xyz
 
-			// set to threejs transform
-			m.compose(focus.xyz,q, new THREE.Vector3(1,1,1) )
+			//m.compose(focus.xyz,q, new THREE.Vector3(1,1,1) )
 			focus.transform = m
 
 
@@ -201,7 +200,8 @@ export class XRAnchorCartography {
 		else if(focus.cartesian && parent && parent.inverse) {
 
 			if(!parent.xyz) {
-				// weird
+				// weird TODO remove if it stops showing up
+				console.error("xranchorcarto parent bad - this is not excellent")
 				return
 			}
 

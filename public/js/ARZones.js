@@ -21,7 +21,7 @@ export class ARZones extends HTMLElement {
 
   connectedCallback() {
     this.innerHTML = this.content()
-    let entities = this.entity_manager.entityQuery({kind:"map"})
+    let entities = this.entity_manager.entityQuery({kind:"gps"})
     this.layout(entities)
   }
 

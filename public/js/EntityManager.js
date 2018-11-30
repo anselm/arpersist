@@ -41,6 +41,19 @@ export class EntityManager {
 			await this.entityNetworkRestart()
             return this;
         })();
+
+        // add a gps marker
+        this.forceGPS()
+    }
+
+    forceGPS() {
+    	let interval = setInterval(5000,() => {
+    		if(!this.entityGPS) {
+		        this.pleaseAddGPS = 1
+		    } else {
+		    	clearInterval(interval)
+		    }
+	    })
 	}
 
 	entityAll(callback) {
@@ -64,6 +77,12 @@ export class EntityManager {
 
 		this._session = session
 		this._frame = frame
+
+		// add a gps anchor?
+		if(this.pleaseAddGPS) {
+			this.pleaseAddGPS = 0
+			await this._entityAddGPS(session,frame)
+		}
 
 		// add an art?
 		if(this.pleaseAddArt) {
@@ -101,28 +120,31 @@ export class EntityManager {
 
 	_entityUpdateOne(session,frame,entity) {
 
-		// ignore maps completely for now
-		if(entity.kind=="map") return
+		// keep looking for a gps anchor (either made locally or arriving from a network map load) to become defacto gps anchor
 
-		// ignore things that are not gps until a entityGPS exists
 		if(!this.entityGPS && entity.kind != "gps") {
 			return
 		}
 
+		// relocalize any entity
+
 		XRAnchorCartography.relocalize(session,frame,entity,this.entityGPS)
 
-		// attempt to set an entityGPS once only for now - always using first one that fits
+		// set gps anchor if at all possible
+
 		if(!this.entityGPS && entity && entity.kind == "gps" && entity.relocalized) {
 			this.log("*** entityGPS found " + entity.uuid)
 			this.entityGPS = entity
 		}
 
-		// never publish before relocalization of the system as a whole
+		// until a gps anchor shows up then there's no point in doing anything else
+
 		if(!this.entityGPS) {
 			return
 		}
 
-		// publish changes? (only entities that have a location can have their changes published)
+		// publish?
+
 		if(!entity.published && entity.relocalized) {
 			this._entityPublish(entity)
 			entity.published = 1
@@ -139,7 +161,11 @@ export class EntityManager {
 	/// * note that this.entityGPS is not set here - this system is a lazy loader and these things can arrive over network
 	///
 
-	async entityAddGPS(session,frame) {
+	entityAddGPS() {
+		this.pleaseAddGPS = 1	
+	}
+
+	async _entityAddGPS(session,frame) {
 
 		let entity = {
 		       name: "a gps anchor!",
@@ -156,7 +182,7 @@ export class EntityManager {
 		        xyz: 0,
 		        gps: 0,
 		relocalized: 0,
-		  published: 0
+		  published: 1  // don't publish gps anchors until an associated map is saved to a server
 		}
 
 		let results = await XRAnchorCartography.manufacture(session,frame,entity,true,false)
@@ -265,21 +291,13 @@ export class EntityManager {
 
 	async _mapSave(session,frame) {
 
-		// a slight hack - make and fully prep a gps anchor if one is not made yet
-
 		let entity = this.entityGPS
 		if(!entity) {
-			// if no gps entity was added then force add one now
-			entity = await this.entityAddGPS(session,frame)
-			if(!entity) {
-				this.err("entity MapSave: [error] failed to add gps entity - no gps yet?")
-				return 0
-			}
-			this.entityGPS = entity
+			this.err("No GPS anchor present!")
+			return 0
 		}
 
-		// for now the entity is also written into the map - it's arguable if this is needed - will likely remove since it's mostly just extraneous TODO
-		// the idea was that I could search for maps, but if I assume each map has one and only one gps anchor entity then I know what maps exist based on entities whose kind is == gps
+		// for now I make a map entity similar to the gps entity
 
 		this.log("entity mapSave: UX saving map")
 
@@ -294,27 +312,21 @@ export class EntityManager {
 			this.err("entity MapSave: [error] this engine does not have a good map from arkit yet")
 			return 0
 		}
+
+		// save the map
+
 		const data = new FormData()
-		// TODO - this kind of mixes concerns badly - if I pick a single anchor to associate the map with then this is not needed
 		data.append('blob',        new Blob([results.worldMap], { type: "text/html"} ) )
-		data.append('uuid',        "MAP" + entity.uuid )
+		data.append('uuid',        entity.uuid )
 		data.append('anchorUID',   entity.anchorUID )
-		data.append('name',        entity.name)
-		data.append('descr',       entity.descr)
-		data.append('kind',        "map" )
-		data.append('art',         entity.art )
-		data.append('zone',        entity.zone )
-		data.append('tags',        entity.tags )
-		data.append('party',       entity.party.name )
-		data.append('latitude',    entity.gps.latitude )
-		data.append('longitude',   entity.gps.longitude )
-		data.append('altitude',    entity.gps.altitude )
 		let response = await fetch('/api/map/save', { method: 'POST', body: data })
 		let json = await response.json()
 		this.log("entity mapSave: succeeded ")
+		console.log(json)
 
-		// - TEST: reload the map - REMOVE ONCE STABLE
-		this.mapLoad(entity.anchorUID)
+		// this engine avoids publishing gps anchors until associated with a saved map
+
+		entity.published = 0
 
 		return 1
 	}
