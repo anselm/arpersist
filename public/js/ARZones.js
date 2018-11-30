@@ -48,13 +48,14 @@ export class ARZones extends HTMLElement {
         return false
       }
       elements.appendChild(element)
+      elements.appendChild(document.createElement("br"))
     }
 
     // save a map file
     {
       let element = document.createElement("button")
       element.id = "login_show_save"
-      element.innerHTML = "zone"
+      element.innerHTML = "save zone"
       element.onclick = (e) => {
         e.preventDefault()
         this.entity_manager.mapSave()
@@ -62,6 +63,7 @@ export class ARZones extends HTMLElement {
         return false
       }
       elements.appendChild(element)
+      elements.appendChild(document.createElement("br"))
     }
 
     // make a gps anchor
@@ -70,11 +72,12 @@ export class ARZones extends HTMLElement {
       element.innerHTML = "anchor"
       element.onclick = (e) => {
         e.preventDefault()
-        this.entity_manager.mapSave()
+        this.entity_manager.entityAddGPS()
         this.pop()
         return false
       }
       elements.appendChild(element)
+      elements.appendChild(document.createElement("br"))
     }
 
     // reset and wipe everything
