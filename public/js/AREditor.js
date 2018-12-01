@@ -6,7 +6,7 @@ export class AREditor extends HTMLElement {
 		<form>
 		<center>
 		<br/><button id="editdone" onClick="event.preventDefault(); window.pop(); return 0;"> done</button>
-		<br/><button id="nudgemap" onClick="event.preventDefault(); window.push('maps'); return 0;"> map</button>
+		<br/><button id="delete" onClick="event.preventDefault();window.ux.action('delete'); return 0;"> delete</button>
 		<br/><input id="edit_name" placeholder="a name"></input>
 		<br/><input id="edit_art" placeholder="url to art OR words to show"></input>
 		<br/><label id="xedit_upright"  >   Upright </label><label class="switch">      <input id="edit_upright" type="checkbox"><span class="slider"></span></label>
@@ -17,7 +17,6 @@ export class AREditor extends HTMLElement {
 		<br/><label id="xedit_persist"  >   Persist </label><label class="switch">      <input id="edit_persist" type="checkbox"><span class="slider"></span></label>
 		<br/><label id="xedit_public"   >    Public </label><label class="switch">      <input id="edit_public" type="checkbox"><span class="slider"></span></label>
 		<br/><label id="xedit_priority" >  Priority </label><label class="switch">      <input id="edit_priority" type="checkbox"><span class="slider"></span></label>
-		<br/><button id="delete" onClick="event.preventDefault();window.ux.action('delete'); return 0;"> delete</button>
 		<br/>
 		<br/>
 		<div id="edit_uuid">object uid if any</div>
@@ -45,18 +44,22 @@ export class AREditor extends HTMLElement {
 
 	async onshow() {
 
-		// TODO make new only if none
+		// is there a current focus?
+		let entity = this.entity_manager.entityGetSelected()
 
-        let entity = await this.entity_manager._entityAddArt()
+		// if nothing picked then make something - and it will become selected by magicks
+		if(!entity) {
+			entity = await this.entity_manager._entityAddArt()
+		}
 
-//		let entity = this.entity_manager.entityGetSelected()
+		// a null entity can occur if there was no intersection to place an anchor against
 		if(!entity) {
 			this.pop()
 			return
 		}
 
-		let dom_element_id = this._id
-		this.target = document.getElementById(dom_element_id)
+		// this is the root of the dom
+		this.target = this
 
 		// get layout for it - TODO could look inside of target rather than in whole document
 		let elem = document.getElementById("edit_art") // TODO sloppy
@@ -81,15 +84,14 @@ export class AREditor extends HTMLElement {
 	}
 
 	onhide() {
+
 		let entity = this.entity_manager.entityGetSelected()
 
 		if(!entity) {
-			return 0
+			return
 		}
 
-		console.log("SAVED " + entity.uuid )
-
-
+		// force republication
 		entity.published = 0
 
 		// revise art
@@ -110,13 +112,4 @@ export class AREditor extends HTMLElement {
 }
 
 customElements.define('ar-editor', AREditor)
-
-
-				// TODO fix map
-				//if(entity && map && map.latitude_longitude_updated && entity.gps) {
-				//  UXPage.log("editor updated location of entity to lat="+map.latitude+ " lon="+map.longitude)
-				//   entity.gps.latitude = map.latitude
-				//   entity.gps.longitude = map.longitude
-				//   map.latitude_longitude_updated = 0
-				// }
 

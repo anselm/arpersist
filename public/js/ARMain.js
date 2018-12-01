@@ -7,6 +7,46 @@ import {XRExampleBase} from './common.js'
 /// Manages display and user interaction for entities
 ///
 
+
+function loadGLTF(url){
+        return new Promise((resolve, reject) => {
+                let loader = new THREE.GLTFLoader()
+                loader.load(url, (gltf) => {
+                        if(gltf === null){
+                                reject()
+                        }
+                        if(gltf.animations && gltf.animations.length){
+                                let mixer = new THREE.AnimationMixer(gltf.scene)
+                                for(let animation of gltf.animations){
+                                        mixer.clipAction(animation).play()
+                                }
+                        }
+                        resolve(gltf)
+                })
+        })
+}
+
+function loadObj(baseURL, geometry){
+        return new Promise(function(resolve, reject){
+                const mtlLoader = new THREE.MTLLoader()
+                mtlLoader.setPath(baseURL)
+                const mtlName = geometry.split('.')[geometry.split(':').length - 1] + '.mtl'
+                mtlLoader.load(mtlName, (materials) => {
+                        materials.preload()
+                        let objLoader = new THREE.OBJLoader()
+                        objLoader.setMaterials(materials)
+                        objLoader.setPath(baseURL)
+                        objLoader.load(geometry, (obj) => {
+                                resolve(obj)
+                        }, () => {} , (...params) => {
+                                console.error('Failed to load obj', ...params)
+                                reject(...params)
+                        })
+                })
+        })
+}
+
+
 class AugmentedView extends XRExampleBase {
 
 	constructor(entity_manager,dom_element,logging,errors) {
@@ -58,8 +98,8 @@ class AugmentedView extends XRExampleBase {
 		// visit all the entities and do useful frame related work
 		await this.entity_manager.entityUpdateAll(this.session,frame)
 
-		// mark and sweep
-		for(let uuid in this.nodes) { this.nodes[uuid].survives = 0 }
+		// mark and sweep - since entities can come and go outside of local scope
+		for(let uuid in this.nodes) { this.nodes[uuid].survivor = 0 }
 
 		// visit all the entities again and attach art to them
 		this.entity_manager.entityAll((entity)=>{
@@ -67,10 +107,11 @@ class AugmentedView extends XRExampleBase {
 			if(!entity.relocalized) return
 			// associate visual art with an entity if needed
 			let node = this.nodes[entity.uuid]
-			// did art change? throw node away
+			// did art change? throw node away - cannot rely on mark and sweep because the entry itself is rewritten below
 			if(node && node.art != entity.art) {
 				this.log("entity has new art = " + entity.uuid + " " + entity.art )
-				node = 0 // detach from node - node is already marked as non surviving so it should just go away
+				this.scene.remove(node)
+				node = 0
 			}
 			// if invalid node then remake
 			if(!node) {
@@ -81,12 +122,12 @@ class AugmentedView extends XRExampleBase {
 				this.nodes[entity.uuid] = node
 			}
 			// mark as surviving
-			node.survives = 1
+			node.survivor = 1
 			// transform to pose
 
-			//if(entity.xyz) {
-			//	node.position.set(entity.xyz.x,entity.xyz.y,entity.xyz.z)
-			//}
+			if(entity.xyz) {
+				//node.position.set(entity.xyz.x,entity.xyz.y,entity.xyz.z)
+			}
 
 			if(entity.transform) {
 				node.matrix.fromArray(entity.transform.elements)
@@ -95,16 +136,14 @@ class AugmentedView extends XRExampleBase {
 			}
 		})
 
-		// remove nodes that did not survive the last round
-		let freshnodes = {}
+		// remove nodes that don't seem to be used anymore
 		for(let uuid in this.nodes) {
 			let node = this.nodes[uuid]
-			if(!node.survives) {
-				console.log("removing unused scene node " + uuid )
-				this.scene.remove(node);
-			} else freshnodes[uuid] = node
+			if(node && !node.survivor) {
+				this.scene.remove(node)
+				delete this.nodes[uuid]
+			}
 		}
-		this.nodes = freshnodes
 
 		this.isUpdating = 0
 	}
@@ -133,7 +172,7 @@ class AugmentedView extends XRExampleBase {
 
 		// test
 
-		if(args.startsWith("duck")) {
+		if(args == "duck" || args == "Duck") {
 			let group = new THREE.Group()
 			let path = "/raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
 			loadGLTF(path).then(gltf => {
@@ -168,6 +207,44 @@ class AugmentedView extends XRExampleBase {
 		return mesh
 	}
 
+	pickFocus() {
+
+		if(!this.scenePicker) {
+			let geometry = new THREE.SphereGeometry( 0.2, 32, 32 )
+			//geometry = new THREE.EdgesGeometry( geometry )
+			geometry = new THREE.WireframeGeometry( geometry )
+			//let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
+			let material = new THREE.LineBasicMaterial( { color: 0xffffff, linewidth: 2 } );
+			// this.scenePicker = new THREE.LineSegments( geo, mat );
+			this.scenePicker = new THREE.Mesh(geometry, material)
+			this.scene.add(this.scenePicker)
+		}
+
+		if(!this.raycaster) {
+			this.raycaster = new THREE.Raycaster()
+		}
+
+		var point = new THREE.Vector2(0,0)
+		this.raycaster.setFromCamera(point, this.camera )
+		let intersects = this.raycaster.intersectObjects( this.scene.children )
+		for ( var i = 0; i < intersects.length; i++ ) {
+			let intersect = intersects[i]
+			let uuid = intersect.object.uuid
+			//intersect.object.material.color.set( 0xffffff );
+			if(intersect.object.uuid) console.log('hit ' + uuid)
+			let entity = this.entity_manager.entitySetSelectedByUUID(uuid)
+			if(entity && entity.transform) {
+				this.scenePicker.matrix.fromArray(entity.transform.elements)
+				this.scenePicker.matrixAutoUpdate = false
+				this.scenePicker.updateMatrixWorld(true)
+			}
+			return
+		}
+
+		this.entity_manager.entitySetSelected(0)
+		this.scenePicker.matrixAutoUpdate = true
+		this.scenePicker.position.set(999999, 999999, 999999)
+	}
 
 }
 
@@ -207,6 +284,14 @@ export class ARMain extends HTMLElement {
 		this.innerHTML = this.content()
 		this.view = new AugmentedView(this.entity_manager,this,this.log,this.err)
 	}
+
+	onshow() {
+		if(!this.interval)this.interval = setInterval(this.view.pickFocus.bind(this.view),100)
+	}
+	onhide() {
+		clearInterval(this.interval); this.interval = 0
+	}
+
 }
 
 customElements.define('ar-main', ARMain)

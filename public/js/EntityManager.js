@@ -105,44 +105,40 @@ export class EntityManager {
 	_entityUpdateOne(session,frame,entity) {
 
 		// keep looking for a gps anchor (either made locally or arriving from a network map load) to become defacto gps anchor
-
 		if(!this.entityGPS && entity.kind != "gps") {
 			return
 		}
 
-		// relocalize any entity
-		let relocalized = entity.relocalized
+		let relocalized_before = entity.relocalized
 
+		// relocalize all entities
 		XRAnchorCartography.relocalize(session,frame,entity,this.entityGPS)
 
 		// set gps anchor if at all possible
-
 		if(!this.entityGPS && entity && entity.kind == "gps" && entity.relocalized) {
 			this.log("*** entityGPS found " + entity.uuid)
 			this.entityGPS = entity
 		}
 
 		// debug
-		if(!relocalized && entity.relocalized) {
+		if(!relocalized_before && entity.relocalized && entity.kind != "party" ) {
 			this.log(entity.uuid + " relocalized kind="+entity.kind+" pub="+entity.published)
 		}
 
-		// until a gps anchor shows up then there's no point in doing anything else
-
+		// until a gps anchor shows up do not network
 		if(!this.entityGPS) {
 			return
 		}
 
 		// publish?
-
 		if(!entity.published && entity.relocalized) {
 			this._entityPublish(entity)
 			entity.published = 1
 		}
 	}
 
-	entitySetSelected(entity) { this.entitySelected = entity }
-
+	entitySetSelectedByUUID(uuid) { this.entitySelected = this.entities[uuid]; return this.entitySelected }
+	entitySetSelected(entity) { this.entitySelected = entity; return entity }
 	entityGetSelected() { return this.entitySelected }
 
 	///
@@ -175,7 +171,7 @@ export class EntityManager {
 		  published: 1  // don't publish gps anchors until an associated map is saved to a server
 		}
 
-		let results = await XRAnchorCartography.manufacture(session,frame,entity,true,false)
+		let results = await XRAnchorCartography.attach(session,frame,entity,true,false)
 
 		if(!results) {
 			this.err("entityAddGPS: could not make gps anchor!")
@@ -220,7 +216,7 @@ export class EntityManager {
 		  published: 0
 		}
 
-		let results = await XRAnchorCartography.manufacture(session,frame,entity,false,true)
+		let results = await XRAnchorCartography.attach(session,frame,entity,false,true)
 
 		if(!results) {
 			this.err("entityAddArt: anchor failed")
@@ -233,7 +229,7 @@ export class EntityManager {
 	}
 
 	///
-	/// Create or update the player
+	/// Create or update the player - don't publish yet
 	/// 
 
 	async entityUpdateParty(session,frame) {
@@ -256,18 +252,17 @@ export class EntityManager {
 		  published: 0
 		}
 
-		let results = await XRAnchorCartography.manufacture(session,frame,entity,false,false)
+		let results = await XRAnchorCartography.attach(session,frame,entity,false,false)
 
 		if(!results) {
 			this.err("entityAddParty: fail?")
 			return 0
 		}
 
-		// force mark as needing republishing
+		// force republish when changed
 		entity.published = 0
 
 		// set as the party
-
 		this.entityParty = entity
 
 		this.entities[entity.uuid] = entity
@@ -281,13 +276,13 @@ export class EntityManager {
 
 	async _mapSave(session,frame) {
 
+		// this is a helper - if there is no gps anchor at all then make one (prior to fetching map)
 		let entity = this.entityGPS
 		if(!entity) {
-			this.err("No GPS anchor present!")
-			return 0
+			entity = this.entityGPS = await this._entityAddGPS(session,frame)
+			XRAnchorCartography.relocalize(session,frame,this.entityGPS,0)
+			entity.published = 0
 		}
-
-		// for now I make a map entity similar to the gps entity
 
 		this.log("entity mapSave: UX saving map")
 
@@ -379,9 +374,8 @@ export class EntityManager {
 	async entityNetworkRestart() {
 
 		// get a gps location hopefully
-		this.gps = await XRAnchorCartography.gpsPromise()
-		this.log("Got GPS")
-		this.log(this.gps)
+		this.gps = await XRAnchorCartography.gps()
+		this.log("GPS is lat=" + this.gps.latitude + " lon=" + this.gps.longitude + " alt=" + this.gps.altitude )
 
 		// local flush - not network
 		this.entities = {}
@@ -397,6 +391,15 @@ export class EntityManager {
 			this.socket = io()
 			this.socket.on('publish', this._entityReceive.bind(this) )
 			this.socket.emit('location',this.gps)
+		}
+
+		// periodically send location
+		if(!this.gpsInterval) {
+			this.gpsInterval = setInterval(()=>{
+				if(this.socket) {
+					this.socket.emit('location',this.party && this.party.gps ? this.party.gps : this.gps )
+				}
+			},1000)
 		}
 
 		// reload or load everything (typically AFTER the network is started to avoid missing chatter) - can happen before map load - can be called over and over
@@ -434,6 +437,12 @@ export class EntityManager {
 			entity.relocalized=0
 		}
 		return 1
+	}
+
+	entityUpdateLatLng(entity,latitude,longitude,altitude) {
+		// a helper to set the full gps and cartesian of a moved entity
+		if(!entity || !entity.gps) return
+		XRAnchorCartography.updateLatLng(entity,latitude,longitude,altitude)
 	}
 
 	///

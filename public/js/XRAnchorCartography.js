@@ -9,25 +9,23 @@
 
 export class XRAnchorCartography {
 
-	//gpsPromise() { return this.constructor.gpsPromise() }
-	static gpsPromise() {
-
+	static _gps() {
 	    return new Promise((resolve, reject)=>{
+
+			let gps = { latitude:37.7749, longitude:-122.4194, altitude: 0 }
 
 			if (!("geolocation" in navigator)) {
 				// fake it for now
-				let gps = { latitude: 45.5577417, longitude: -122.6758163, altitude: 100 }
 				resolve(gps)
 			}
 
 			function success(pos) {
-				var crd = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, altitude: pos.coords.altitude, accuracy: pos.coords.accuracy }
-				resolve(crd)
+				let gps = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, altitude: pos.coords.altitude, accuracy: pos.coords.accuracy }
+				resolve(gps)
 			}
 
 			function error(err) {
 				// fake it
-				let gps = { latitude: 45.5577417, longitude: -122.6758163, altitude: 100 }
 				resolve(gps)
 				//reject(err)
 			}
@@ -46,6 +44,29 @@ export class XRAnchorCartography {
 		})
 	}
 
+	static async _altitude(latitude,longitude) {
+		try {
+			let key = "AIzaSyBrirea7OVV4aKJ9Y0UAp6Nbr6-fXtr-50"
+			let url = "https://maps.googleapis.com/maps/api/elevation/json?locations="+latitude+","+longitude+"&key="+key
+	        let response = await fetch(url)
+	        let json = await response.json()
+	        console.log("altitude query was")
+	        console.log(json)
+	        if(json && json.results) return json.results.elevation
+	        return 0
+	    } catch(e) {
+	    	console.error(e)
+	    	return 0
+	    }
+	}
+
+	static async gps() {
+		let gps = await XRAnchorCartography._gps()
+		let altitude = await XRAnchorCartography._altitude(gps.latitude,gps.longitude)
+		if(altitude) gps.altitude = altitude
+		return gps
+	}
+
 	///
 	/// Get a new anchor
 	///
@@ -57,13 +78,13 @@ export class XRAnchorCartography {
 	/// As well, this engine introduces another concept on top of that of a gpsAnchor which associates an arkit anchor with a gps.
 	///
 
-	static async manufacture(session,frame,focus,get_location,get_raytest,screenx=0.5,screeny=0.5) {
+	static async attach(session,frame,focus,get_location,get_raytest,screenx=0.5,screeny=0.5) {
 
 		// get a gps reading?
 
 		if(get_location) {
 			focus.kind = "gps"
-			focus.gps = await this.gpsPromise()
+			focus.gps = await this.gps()
 			if(!focus.gps) {
 				return 0
 			}
@@ -83,12 +104,8 @@ export class XRAnchorCartography {
 		// get an anchor at camera?
 
 		if(!get_raytest) {
-
-			// get an anchorUID at the camera pose
 			let headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL)
 			focus.anchorUID = await frame.addAnchor(headCoordinateSystem,[0,0,0])
-			console.log("built new anchor at camera " + focus.anchorUID )
-
 		}
 
 		// get an anchor at probe?
@@ -156,7 +173,6 @@ export class XRAnchorCartography {
 			//m.compose(focus.xyz,q, new THREE.Vector3(1,1,1) )
 			focus.transform = m
 
-
 			// non gps objects get their cartesian coordinates set relative to the gps anchor (gps objects already have it set)
 
 			if(focus.kind != "gps" && parent && parent.xyz) {
@@ -177,10 +193,13 @@ export class XRAnchorCartography {
 
 				focus.cartesian = Cesium.Matrix4.multiplyByPoint( parent.fixed, temp2, new Cesium.Cartesian3() )
 
-				// also back compute the GPS because the network uses it
+				// also back compute the GPS - right now either cartesian or gps are used interchangeably and both should be identical
 
 				let carto  = Cesium.Ellipsoid.WGS84.cartesianToCartographic(focus.cartesian)
-				focus.gps = { latitude: Cesium.Math.toDegrees(carto.latitude), longitude: Cesium.Math.toDegrees(carto.longitude), altitude: 0}
+				let latitude = Cesium.Math.toDegrees(carto.latitude)
+				let longitude = Cesium.Math.toDegrees(carto.longitude)
+				let altitude = carto.height
+				focus.gps = { latitude:latitude, longitude:longitude, altitude:altitude }
 			}
 
 			// also recover local facts fixed and inverse for convenience
@@ -198,6 +217,10 @@ export class XRAnchorCartography {
 		// for entities without an anchor, as long as they have cartesian coordinates they should be recoverable relative to gps anchor
 
 		else if(focus.cartesian && parent && parent.inverse) {
+
+			// could forward compute the gps from the cartesian ... but no real point in doing so... it was done once earlier
+			//let carto  = Cesium.Ellipsoid.WGS84.cartesianToCartographic(focus.cartesian)
+			//focus.gps = { latitude: Cesium.Math.toDegrees(carto.latitude), longitude: Cesium.Math.toDegrees(carto.longitude), altitude: 0}
 
 			if(!parent.xyz) {
 				// weird TODO remove if it stops showing up
@@ -239,6 +262,14 @@ export class XRAnchorCartography {
 
 			focus.relocalized = 1
 		}
+	}
+
+	static updateLatLng(focus,latitude,longitude,altitude) {
+		// a helper to allow external moving of a feature - since cartesian coordinates are used internally but gps used for ease of use
+		focus.gps.latitude = latitude
+		focus.gps.longitude = longitude
+		focus.gps.altitude = altitude
+		focus.cartesian = Cesium.Cartesian3.fromDegrees(focus.gps.longitude, focus.gps.latitude, focus.gps.altitude)
 	}
 }
 

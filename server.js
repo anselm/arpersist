@@ -68,10 +68,11 @@ io.on('connection', (socket) => {
     // save
     msg.socket_id = srcid
     let results = await entity.save(msg)
-    // publish to all nearby and also to self
+    // publish to all nearby - let's not reecho to self
     let ids = Object.keys(io.sockets.sockets)
     for(let i = 0; i < ids.length; i++) {
       let id = ids[i]
+      if(srcid == id) continue
       let target = io.sockets.sockets[id]
       if(!entity.socket_nearby(srcid,id) ) {
         console.log("not sending msg to socket " + id + " " + msg.uuid)

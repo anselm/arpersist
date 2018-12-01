@@ -12,6 +12,7 @@ class Entity {
   constructor(db,tablename="entity") {
     this.entities = {}
     this.socket_locations = {}
+    this.debugging = {}
   }
 
   async init() {
@@ -95,6 +96,12 @@ class Entity {
     this.entities[entity.uuid] = entity
     if(!previous) entity.createdAt = Date.now()
     entity.updatedAt = Date.now()
+
+    if(!this.debugging[entity.uuid]) {
+      this.debugging[entity.uuid] = 1
+      console.log(entity)
+    }
+
     return entity
   }
 
@@ -148,8 +155,8 @@ class Entity {
   }
 
   socket_remember(id,location) {
-    console.log(location)
-    console.log("entity: associating socket " + id + " with location " + location.latitude + " " + location.longitude )
+    //console.log(location)
+    //console.log("entity: associating socket " + id + " with location " + location.latitude + " " + location.longitude )
     this.socket_locations[id] = location
   }
 
@@ -162,8 +169,10 @@ class Entity {
     let lb = this.socket_locations[b]
     if(!la || !lb) return false
     let ld = this.getDistanceFromLatLonInKm(la.latitude,la.longitude,lb.latitude,lb.longitude)
-    if(ld > 1.00) return false
-    return true
+    if(ld < 1.00) return true
+    console.log(la)
+    console.log(lb)
+    return false
   }
 }
 

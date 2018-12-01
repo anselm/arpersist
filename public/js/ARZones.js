@@ -1,17 +1,6 @@
 
 export class ARZones extends HTMLElement {
 
-  content() {
-    return `
-    <form>
-    <center>
-    <br/><label>Please pick a map </label>
-    <div id="picker_dynamic_list"><label>...loading...</label></div>
-    </center>
-    </form>
-    `
-  }
-
   constructor(_id,_class,entity_manager) {
     super()
       if(_id) this.id = _id
@@ -19,26 +8,30 @@ export class ARZones extends HTMLElement {
       this.entity_manager = entity_manager
   }
 
-  connectedCallback() {
-    this.innerHTML = this.content()
+  onshow() {
+
+    // rebuild picker from scratch every time 
+
     let entities = this.entity_manager.entityQuery({kind:"gps"})
-    this.layout(entities)
-  }
+    let admin = this.entity_manager.party.admin
 
-  layout(results) {
+    this.innerHTML = "<br/><br/><br/>"
 
-    let picker_dynamic_list = 'picker_dynamic_list' // TODO clearly terrible
-    let elements = document.getElementById(picker_dynamic_list)
-    if(!elements) {
-      this.err("No picker")
-      return
-    }
+    let form = document.createElement("form")
+    this.appendChild(form)
 
-    // flush just in case this is re-run
-    while (elements.firstChild) elements.removeChild(elements.firstChild);
+    let center = document.createElement("center")
+    form.appendChild(center)
 
-    // exit
-    {
+    let label = document.createElement("label"); label.innerHTML = "Please pick a map"
+    center.appendChild(label)
+    center.appendChild(document.createElement("br"))
+
+    let elements = document.createElement("div")
+    center.appendChild(elements)
+
+    // exit button
+    if(true) {
       let element = document.createElement("button")
       element.innerHTML = "back"
       element.style.color = "green"
@@ -51,8 +44,50 @@ export class ARZones extends HTMLElement {
       elements.appendChild(document.createElement("br"))
     }
 
-    // save a map file
-    {
+    // make a gps anchor - TODO may remove this again - it's just helpful to anchor other content prior to loading a map
+    if(true) {
+      let element = document.createElement("button")
+      element.innerHTML = "anchor"
+      element.onclick = (e) => {
+        e.preventDefault()
+        this.entity_manager.entityAddGPS()
+        this.pop()
+        return false
+      }
+      elements.appendChild(element)
+      elements.appendChild(document.createElement("br"))
+    }
+
+    // debug
+    if(true) {
+      let element = document.createElement("button")
+      element.innerHTML = "debug"
+      element.onclick = (e) => {
+        e.preventDefault()
+        this.debugging = document.getElementById("description")
+        this.debugging.style.display = (this.debugging.style.display == 'none') ? 'block' : 'none'
+        return false
+      }
+      elements.appendChild(element)
+      elements.appendChild(document.createElement("br"))
+    }
+
+    // reset and wipe everything - for admins only
+    if(admin) {
+      let element = document.createElement("button")
+      element.innerHTML = "reset"
+      element.style.color = "red"
+      element.onclick = (e) => {
+        e.preventDefault()
+        this.entity_manager.entityNetworkRestart()
+        return false
+      }
+      elements.appendChild(element)
+      elements.appendChild(document.createElement("br"))
+    }
+
+    // save a map file - for admins only
+    if(admin) {
       let element = document.createElement("button")
       element.id = "login_show_save"
       element.innerHTML = "save zone"
@@ -66,38 +101,9 @@ export class ARZones extends HTMLElement {
       elements.appendChild(document.createElement("br"))
     }
 
-    // make a gps anchor
-    {
-      let element = document.createElement("button")
-      element.innerHTML = "anchor"
-      element.onclick = (e) => {
-        e.preventDefault()
-        this.entity_manager.entityAddGPS()
-        this.pop()
-        return false
-      }
-      elements.appendChild(element)
-      elements.appendChild(document.createElement("br"))
-    }
-
-    // reset and wipe everything
-    {
-      let element = document.createElement("button")
-      element.innerHTML = "reset"
-      element.style.color = "red"
-      element.onclick = (e) => {
-        e.preventDefault()
-        this.entity_manager.entityNetworkRestart()
-        return false
-      }
-      elements.appendChild(element)
-      elements.appendChild(document.createElement("br"))
-    }
-
-
     // say other cases - could use a slider and limit etc TODO
-    for(let i = 0; i < results.length; i++) {
-      let entity = results[i]
+    for(let i = 0; i < entities.length; i++) {
+      let entity = entities[i]
       let element = document.createElement("button")
       element.innerHTML = entity.anchorUID
       elements.appendChild(element)
@@ -105,7 +111,6 @@ export class ARZones extends HTMLElement {
         e.preventDefault()
         let choice = e.srcElement.innerText
         this.log("Picked map " + choice)
-        //this.action("pickerdone",choice)
         this.entity_manager.mapLoad(choice)
         this.pop()
         return false
@@ -114,12 +119,6 @@ export class ARZones extends HTMLElement {
     }
   }
 
-  onshow() {
-    if(this.entity_manager.party.admin)
-      document.getElementById("login_show_save").style.display = "block"
-    else 
-      document.getElementById("login_show_save").style.display = "none"
-  }
 }
 
 customElements.define('ar-zones', ARZones)

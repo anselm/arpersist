@@ -10,129 +10,180 @@
 
 export class ARMap extends HTMLElement {
 
-	content() {
-		return `
-<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBrirea7OVV4aKJ9Y0UAp6Nbr6-fXtr-50" type="text/javascript"></script>
-		<div>
-		this is the map page
-		</div>
-		`
-	}
-
 	constructor(_id=0,_class=0,entity_manager) {
 		super()
   		if(_id) this.id = _id
   		if(_class) this.className = _class
   		this.entity_manager = entity_manager
-		setTimeout(this.prepare.bind(this),1000)
-	}
-
-	prepare() {
-		this.innerHTML = this.content()
 		this.map = 0
 		this.infoWindow = 0
 		this.markerCenter = 0
-		this.latitude_longitude_updated = 0
-		this.mapInit(this.id)
 		this.markers = {}
-		setInterval( this._markerUpdate.bind(this), 1000 )
+		this.centerlatlng = { lat:37.7749, lng:-122.4194, altitude:0 }
+
 	}
 
-	_markerUpdate() {
-        let results = this.entity_manager.entityQuery()
-		if(!results || !results.length) {
-			return
-		}
-		// TODO mark all markers as not surviving
-		results.forEach((entity) => {
-			if(!entity.gps) return
-	        let pos  = { latitude: entity.gps.latitude, longitude:entity.gps.longitude, title:entity.uuid }
-	    	let marker = this.markers[entity.uuid]
-	    	marker = this._marker(marker,pos)
-	    	this.markers[entity.uuid] = marker
-		})
-		// sweep
-		// TODO do this every few frames while this display is up
-	}
+	onshow() {
 
-	_marker(marker,pos) {
-		pos = {lat:parseFloat(pos.latitude),lng:parseFloat(pos.longitude)}
-		if(marker) {
-			marker.setPosition(pos)
-		} else {
-			marker = new google.maps.Marker({title: pos.title, position: pos, map: this.map})
-		}
-		return marker
-	}
-
-	mapError(message, infoWindow, pos) {
-		infoWindow.setPosition(pos)
-		infoWindow.setContent(message)
-		infoWindow.open(this.map)
-	}
-
-	_mapMarker(pos) {
-		if(!this.markerCenter) {
-			this.markerCenter = new google.maps.Marker({position: pos, map: this.map})
-		} else {
-			this.markerCenter.setPosition( pos )
-		}
-		this.latitude = pos.lat
-		this.longitude = pos.lng
-		this.latitude_longitude_updated = 1
-	}
-
-	mapCenter(pos) {
-		if(!this.map) return
-		pos = {lat:parseFloat(pos.latitude),lng:parseFloat(pos.longitude)}
-		this.map.setCenter(pos)
-		this._mapMarker(pos)
-	}
-
-	mapInit(dom_element_id) {
-		let element = document.getElementById(dom_element_id)
-		if(!element) {
-			this.err("No map div")
-			return
-		}
+		// google maps present?
 		if(typeof google === 'undefined') {
 			this.err("cannot find google maps")
 			return
 		}
-		let map = this.map = new google.maps.Map(element, {
-			center: {lat: 45.5577417, lng: -122.6758163, altitude: 100 },
-			zoom: 15,
-			mapTypeId: 'satellite'
-		})
 
-		//### Add a button on Google Maps ...
-		var button = document.createElement('button');
-		button.className = "uxbutton"
-		button.innerHTML = "back"
-		button.style.backgroundColor = "white"
-		button.onclick = function(e) { this.pop() }
-		map.controls[google.maps.ControlPosition.LEFT_TOP].push(button);
+		// center on selected entity to be nice
+		let entity = this.entity_manager.entityGetSelected()
+		if(entity && entity.gps) {
+			this.centerlatlng = {lat:entity.gps.latitude, lng:entity.gps.longitude, altitude:entity.gps.altitude }
+			this._mapShow()
+		}
 
-		// listen for change events for an entity placement
-		map.addListener('center_changed', (e) => {
-			let pos = this.map.getCenter()
-			pos = { lat: pos.lat(), lng: pos.lng() }
-			this._mapMarker(pos)
-		})
-
-		// establish initial map position
-
-		let infoWindow = this.infoWindow = new google.maps.InfoWindow
-		if (navigator.geolocation) {
-			navigator.geolocation.getCurrentPosition((position) => {
-				this.mapCenter(position.coords)
+		// get browser position and center map
+		else if (navigator.geolocation) {
+			navigator.geolocation.getCurrentPosition(async (position) => {
+				let latitude = position.coords.latitude
+				let longitude = position.coords.longitude
+				let key = "AIzaSyBrirea7OVV4aKJ9Y0UAp6Nbr6-fXtr-50"
+				let url = "https://maps.googleapis.com/maps/api/elevation/json?locations="+latitude+","+longitude+"&key="+key
+                let response = await fetch(url)
+                let json = await response.json()
+                console.log("fetched json")
+                console.log(json)
+                console.log(json.results.elevation)
+                let altitude = json.results.elevation
+				this.centerlatlng = { lat:position.coords.latitude, lng:position.coords.longitude, altitude:altitude }
+				this._mapShow()
 			}, () => {
-				//this.mapError('Error: The Geolocation service failed.', infoWindow, map.getCenter())
+				this._mapShow()
+				this._mapError('Error: The Geolocation service failed.')
 			})
 		} else {
-			//this.mapError('Error: Your browser does not support geolocation.', infoWindow, map.getCenter())
+			this._mapShow()
+			this._mapError('Error: Your browser does not support geolocation.')
 		}
 	}
+
+	_mapShow() {
+
+		if(!this.map) {
+
+			this.mapElement = document.createElement("div")
+			this.mapElement.style = "width:100%;height:100%;background:blue"
+			this.appendChild(this.mapElement)
+
+			// a map
+			this.map = new google.maps.Map(this.mapElement, {
+				center: this.centerlatlng,
+				zoom: 15,
+				mapTypeId: 'satellite'
+			})
+
+			// add a back button to go to the previous page
+			var button = document.createElement('button');
+			button.className = "uxbutton"
+			button.innerHTML = "back"
+			button.style.backgroundColor = "white"
+			button.onclick = this.pop
+			this.map.controls[google.maps.ControlPosition.LEFT_TOP].push(button);
+
+		}
+
+		// recenter
+		this.map.setCenter(this.centerlatlng);
+
+		// watch for entity updates while active
+		if(!this.interval && this.map) {
+			this.interval = setInterval( this._markerUpdateEntities.bind(this), 100 )
+		}
+	}
+
+	_mapError(message) {
+		this.err(message)
+		return
+		if(!this.map) return
+		if(!this.infoWindow) this.infoWindow = new google.maps.InfoWindow
+		this.this.infoWindow.setPosition(this.centerlatlng)
+		this.infoWindow.setContent(message)
+		this.infoWindow.open(this.map)
+	}
+
+	_markerUpdateEntities() {
+		// wait for map
+		if(!this.map) {
+			return
+		}
+		// get all entities matching criteria
+        let results = this.entity_manager.entityQuery()
+		if(!results || !results.length) {
+			return
+		}
+		// mark all markers as not surviving
+		for(let uuid in this.markers) { this.markers[uuid].survivor = 0 }
+		// paint all entities
+		results.forEach((entity) => {
+			if(!entity.gps) return
+	        let latlng  = { lat: entity.gps.latitude, lng:entity.gps.longitude }
+	    	let marker = this.markers[entity.uuid]
+	    	if(!marker) {
+				marker = this.mapEntityMarker(entity,latlng)
+    	    } else if(!marker.dragging) {
+    	    	marker.setPosition(latlng)
+    	    }
+	    	marker.survivor = 1
+		})
+		// wipe old markers
+		for(let uuid in this.markers) {
+			let marker = this.markers[uuid]
+			if(marker && !marker.survivor) {
+				marker.setMap(null)
+				google.maps.event.clearInstanceListeners(marker)
+				delete this.markers[uuid]
+			}
+		}
+	}
+
+	 mapEntityMarker(entity,latlng) {
+
+	 	let uuid = entity.uuid
+
+		let label = entity.kind == "gps" ? 'x' : 'o'
+
+		let marker = this.markers[entity.uuid] = new google.maps.Marker({
+			title:uuid,
+			position:latlng,
+			map:this.map,
+			label:label,
+			draggable:true
+		})
+
+		marker.addListener('click', () => {
+			this.err("marker selected " + uuid)
+			this.entity_manager.entitySetSelectedByUUID(uuid)
+		})
+
+	    marker.addListener('drag', () => {
+	    	let ll = marker.getPosition()
+			let entity = this.entity_manager.entitySetSelectedByUUID(uuid)
+			if(!entity || !entity.gps) return
+			this.entity_manager.entityUpdateLatLng(entity,ll.lat(),ll.lng(),entity.gps.altitude)
+			entity.published = 0
+			marker.dragging = 1
+	    })
+
+	    marker.addListener('dragend', (e) => {
+			marker.dragging = 0
+	    })
+
+	    return marker
+	}
+
+	onhide() {
+		if(this.interval) {
+			clearInterval(this.interval)
+			this.interval = 0
+		}
+	}
+
 }
 
 customElements.define('ar-map', ARMap)
