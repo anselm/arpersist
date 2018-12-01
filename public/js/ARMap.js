@@ -38,19 +38,25 @@ export class ARMap extends HTMLElement {
 			this._mapShow()
 		}
 
-		// get browser position and center map
+		// get browser position and center map - TODO duplicate code
 		else if (navigator.geolocation) {
 			navigator.geolocation.getCurrentPosition(async (position) => {
 				let latitude = position.coords.latitude
 				let longitude = position.coords.longitude
-				let key = "AIzaSyBrirea7OVV4aKJ9Y0UAp6Nbr6-fXtr-50"
-				let url = "https://maps.googleapis.com/maps/api/elevation/json?locations="+latitude+","+longitude+"&key="+key
-                let response = await fetch(url)
-                let json = await response.json()
-                console.log("fetched json")
-                console.log(json)
-                console.log(json.results.elevation)
-                let altitude = json.results.elevation
+				let response = 0
+				let altitude = 0
+				try {
+					let key = "AIzaSyBrirea7OVV4aKJ9Y0UAp6Nbr6-fXtr-50"
+					let url = "https://maps.googleapis.com/maps/api/elevation/json?locations="+latitude+","+longitude+"&key="+key
+	                response = await fetch(url)
+	                let json = await response.json()
+	                console.log("fetched json")
+	                console.log(json)
+	                console.log(json.results.elevation)
+	                let altitude = json.results.elevation
+	            } catch(e) {
+	            	this.err(e)
+	            }
 				this.centerlatlng = { lat:position.coords.latitude, lng:position.coords.longitude, altitude:altitude }
 				this._mapShow()
 			}, () => {

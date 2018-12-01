@@ -45,6 +45,7 @@ export class XRAnchorCartography {
 	}
 
 	static async _altitude(latitude,longitude) {
+		let elevation = 0
 		try {
 			let key = "AIzaSyBrirea7OVV4aKJ9Y0UAp6Nbr6-fXtr-50"
 			let url = "https://maps.googleapis.com/maps/api/elevation/json?locations="+latitude+","+longitude+"&key="+key
@@ -52,12 +53,11 @@ export class XRAnchorCartography {
 	        let json = await response.json()
 	        console.log("altitude query was")
 	        console.log(json)
-	        if(json && json.results) return json.results.elevation
-	        return 0
+	        if(json && json.results) elevation = json.results.elevation
 	    } catch(e) {
 	    	console.error(e)
-	    	return 0
 	    }
+	    return elevation
 	}
 
 	static async gps() {
