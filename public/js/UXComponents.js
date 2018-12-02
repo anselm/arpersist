@@ -176,36 +176,3 @@ export class UXPage extends UXComponent {
 	show(name) { return this.constructor.show(name) }
 }
 
-///
-/// UXLog
-/// - listens to messages and paints errors to a dom element (as well as to console)
-///
-
-export class UXLog extends UXComponent {
-	constructor(dom_element_id) {
-		super()
-		this.display = []
-		this.target = document.getElementById(dom_element_id)
-		if(!this.target) return
-		this.listen("log",this.print.bind(this))
-		this.listen("err",this.print.bind(this))
-	}
-	print(args) {
-		let buffer = ""
-		if (typeof args.value == 'string' || args.value instanceof String) {
-			buffer = args.value
-		} else if(args.value instanceof Array || Array.isArray(args.value)) {
-			buffer = args.value.join(" ")
-		}
-		let cname = args.className || ""
-		if(args.kind=="err") {
-			console.error(cname + " message: " + buffer)			
-			buffer = "<font color=red> " + buffer + "</font>"
-		} else {
-			console.log(cname + " message: " + buffer)			
-		}
-		this.display.unshift(buffer)
-		this.display = this.display.slice(0,10)
-		this.target.innerHTML = this.display.join("<br/>")
-	}
-}

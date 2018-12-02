@@ -58,7 +58,8 @@ h3 {
  line-height: 1.0;
 }
 
-#description {
+.debug_logging {
+    display: none;
     pointer-events: auto;
     font-family: sans-serif;
     padding: 1em;

@@ -75,11 +75,17 @@ class AugmentedView extends XRExampleBase {
 		// add some light
 		this.scene.add(new THREE.AmbientLight('#FFF', 0.2))
 		let directionalLight = new THREE.DirectionalLight('#FFF', 0.6)
-		directionalLight.position.set(0, 10, 0)
-		this.scene.add(directionalLight)
+		directionalLight.position.set(0, 0, 0)
+
+		this.camera.add(directionalLight)
 
 		// attach something to 0,0,0
         this.scene.add( this.AxesHelper( 0.2 ) );
+
+        // loader
+		this.loader = new THREE.TextureLoader()
+		this.loader.crossOrigin = ''
+
 	}
 
 	///
@@ -160,17 +166,34 @@ class AugmentedView extends XRExampleBase {
 			0, 1, 0,	0.6, 1, 0,
 			0, 0, 1,	0, 0.6, 1
 		];
-		var geometry = new THREE.BufferGeometry();
+		let geometry = new THREE.BufferGeometry();
 		geometry.addAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
 		geometry.addAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
-		var material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors } );
+		let material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors } );
 		return new THREE.LineSegments(geometry, material);
 	}
 
 	createSceneGraphNode(args = 0) {
-		let geometry = 0
 
-		// test
+		 let args2 = args.toLowerCase()
+
+		// test image
+
+		if(args2.endsWith(".jpg") || args2.endsWith(".png") || args2.endsWith(".gif")) {
+        	//let args = "https://upload.wikimedia.org/wikipedia/commons/0/0b/Swampy_But_Pretty_Bog_In_Fiordland_NZ.jpg"
+		    //let geometry = new THREE.BoxBufferGeometry(0.01, 0.1, 0.1)
+		    let geometry = new THREE.BoxGeometry(0.1,0.1,0.01,10,10)
+		    var texture = this.loader.load( args );
+			texture.minFilter = THREE.LinearFilter
+
+		    var material = new THREE.MeshLambertMaterial( { map: texture } );
+		    //var material = new THREE.MeshLambertMaterial({color: 0xffffff});
+		    var mesh = new THREE.Mesh(geometry, material);
+		    mesh.receiveShadow = true;
+		    return mesh
+		}
+
+		// test duck
 
 		if(args == "duck" || args == "Duck") {
 			let group = new THREE.Group()
@@ -196,15 +219,18 @@ class AugmentedView extends XRExampleBase {
 			return group
 		}
 
-		switch(args) {
-			default: geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1); break;
-			case "cylinder": geometry = new THREE.CylinderGeometry( 0.1, 0.1, 0.1, 32 ); break;
-			case "sphere":   geometry = new THREE.SphereGeometry( 0.07, 32, 32 ); break;
-			case "box":      geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1); break;
+		{
+			let geometry = 0
+			switch(args) {
+				default: geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1); break;
+				case "cylinder": geometry = new THREE.CylinderGeometry( 0.1, 0.1, 0.1, 32 ); break;
+				case "sphere":   geometry = new THREE.SphereGeometry( 0.07, 32, 32 ); break;
+				case "box":      geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1); break;
+			}
+			let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
+			let mesh = new THREE.Mesh(geometry, material)
+			return mesh
 		}
-		let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
-		let mesh = new THREE.Mesh(geometry, material)
-		return mesh
 	}
 
 	pickFocus() {
@@ -248,6 +274,11 @@ class AugmentedView extends XRExampleBase {
 
 }
 
+///
+/// ARMain
+/// Acts as a shim for the AugmentedView above which can't subclass HTMLElement (and also anyway remains visible all the time)
+///
+
 export class ARMain extends HTMLElement {
 
 	content() {
@@ -274,13 +305,11 @@ export class ARMain extends HTMLElement {
 		`
 	}
 
-	constructor(_id=0,_class=0,entity_manager,log,err) {
+	constructor(_id=0,_class=0,entity_manager) {
 		super()
   		if(_id) this.id = _id
   		if(_class) this.className = _class
   		this.entity_manager = entity_manager
-  		this.log = log
-  		this.err = err
 		this.innerHTML = this.content()
 		this.view = new AugmentedView(this.entity_manager,this,this.log,this.err)
 	}

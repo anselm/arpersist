@@ -64,7 +64,7 @@ export class ARZones extends HTMLElement {
       element.innerHTML = "debug"
       element.onclick = (e) => {
         e.preventDefault()
-        this.debugging = document.getElementById("description")
+        this.debugging = document.getElementById("debug_logging")
         this.debugging.style.display = (this.debugging.style.display == 'none') ? 'block' : 'none'
         return false
       }

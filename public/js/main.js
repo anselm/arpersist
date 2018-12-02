@@ -2,7 +2,7 @@
 
 import {EntityManager} from '/js/EntityManager.js'
 
-import {UXUrlParams,UXComponent,UXPage,UXLog} from '/js/UXComponents.js'
+import {UXComponent,UXPage} from '/js/UXComponents.js'
 
 import {ARMain} from '/js/ARMain.js'
 import {ARLogin} from '/js/ARLogin.js'
@@ -20,11 +20,47 @@ window.ux = new UXPage()
 window.push = UXPage.push
 window.pop = UXPage.pop
 
+
+///
+/// UXLog
+///
+/*
+export class UXLog extends HTMLElement {
+  constructor(_id=0,_class=0) {
+    super()
+    if(_id) this.id = _id
+    if(_class) this.className = _class
+    this.display = []
+    UXComponent.listen("log",this.print.bind(this))
+    UXComponent.listen("err",this.print.bind(this))
+  }
+  print(args) {
+    let buffer = ""
+    if (typeof args.value == 'string' || args.value instanceof String) {
+      buffer = args.value
+    } else if(args.value instanceof Array || Array.isArray(args.value)) {
+      buffer = args.value.join(" ")
+    }
+    let cname = args.className || ""
+    if(args.kind=="err") {
+      console.error(cname + " message: " + buffer)      
+      buffer = "<font color=red> " + buffer + "</font>"
+    } else {
+      console.log(cname + " message: " + buffer)      
+    }
+    this.display.unshift(buffer)
+    this.display = this.display.slice(0,10)
+    this.innerHTML = this.display.join("<br/>")
+  }
+}
+*/
+
 export async function main() {
 
     // catch logging messages and paint them to a div for debugging
 
-    new UXLog("helper")
+//    let log = new UXLog("debug_logging","debug_logging")
+//    document.body.appendChild()
 
     // networked entity state manager used by components
 
@@ -33,7 +69,7 @@ export async function main() {
     // the ui
 
     let elements = [
-      new ARMain("main","page",entity_manager,UXPage.log,UXPage.err),
+      new ARMain("main","page",entity_manager),
       new ARLogin("login","page",entity_manager),
       new ARProfile("profile","page",entity_manager),
       new ARZones("zones","page",entity_manager),
