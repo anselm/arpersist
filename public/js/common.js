@@ -13,9 +13,13 @@
 	of the constructor and then call this.startPresenting() inside an input event handler.
 
 */
+
 export class XRExampleBase {
+
 	constructor(domElement, createVirtualReality=true, shouldStartPresenting=true, useComputerVision=false, worldSensing=false, alignEUS=true){
+
 		this.el = domElement
+
 		this.createVirtualReality = createVirtualReality
 		this.shouldStartPresenting = shouldStartPresenting
 		this.useComputerVision = useComputerVision
@@ -31,39 +35,6 @@ export class XRExampleBase {
 		this.display = null
 		this.session = null
 
-		this.scene = new THREE.Scene() // The scene will be rotated and oriented around the camera using the head pose
-
-		this.camera = new THREE.PerspectiveCamera(70, 1024, 1024, 0.1, 1000) // These values will be overwritten by the projection matrix from ARKit or ARCore
-		this.scene.add(this.camera)
-
-		// Create a canvas and context for the session layer
-		this.glCanvas = document.createElement('canvas')
-		this.glContext = this.glCanvas.getContext('webgl')
-		if(this.glContext === null){
-			this.showMessage('Could not create a WebGL canvas')
-			throw new Error('Could not create GL context')
-		}
-
-		// Set up the THREE renderer with the session's layer's glContext
-		this.renderer = new THREE.WebGLRenderer({
-			canvas: this.glCanvas,
-			context: this.glContext,
-			antialias: false,
-			alpha: true
-		})
-		this.renderer.setPixelRatio(1)
-		this.renderer.autoClear = false
-		this.renderer.setClearColor('#000', 0)
-
-		this.requestedFloor = false
-		this.floorGroup = new THREE.Group() // This group will eventually be be anchored to the floor (see findFloorAnchor below)
-
-		// an array of info that we'll use in _handleFrame to update the nodes using anchors
-		this.anchoredNodes = [] // { XRAnchorOffset, Three.js Object3D }
-
-		// Give extending classes the opportunity to initially populate the scene
-		this.initializeScene()
-
 		if(typeof navigator.XR === 'undefined'){
 			this.showMessage('No WebXR API found, usually because the WebXR polyfill has not loaded')
 			return
@@ -76,14 +47,19 @@ export class XRExampleBase {
 				return
 			}
 			this.displays = displays
+			this.init3js()
+			// Give extending classes the opportunity to initially populate the scene
+			this.initializeScene()
 			this._startSession()
 		}).catch(err => {
 			console.error('Error getting XR displays', err)
 			this.showMessage('Could not get XR displays')
 		})
+
 	}
 
 	_startSession(){
+
 		let sessionInitParameters = {
 			exclusive: this.createVirtualReality,
 			type: this.createVirtualReality ? XRSession.REALITY : XRSession.AUGMENTATION,
@@ -173,9 +149,8 @@ export class XRExampleBase {
 	handleLayerFocus(ev){}
 	handleLayerBlur(ev){}
 
-	/*
-	* set up the video processing
-	*/
+	// set up the video processing
+	//
 	setVideoWorker(worker){
 		this.session.setVideoFrameHandler(worker)
 	}
@@ -185,20 +160,25 @@ export class XRExampleBase {
 	requestVideoFrame() {
 		this.session.requestVideoFrame();
 	}
-	
-	/*
-	Extending classes should override this to set up the scene during class construction
-	*/
-	initializeScene(){}
-
-	/*
-	Extending classes that need to update the layer during each frame should override this method
-	*/
-	updateScene(frame){}
 
 	_handleFrame(frame){
 		const nextFrameRequest = this.session.requestFrame(this._boundHandleFrame)
-		const headPose = frame.getDisplayPose(frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL))
+		this.headPose = frame.getDisplayPose(frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL))
+		//this._handleAnchors(frame)
+		this._handleScene(frame)
+	}
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+	initAnchors() {
+		this.requestedFloor = false
+		this.floorGroup = new THREE.Group() // This group will eventually be be anchored to the floor (see findFloorAnchor below)
+		// an array of info that we'll use in _handleFrame to update the nodes using anchors
+		this.anchoredNodes = [] // { XRAnchorOffset, Three.js Object3D }
+
+	}
+
+	_handleAnchors(frame) {
 
 		// If we haven't already, request the floor anchor offset
 		if(this.requestedFloor === false){
@@ -220,18 +200,205 @@ export class XRExampleBase {
 		for(let anchoredNode of this.anchoredNodes){
 			this.updateNodeFromAnchorOffset(frame, anchoredNode.node, anchoredNode.anchorOffset)
 		}
+	}
+
+	//
+	// Add a node to the scene and keep its pose updated using the anchorOffset
+	//
+	addAnchoredNode(anchorOffset, node){
+		this.anchoredNodes.push({
+			anchorOffset: anchorOffset,
+			node: node
+		})
+		this.scene.add(node)
+	}
+
+	// 
+	// Remove a node from the scene
+	//
+	removeAnchoredNode(node) {
+		for (var i = 0; i < this.anchoredNodes.length; i++) {
+			if (node === this.anchoredNodes[i].node) {
+				this.anchoredNodes.splice(i,1);
+                this.scene.remove(node)
+				return;
+			}
+		}
+	}
+
+	//
+	// Extending classes should override this to get notified when an anchor for node is removed
+	//
+	anchoredNodeRemoved(node) {
+	}
+	
+	//
+	// Get the anchor data from the frame and use it and the anchor offset to update the pose of the node, this must be an Object3D
+	//
+	updateNodeFromAnchorOffset(frame, node, anchorOffset){
+		const anchor = frame.getAnchor(anchorOffset.anchorUID)
+		if(anchor === null){
+			throttledConsoleLog('Unknown anchor uid', anchorOffset.anchorUID)
+			this.anchoredNodeRemoved(node);
+			this.removeAnchoredNode(node);
+			return
+		}
+		node.matrixAutoUpdate = false
+		node.matrix.fromArray(anchorOffset.getOffsetTransform(anchor.coordinateSystem))
+		node.updateMatrixWorld(true)
+	}
+*/
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// 3js
+
+	init3js() {
+
+		let width = window.innerWidth || 1024
+		let height = window.innerHeight || 1024
+
+		this.scene = new THREE.Scene() // The scene will be rotated and oriented around the camera using the head pose
+
+		this.camera = new THREE.PerspectiveCamera(70, width / height, 0.1, 1000) // These values will be overwritten by the projection matrix from ARKit or ARCore
+		this.camera.position.set(0,0,0)
+		this.scene.add(this.camera)
+
+		if(true) {
+			// Create a canvas and context for the session layer
+			this.glCanvas = document.createElement('canvas')
+			this.glContext = this.glCanvas.getContext('webgl')
+			if(this.glContext === null){
+				this.showMessage('Could not create a WebGL canvas')
+				throw new Error('Could not create GL context')
+			}
+
+			// Set up the THREE renderer with the session's layer's glContext
+			this.renderer = new THREE.WebGLRenderer({
+				canvas: this.glCanvas,
+				context: this.glContext,
+				antialias: false,
+				alpha: true
+			})
+			this.renderer.setPixelRatio(1)
+			this.renderer.autoClear = false
+			this.renderer.setClearColor('#000', 0)
+
+			this.initComposer(width,height)
+
+		} else {
+			// standalone test code - unused
+
+            this.camera.aspect = width / height;
+            this.camera.updateProjectionMatrix();
+			this.scene.background = new THREE.Color( 0xff00ff )
+
+			this.scene.add( new THREE.AmbientLight( 0xaaaaaa, 0.2 ) );
+			var light = new THREE.DirectionalLight( 0xddffdd, 0.6 );
+			light.position.set( 1, 1, 1 );
+			light.castShadow = true;
+			light.shadow.mapSize.width = 1024;
+			light.shadow.mapSize.height = 1024;
+			this.scene.add(light)
+
+			this.renderer = new THREE.WebGLRenderer()
+            this.renderer.shadowMap.enabled = true;
+            this.renderer.setSize(width,height)
+            document.body.appendChild( this.renderer.domElement );
+			this.renderer.setClearColor('#000', 0)
+
+			this.initComposer(width,height)
+
+			let scope = this
+
+			var lastTimeStamp;
+			var render = function() {
+				if(scope.composer) {
+					scope.composer.render()
+				} else {
+					scope.renderer.render( scope.scene, scope.camera );
+				}
+				requestAnimationFrame( render );
+			}
+	        requestAnimationFrame( render );
+		}
+
+		if(true) {
+			// standalone test code unused
+			let geometry = new THREE.SphereGeometry( 0.07, 32, 32 ); 
+			let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
+			let mesh = new THREE.Mesh(geometry, material)
+			mesh.position.set(0,0,-1)
+			this.scene.add(mesh)
+			this.setOutlined(mesh)
+		}
+
+	}
+
+	setOutlined(mesh) {
+		if(this.outlinePass) this.outlinePass.selectedObjects = mesh ? [ mesh ] : []
+	}
+
+	initComposer(width,height) {
+
+		// an effect
+
+		this.composer = new THREE.EffectComposer( this.renderer )
+		this.renderPass = new THREE.RenderPass( this.scene, this.camera )
+		this.composer.addPass( this.renderPass )
+		let outlinePass = this.outlinePass = new THREE.OutlinePass( new THREE.Vector2( width, height ), this.scene, this.camera )
+/*
+		outlinePass.edgeStrength = Number( 5 );
+		outlinePass.edgeGlow = Number( 1 );
+		outlinePass.edgeThickness = Number( 8 );
+		outlinePass.pulsePeriod = Number( 1 );
+		outlinePass.usePatternTexture =  true;
+		//outlinePass.visibleEdgeColor.set( value );
+		//outlinePass.hiddenEdgeColor.set( value );
+*/
+		this.composer.addPass( this.outlinePass )
+
+
+		let loader = new THREE.TextureLoader();
+		loader.load( '/assets/tri_pattern.jpg', (texture) => {
+			this.outlinePass.patternTexture = texture;
+			texture.wrapS = THREE.RepeatWrapping;
+			texture.wrapT = THREE.RepeatWrapping;	
+		});
+		this.effectFXAA = new THREE.ShaderPass( THREE.FXAAShader );
+		this.effectFXAA.uniforms[ 'resolution' ].value.set( 1 / width, 1 / height );
+		this.effectFXAA.renderToScreen = true;
+		this.composer.addPass( this.effectFXAA );
+
+        this.composer.setSize( width, height );
+
+	}
+	
+	/*
+	Extending classes should override this to set up the scene during class construction
+	*/
+	initializeScene(){}
+
+	/*
+	Extending classes that need to update the layer during each frame should override this method
+	*/
+	updateScene(frame){}
+
+	_handleScene(frame) {
+
+
+		let width = this.session.baseLayer.framebufferWidth || window.innerWidth
+		let height = this.session.baseLayer.framebufferHeight || window.innerHeight
 
 		// Let the extending class update the scene before each render
 		this.updateScene(frame)
 
 		// Prep THREE.js for the render of each XRView
 		this.renderer.autoClear = false
-		this.renderer.setSize(this.session.baseLayer.framebufferWidth, this.session.baseLayer.framebufferHeight, false)
+		this.renderer.setSize(width,height, false)
 		this.renderer.clear()
 
 		this.camera.matrixAutoUpdate = false
-		// this.camera.matrix.fromArray(headPose.poseModelMatrix)
-		// this.camera.updateMatrixWorld()
+
 		// Render each view into this.session.baseLayer.context
 		for(const view of frame.views){
 			// Each XRView has its own projection matrix, so set the camera to use that
@@ -246,187 +413,20 @@ export class XRExampleBase {
 			this.doRender()
 		}
 
-		// this.camera.matrixAutoUpdate = false
-
-		// // Render each view into this.session.baseLayer.context
-		// for(const view of frame.views){
-		// 	// Each XRView has its own projection matrix, so set the camera to use that
-		// 	this.camera.matrixWorldInverse.fromArray(view.viewMatrix)
-		// 	this.camera.matrixWorld.fromArray(this.camera.matrixWorldInverse)
-		// 	this.camera.projectionMatrix.fromArray(view.projectionMatrix)
-		// 	this.camera.matrix.fromArray(headPose.poseModelMatrix)
-		// 	this.camera.updateMatrixWorld(true)
-
-		// 	// Set up the renderer to the XRView's viewport and then render
-		// 	this.renderer.clearDepth()
-		// 	const viewport = view.getViewport(this.session.baseLayer)
-		// 	this.renderer.setViewport(viewport.x, viewport.y, viewport.width, viewport.height)
-		// 	this.doRender()
-		// }
 	}
 
 	doRender(){
-		this.renderer.render(this.scene, this.camera)
-	}
-
-	/*
-	Add a node to the scene and keep its pose updated using the anchorOffset
-	*/
-	addAnchoredNode(anchorOffset, node){
-		this.anchoredNodes.push({
-			anchorOffset: anchorOffset,
-			node: node
-		})
-		this.scene.add(node)
-	}
-
-	/* 
-	Remove a node from the scene
-	*/
-	removeAnchoredNode(node) {
-		for (var i = 0; i < this.anchoredNodes.length; i++) {
-			if (node === this.anchoredNodes[i].node) {
-				this.anchoredNodes.splice(i,1);
-                this.scene.remove(node)
-				return;
-			}
-		}
-	}
-
-	/*
-	Extending classes should override this to get notified when an anchor for node is removed
-	*/
-	anchoredNodeRemoved(node) {}
-	
-	/*
-	Get the anchor data from the frame and use it and the anchor offset to update the pose of the node, this must be an Object3D
-	*/
-	updateNodeFromAnchorOffset(frame, node, anchorOffset){
-		const anchor = frame.getAnchor(anchorOffset.anchorUID)
-		if(anchor === null){
-			throttledConsoleLog('Unknown anchor uid', anchorOffset.anchorUID)
-			this.anchoredNodeRemoved(node);
-			this.removeAnchoredNode(node);
+		if(this.composer) {
+			this.composer.render()
 			return
+		} else {
+			this.renderer.render(this.scene, this.camera)
 		}
-		node.matrixAutoUpdate = false
-		node.matrix.fromArray(anchorOffset.getOffsetTransform(anchor.coordinateSystem))
-		node.updateMatrixWorld(true)
 	}
+
 }
 
 /*
-If you want to just put virtual things on surfaces, extend this app and override `createSceneGraphNode`
-*/
-class ThingsOnSurfacesApp extends XRExampleBase {
-	constructor(domElement){
-		super(domElement, false)
-		this._tapEventData = null // Will be filled in on touch start and used in updateScene
-		this.el.addEventListener('touchstart', this._onTouchStart.bind(this), false)
-	}
-
-	// Return a THREE.Object3D of some sort to be placed when a surface is found
-	createSceneGraphNode(){
-		throw new Error('Extending classes should implement createSceneGraphNode')
-		/*
-		For example:
-		let geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1)
-		let material = new THREE.MeshPhongMaterial({ color: '#99FF99' })
-		return new THREE.Mesh(geometry, material)
-		*/
-	}
-
-
-	// Called once per frame, before render, to give the app a chance to update this.scene
-	updateScene(frame){
-		// If we have tap data, attempt a hit test for a surface
-		if(this._tapEventData !== null){
-			const x = this._tapEventData[0]
-			const y = this._tapEventData[1]
-			this._tapEventData = null
-			// Attempt a hit test using the normalized screen coordinates
-			frame.findAnchor(x, y).then(anchorOffset => {
-				if(anchorOffset === null){
-					console.log('miss')
-					return
-				}
-				console.log('hit', anchorOffset)
-				this.addAnchoredNode(anchorOffset, this.createSceneGraphNode())
-			}).catch(err => {
-				console.error('Error in hit test', err)
-			})
-		}
-	}
-
-	// Save screen taps as normalized coordinates for use in this.updateScene
-	_onTouchStart(ev){
-		if (!ev.touches || ev.touches.length === 0) {
-			console.error('No touches on touch event', ev)
-			return
-		}
-		//save screen coordinates normalized to -1..1 (0,0 is at center and 1,1 is at top right)
-		this._tapEventData = [
-			ev.touches[0].clientX / window.innerWidth,
-			ev.touches[0].clientY / window.innerHeight
-		]
-	}
-}
-
-function fillInGLTFScene(path, scene, position=[0, 0, -2], scale=[1, 1, 1]){
-	let ambientLight = new THREE.AmbientLight('#FFF', 1)
-	scene.add(ambientLight)
-
-	let directionalLight = new THREE.DirectionalLight('#FFF', 0.6)
-	scene.add(directionalLight)
-
-	loadGLTF(path).then(gltf => {
-		gltf.scene.scale.set(...scale)
-		gltf.scene.position.set(...position)
-		//gltf.scene.quaternion.setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / -2)
-		scene.add(gltf.scene)
-	}).catch((...params) =>{
-		console.error('could not load gltf', ...params)
-	})
-}
-
-function loadGLTF(url){
-	return new Promise((resolve, reject) => {
-		let loader = new THREE.GLTFLoader()
-		loader.load(url, (gltf) => {
-			if(gltf === null){
-				reject()
-			}
-			if(gltf.animations && gltf.animations.length){
-				let mixer = new THREE.AnimationMixer(gltf.scene)
-				for(let animation of gltf.animations){
-					mixer.clipAction(animation).play()
-				}
-			}
-			resolve(gltf)
-		})
-	})
-}
-
-function loadObj(baseURL, geometry){
-	return new Promise(function(resolve, reject){
-		const mtlLoader = new THREE.MTLLoader()
-		mtlLoader.setPath(baseURL)
-		const mtlName = geometry.split('.')[geometry.split(':').length - 1] + '.mtl'
-		mtlLoader.load(mtlName, (materials) => {
-			materials.preload()
-			let objLoader = new THREE.OBJLoader()
-			objLoader.setMaterials(materials)
-			objLoader.setPath(baseURL)
-			objLoader.load(geometry, (obj) => {
-				resolve(obj)
-			}, () => {} , (...params) => {
-				console.error('Failed to load obj', ...params)
-				reject(...params)
-			})
-		})
-	})
-}
-
 function requestFullScreen(){
 	if (document.body.requestFullscreen) {
 		document.body.requestFullscreen()
@@ -450,57 +450,4 @@ function exitFullScreen(){
 		document.msExitFullscreen()
 	}
 }
-
-
-/*
-Rate limit a function call. Wait is the minimum number of milliseconds between calls.
-If leading is true, the first call to the throttled function is immediately called.
-If trailing is true, once the wait time has passed the function is called. 
-
-This code is cribbed from https://github.com/jashkenas/underscore
 */
-window.throttle = function(func, wait, leading=true, trailing=true) {
-	var timeout, context, args, result
-	var previous = 0
-
-	var later = function() {
-		previous = leading === false ? 0 : Date.now()
-		timeout = null
-		result = func.apply(context, args)
-		if (!timeout) context = args = null
-	}
-
-	var throttled = function() {
-		var now = Date.now()
-		if (!previous && leading === false) previous = now
-		var remaining = wait - (now - previous)
-		context = this
-		args = arguments
-		if (remaining <= 0 || remaining > wait) {
-		if (timeout) {
-			clearTimeout(timeout)
-			timeout = null
-		}
-		previous = now
-		result = func.apply(context, args)
-		if (!timeout) context = args = null
-		} else if (!timeout && trailing !== false) {
-		timeout = setTimeout(later, remaining)
-		}
-		return result
-	}
-
-	throttled.cancel = function() {
-		clearTimeout(timeout)
-		previous = 0
-		timeout = context = args = null
-	}
-
-	return throttled
-}
-
-window.throttledConsoleLog = throttle((...params) => {
-	console.log(...params)
-}, 1000)
-
-function hideMe(elem) { elem.style.display = 'none' }
