@@ -97,6 +97,7 @@ export class XRAnchorCartography {
 			let anchor = frame.getAnchor(focus.anchorUID)
 			if(anchor) {
 				frame.removeAnchor(focus.anchorUID)
+				console.log("removing anchor due to moving in space " + focus.anchorUID )
 				focus.anchorUID = 0
 			}
 		}
@@ -119,6 +120,7 @@ export class XRAnchorCartography {
 				return 0
 			}
 
+			// get this anchor - which is not the final one
 			let anchor = await frame.getAnchor(offset.anchorUID)
 			if(!anchor) {
 				return 0
@@ -129,16 +131,19 @@ export class XRAnchorCartography {
 			let s = new THREE.Vector3()
 			let xyz = new THREE.Vector3()
 			let q = new THREE.Quaternion()
-			m.fromArray(offset.getOffsetTransform(anchor.coordinateSystem))
+			let xr_transform = offset.getOffsetTransform(anchor.coordinateSystem)
+			m.fromArray(xr_transform)
 			m.decompose(xyz,q,s);
 			frame.removeAnchor(offset.anchorUID);
+			console.log("throwing away temporary anchor " + offset.anchorUID )
 
 			// get an anchorUID at the target point
 			const wc = frame.getCoordinateSystem(XRCoordinateSystem.TRACKER)
 			focus.anchorUID = await frame.addAnchor(wc, [xyz.x, xyz.y, xyz.z], [q.x, q.y, q.z, q.w]) // [ !actually returns an anchorUID! ]
-			console.log("built ordinary anchor at " + focus.anchorUID)
-			console.log(xyz)
-			console.log(q)
+			//console.log("built ordinary anchor at " + focus.anchorUID)
+			//console.log(xyz)
+			//console.log(q)
+			// there is enough information here to relocalize immediately but allow the relocalization step to do the work below
 		}
 
 		// grant a uuid once only
@@ -170,8 +175,9 @@ export class XRAnchorCartography {
 			focus.quaternion = q
 			focus.xyz = xyz
 
+			// (decided not to store transform in object but to always rebuild from parts)
 			//m.compose(focus.xyz,q, new THREE.Vector3(1,1,1) )
-			focus.transform = m
+			//focus.transform = m
 
 			// non gps objects get their cartesian coordinates set relative to the gps anchor (gps objects already have it set)
 
@@ -248,15 +254,14 @@ export class XRAnchorCartography {
 				parent.xyz.z + temp2.z
 			)
 
-			// TODO orientation isn't being transformed by latitude and longitude sadly (fix later)
 
+			// (decided not to store transform in object but to always rebuild from parts)
 			// generate transform
-
-			let m = new THREE.Matrix4()
-			let s = new THREE.Vector3(1,1,1)
-			let q = focus.quaternion || new THREE.Quaternion()
-			m.compose(focus.xyz,q,s)
-			focus.transform = m
+			//let m = new THREE.Matrix4()
+			//let s = new THREE.Vector3(1,1,1)
+			//let q = focus.quaternion || new THREE.Quaternion()
+			//m.compose(focus.xyz,q,s)
+			//focus.transform = m
 
 			// mark as relocalized
 

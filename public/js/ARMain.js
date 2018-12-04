@@ -169,87 +169,6 @@ export class XRExampleBaseModified {
 		this._handleScene(frame)
 	}
 
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/*
-	initAnchors() {
-		this.requestedFloor = false
-		this.floorGroup = new THREE.Group() // This group will eventually be be anchored to the floor (see findFloorAnchor below)
-		// an array of info that we'll use in _handleFrame to update the nodes using anchors
-		this.anchoredNodes = [] // { XRAnchorOffset, Three.js Object3D }
-
-	}
-
-	_handleAnchors(frame) {
-
-		// If we haven't already, request the floor anchor offset
-		if(this.requestedFloor === false){
-			this.requestedFloor = true
-			frame.findFloorAnchor('first-floor-anchor').then(anchorOffset => {
-				if(anchorOffset === null){
-					console.log('could not find the floor anchor')
-					const headCoordinateSystem = frame.getCoordinateSystem(XRCoordinateSystem.EYE_LEVEL)
-					const anchorUID = frame.addAnchor(headCoordinateSystem, [0,-1,0])
-					anchorOffset = new XRAnchorOffset(anchorUID)
-				}
-				this.addAnchoredNode(anchorOffset, this.floorGroup)
-			}).catch(err => {
-				console.error('error finding the floor anchor', err)
-			})
-		}
-
-		// Update anchored node positions in the scene graph
-		for(let anchoredNode of this.anchoredNodes){
-			this.updateNodeFromAnchorOffset(frame, anchoredNode.node, anchoredNode.anchorOffset)
-		}
-	}
-
-	//
-	// Add a node to the scene and keep its pose updated using the anchorOffset
-	//
-	addAnchoredNode(anchorOffset, node){
-		this.anchoredNodes.push({
-			anchorOffset: anchorOffset,
-			node: node
-		})
-		this.scene.add(node)
-	}
-
-	// 
-	// Remove a node from the scene
-	//
-	removeAnchoredNode(node) {
-		for (var i = 0; i < this.anchoredNodes.length; i++) {
-			if (node === this.anchoredNodes[i].node) {
-				this.anchoredNodes.splice(i,1);
-                this.scene.remove(node)
-				return;
-			}
-		}
-	}
-
-	//
-	// Extending classes should override this to get notified when an anchor for node is removed
-	//
-	anchoredNodeRemoved(node) {
-	}
-	
-	//
-	// Get the anchor data from the frame and use it and the anchor offset to update the pose of the node, this must be an Object3D
-	//
-	updateNodeFromAnchorOffset(frame, node, anchorOffset){
-		const anchor = frame.getAnchor(anchorOffset.anchorUID)
-		if(anchor === null){
-			throttledConsoleLog('Unknown anchor uid', anchorOffset.anchorUID)
-			this.anchoredNodeRemoved(node);
-			this.removeAnchoredNode(node);
-			return
-		}
-		node.matrixAutoUpdate = false
-		node.matrix.fromArray(anchorOffset.getOffsetTransform(anchor.coordinateSystem))
-		node.updateMatrixWorld(true)
-	}
-*/
-
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// 3js
 
@@ -517,7 +436,15 @@ class AugmentedView extends XRExampleBaseModified {
 			}
 			// mark as surviving
 			node.survivor = 1
-			// transform to pose
+
+			// build a transform
+
+			let m = new THREE.Matrix4()
+			let xyz = entity.xyz || new THREE.Vector3(0,0,0)
+			let s = entity.scale || new THREE.Vector3(1,1,1)
+			let q = entity.quaternion || new THREE.Quaternion()
+			m.compose(xyz,q,s)
+			entity.transform = m
 
 			// test
 			//if(entity.xyz) {
@@ -718,26 +645,13 @@ class AugmentedView extends XRExampleBaseModified {
 			return
 		}
 
-		// make a piece of art to show what was picked - TODO this is very ugly replace
-
-		/*
-		if(!this.scenePicker) {
-			let geometry = new THREE.SphereGeometry( 0.2, 32, 32 )
-			//geometry = new THREE.EdgesGeometry( geometry )
-			geometry = new THREE.WireframeGeometry( geometry )
-			//let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
-			let material = new THREE.LineBasicMaterial( { color: 0xffffff, linewidth: 2 } );
-			// this.scenePicker = new THREE.LineSegments( geo, mat );
-			this.scenePicker = new THREE.Mesh(geometry, material)
-			this.scene.add(this.scenePicker)
-		}
-		*/
 		this.setOutlined(intersect)
-		this.entity_manager.setSelected(entity)
 
+		//this.entity_manager.entitySetSelected(entity) <- implicitly done above
 
 		// make sure controls exist and are attached to the right thing
 
+return
 		if(!this.controls || this.controls.uuid != intersect.uuid) {
 
 			if(this.controls) {
@@ -754,19 +668,8 @@ class AugmentedView extends XRExampleBaseModified {
 			controls.staticMoving = true;
 			controls.dynamicDampingFactor = 0.3;
 			controls.uuid = intersect.uuid
-
-			//if(this.scenePicker) {
-			//	this.scenePicker.position.set( entity.xyz.x, entity.xyz.y, entity.xyz.z )
-			//	//this.scenePicker.matrix.fromArray(entity.transform.elements)
-			//	//this.scenePicker.matrixAutoUpdate = false
-			//	//this.scenePicker.updateMatrixWorld(true)
-			//	//this.scenePicker.visible = true
-			//}
-
 		}
-
 	}
-
 }
 
 ///
