@@ -17,10 +17,14 @@ export class AREditor extends HTMLElement {
 		<br/><label id="xedit_persist"  >   Persist </label><label class="switch">      <input id="edit_persist" type="checkbox"><span class="slider"></span></label>
 		<br/><label id="xedit_public"   >    Public </label><label class="switch">      <input id="edit_public" type="checkbox"><span class="slider"></span></label>
 		<br/><label id="xedit_priority" >  Priority </label><label class="switch">      <input id="edit_priority" type="checkbox"><span class="slider"></span></label>
-		<br/>
+		<br/><label>scale x</label><input id="edit_scalex"></input>
+		<br/><label>scale y</label><input id="edit_scaley"></input>
+		<br/><label>scale z</label><input id="edit_scalez"></input>
+		<br/><label>rotat x</label><input id="edit_rotationx"></input>
+		<br/><label>rotat y</label><input id="edit_rotationy"></input>
+		<br/><label>rotat z</label><input id="edit_rotationz"></input>
 		<br/>
 		<div id="edit_uuid">object uid if any</div>
-		<div>object location if any</div>
 		</center>
 		</form>
 		`
@@ -81,6 +85,25 @@ export class AREditor extends HTMLElement {
 			if(!e)return // weird
 			e.checked = true
 		})
+
+		// set scale and rotation
+		let scale = entity.scale || { x:1,y:1,z:1}
+		elem = document.getElementById("edit_scalex")
+		elem.value = scale.x
+		elem = document.getElementById("edit_scaley")
+		elem.value = scale.y
+		elem = document.getElementById("edit_scalez")
+		elem.value = scale.z
+
+		let quaternion = entity.quaternion || new THREE.Quaternion()
+		var euler = new THREE.Euler().setFromQuaternion( quaternion )
+		elem = document.getElementById("edit_rotationx")
+		elem.value = euler.x
+		elem = document.getElementById("edit_rotationy")
+		elem.value = euler.y
+		elem = document.getElementById("edit_rotationz")
+		elem.value = euler.z
+
 	}
 
 	onhide() {
@@ -90,6 +113,28 @@ export class AREditor extends HTMLElement {
 		if(!entity) {
 			return
 		}
+
+		// set scale and rotation
+		let scale = entity.scale || { x:1,y:1,z:1}
+		let elem = 0
+		elem = document.getElementById("edit_scalex")
+		scale.x = parseFloat(elem.value) || 1
+		elem = document.getElementById("edit_scaley")
+		scale.y = parseFloat(elem.value) || 1
+		elem = document.getElementById("edit_scalez")
+		scale.z = parseFloat(elem.value) || 1
+		entity.scale = scale
+
+		let quaternion = entity.quaternion || new THREE.Quaternion()
+		var euler = new THREE.Euler().setFromQuaternion( quaternion )
+		elem = document.getElementById("edit_rotationx")
+		euler.x = parseFloat(elem.value) || 0
+		elem = document.getElementById("edit_rotationy")
+		euler.y = parseFloat(elem.value) || 0
+		elem = document.getElementById("edit_rotationz")
+		euler.z = parseFloat(elem.value) || 0
+		quaternion.setFromEuler(euler)
+		entity.quaternion = quaternion
 
 		// force republication
 		entity.published = 0
