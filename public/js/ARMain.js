@@ -282,16 +282,16 @@ export class XRExampleBaseModified {
 			})
 			this.renderer.setPixelRatio(1)
 			this.renderer.autoClear = false
-			this.renderer.setClearColor('#000', 0)
+			//this.renderer.setClearColor('#000', 0)
 
 			this.initComposer(width,height)
 
 		} else {
 			// standalone test code - unused
 
-            this.camera.aspect = width / height;
-            this.camera.updateProjectionMatrix();
-			this.scene.background = new THREE.Color( 0xff00ff )
+            //this.camera.aspect = width / height;
+            //this.camera.updateProjectionMatrix();
+			//this.scene.background = new THREE.Color( 0xff00ff )
 
 			this.scene.add( new THREE.AmbientLight( 0xaaaaaa, 0.2 ) );
 			var light = new THREE.DirectionalLight( 0xddffdd, 0.6 );
@@ -321,16 +321,16 @@ export class XRExampleBaseModified {
 				requestAnimationFrame( render );
 			}
 	        requestAnimationFrame( render );
-		}
 
-		if(true) {
-			// standalone test code unused
-			let geometry = new THREE.SphereGeometry( 0.07, 32, 32 ); 
-			let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
-			let mesh = new THREE.Mesh(geometry, material)
-			mesh.position.set(0,0,-1)
-			this.scene.add(mesh)
-			this.setOutlined(mesh)
+			{
+				let geometry = new THREE.SphereGeometry( 0.07, 32, 32 ); 
+				let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
+				let mesh = new THREE.Mesh(geometry, material)
+				mesh.position.set(0,0,-1)
+				this.scene.add(mesh)
+				this.setOutlined(mesh)
+			}
+
 		}
 
 	}
@@ -427,52 +427,11 @@ export class XRExampleBaseModified {
 
 }
 
-
 ///
 /// UXAugmentedView
 ///
 /// Manages display and user interaction for entities
 ///
-
-
-function loadGLTF(url){
-        return new Promise((resolve, reject) => {
-                let loader = new THREE.GLTFLoader()
-                loader.load(url, (gltf) => {
-                        if(gltf === null){
-                                reject()
-                        }
-                        if(gltf.animations && gltf.animations.length){
-                                let mixer = new THREE.AnimationMixer(gltf.scene)
-                                for(let animation of gltf.animations){
-                                        mixer.clipAction(animation).play()
-                                }
-                        }
-                        resolve(gltf)
-                })
-        })
-}
-
-function loadObj(baseURL, geometry){
-        return new Promise(function(resolve, reject){
-                const mtlLoader = new THREE.MTLLoader()
-                mtlLoader.setPath(baseURL)
-                const mtlName = geometry.split('.')[geometry.split(':').length - 1] + '.mtl'
-                mtlLoader.load(mtlName, (materials) => {
-                        materials.preload()
-                        let objLoader = new THREE.OBJLoader()
-                        objLoader.setMaterials(materials)
-                        objLoader.setPath(baseURL)
-                        objLoader.load(geometry, (obj) => {
-                                resolve(obj)
-                        }, () => {} , (...params) => {
-                                console.error('Failed to load obj', ...params)
-                                reject(...params)
-                        })
-                })
-        })
-}
-
 
 class AugmentedView extends XRExampleBaseModified {
 
@@ -481,6 +440,10 @@ class AugmentedView extends XRExampleBaseModified {
         super(dom_element,false,true,false,true,true)
 
         this.dom_element = dom_element
+
+        // general settings
+        this.params = {}
+        this.params.general_object_size = 0.1
 
         // block the parent class from doing some work
 		this.requestedFloor = true
@@ -509,29 +472,25 @@ class AugmentedView extends XRExampleBaseModified {
 		this.camera.add(directionalLight)
 
 		// attach something to 0,0,0
-        //this.scene.add( this.AxesHelper( 0.2 ) );
-
-        // loader
-		this.loader = new THREE.TextureLoader()
-		this.loader.crossOrigin = ''
-
+        this.scene.add( this.AxesHelper( this.params.general_object_size ) );
 	}
 
 	///
 	/// Called once per frame by base class, before render, to give the app a chance to update this.scene
 	///
 
-	async updateScene(frame) {
+	updateScene(frame) {
 
 		if(this.isUpdating) {
+			// TODO - this should no longer happen so probably this can be removed
 			if(this.isUpdating == 1) this.err("updateScene: called before finished")
 			if(this.isUpdating > 99) this.isUpdating = 0
 			return
 		}
 		this.isUpdating = this.isUpdating ? this.isUpdating + 1 : 1
 
-		// visit all the entities and do useful frame related work
-		await this.entity_manager.entityUpdateAll(this.session,frame)
+		// visit all the entities and do useful frame related work ( asynchronous )
+		this.entity_manager.entityUpdateAll(this.session,frame)
 
 		// mark and sweep - since entities can come and go outside of local scope
 		for(let uuid in this.nodes) { this.nodes[uuid].survivor = 0 }
@@ -560,9 +519,10 @@ class AugmentedView extends XRExampleBaseModified {
 			node.survivor = 1
 			// transform to pose
 
-			if(entity.xyz) {
-				//node.position.set(entity.xyz.x,entity.xyz.y,entity.xyz.z)
-			}
+			// test
+			//if(entity.xyz) {
+			//	node.position.set(entity.xyz.x,entity.xyz.y,entity.xyz.z)
+			//}
 
 			if(entity.transform) {
 				node.matrix.fromArray(entity.transform.elements)
@@ -602,19 +562,73 @@ class AugmentedView extends XRExampleBaseModified {
 		return new THREE.LineSegments(geometry, material);
 	}
 
+
+	loadGLTF(url,size){
+
+		// a parent that is a bounding sphere for ray intersection tests
+		let geometry = new THREE.SphereGeometry( size, 32, 32 )
+		var material = new THREE.MeshBasicMaterial( {color: 0x00ff00 } )
+		var group = new THREE.Mesh( geometry, material )
+
+		// load callback
+		let callback = (gltf) => {
+
+			if(!gltf || !gltf.scene) {
+				return // oh well it tried - doesn't matter if fails
+			}
+
+			// start animations
+	        if(gltf.animations && gltf.animations.length){
+	            let mixer = new THREE.AnimationMixer(gltf.scene)
+	            for(let animation of gltf.animations){
+	                mixer.clipAction(animation).play()
+	            }
+	        }
+
+			// center on self
+			let bbox = new THREE.Box3().setFromObject(gltf.scene)
+		    const scale = size / bbox.getSize().length() * 2;
+		    const offset = bbox.getCenter().multiplyScalar(scale);
+		    gltf.scene.scale.set(scale, scale, scale);
+		    gltf.scene.position.sub(offset);
+
+			group.add(gltf.scene)
+
+			// turn the parent material invisible
+			material.visible = false
+		}
+
+		// load
+
+		let loader = new THREE.GLTFLoader()
+		loader.load(url, callback )
+
+		// return group before load is sone
+
+		return group
+	}
+
+
+	//
+	// This routine cannot fail - must return some 3js mesh of some kind
+	//
+
 	createSceneGraphNode(args = 0) {
+
+		let size = this.params && this.params.general_object_size ? this.params.general_object_size : 0.2
 
 		 let args2 = args.toLowerCase()
 
-		// test image
+		// an image?
 
 		if(args2.endsWith(".jpg") || args2.endsWith(".png") || args2.endsWith(".gif")) {
-        	//let args = "https://upload.wikimedia.org/wikipedia/commons/0/0b/Swampy_But_Pretty_Bog_In_Fiordland_NZ.jpg"
-		    //let geometry = new THREE.BoxBufferGeometry(0.01, 0.1, 0.1)
-		    let geometry = new THREE.BoxGeometry(0.1,0.1,0.01,10,10)
-		    var texture = this.loader.load( args );
+
+			let loader = new THREE.TextureLoader()
+			loader.crossOrigin = ''
+		    var texture = loader.load( args );
 			texture.minFilter = THREE.LinearFilter
 
+		    let geometry = new THREE.BoxGeometry(0.3,0.3,0.01,10,10)
 		    var material = new THREE.MeshLambertMaterial( { map: texture } );
 		    //var material = new THREE.MeshLambertMaterial({color: 0xffffff});
 		    var mesh = new THREE.Mesh(geometry, material);
@@ -622,39 +636,29 @@ class AugmentedView extends XRExampleBaseModified {
 		    return mesh
 		}
 
-		// test duck
+		// a duck?
 
 		if(args == "duck" || args == "Duck") {
-			let group = new THREE.Group()
 			let path = "/raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
-			loadGLTF(path).then(gltf => {
-				group.add(gltf.scene)
-			}).catch((...params) =>{
-				this.err('createSceneGraphNode:: [error] could not load gltf', ...params)
-			})
-			return group
+			return this.loadGLTF(path,size)
 		}
 
-		// examine the string and decide what the content is - TODO this needs a real proxy such as moz hubs
+		// something else ? TODO - broken due to proxy issues
 
 		if(args.startsWith("http")) {
-			let group = new THREE.Group()
-			let path = args // "/raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
-			loadGLTF(path).then(gltf => {
-				group.add(gltf.scene)
-			}).catch((...params) =>{
-				this.err('createSceneGraphNode:: [error] cannot load gltf', ...params)
-			})
-			return group
+			//let results = await this.loadGLTF(args)
+			//return results
+			args = "box"
 		}
+
+		// a primitive?
 
 		{
 			let geometry = 0
 			switch(args) {
-				default: geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1); break;
-				case "cylinder": geometry = new THREE.CylinderGeometry( 0.1, 0.1, 0.1, 32 ); break;
-				case "sphere":   geometry = new THREE.SphereGeometry( 0.07, 32, 32 ); break;
-				case "box":      geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1); break;
+				case "cylinder": geometry = new THREE.CylinderGeometry( size/2, size/2, size/2, 32 ); break;
+				case "sphere":   geometry = new THREE.SphereGeometry( size/2, 32, 32 ); break;
+				default:         geometry = new THREE.BoxBufferGeometry(size, size, size); break;
 			}
 			let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
 			let mesh = new THREE.Mesh(geometry, material)
@@ -728,6 +732,9 @@ class AugmentedView extends XRExampleBaseModified {
 			this.scene.add(this.scenePicker)
 		}
 		*/
+		this.setOutlined(intersect)
+		this.entity_manager.setSelected(entity)
+
 
 		// make sure controls exist and are attached to the right thing
 

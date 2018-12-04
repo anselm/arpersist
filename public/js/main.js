@@ -73,7 +73,7 @@ export async function main() {
       new ARLogin("login","page",entity_manager),
       new ARProfile("profile","page",entity_manager),
       new ARZones("zones","page",entity_manager),
-      new AREditor("editor","page",entity_manager),
+      new AREditor("editor","page_overflow",entity_manager),
       new ARMap("maps","page",entity_manager)
     ]
 

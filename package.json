@@ -21,6 +21,7 @@
     "node-fetch": "^2.2.1",
     "pouchdb": "^7.0.0",
     "request": "^2.88.0",
+    "request-promise": "^4.2.2",
     "socket.io": "^2.1.1"
   }
 }

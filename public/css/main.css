@@ -97,6 +97,30 @@ h3 {
   text-align:          left;
 }
 
+.page_overflow {
+  background-color:    transparent;
+  width:               100%;
+  height:              100%;
+  position:            absolute;
+  top:                 0;
+  left:                0;
+  font-family:         'Press Start 2P',monospace;
+  font-family: 'Monofett', cursive;
+  font-family: 'Roboto Mono', monospace;
+  font-weight:         normal;
+  font-style:          normal;
+  font-size:           normal;
+  line-height:         18px;
+  color:               white;
+  white-space:         pre;
+  overflow:            auto;
+  box-sizing:          border-box;
+  background-repeat:   no-repeat;
+  background-size:     auto;
+  display:             none;
+  text-align:          left;
+}
+
 button, input {
     font-size:18pt;
     border-radius: 8px;
