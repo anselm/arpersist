@@ -8,7 +8,9 @@ const upload = multer({dest:'public/uploads/'})
 const http = require('http').Server(app)
 const io = require('socket.io')(http)
 const fs = require('fs')
-var proxy = require('express-http-proxy');
+
+
+//var proxy = require('express-http-proxy');
 
 const port = 3000
 
@@ -17,9 +19,22 @@ const entity = require('./src/entity.js')
 //////////////////////////////////////////////////
 // server
 //////////////////////////////////////////////////
- 
-app.use('/github.com', proxy('github.com'))
-app.use('/raw.githubusercontent.com', proxy('raw.githubusercontent.com'))
+
+var request = require('request');
+
+app.get('/proxy/*', function(req,res) {
+console.log("got a proxy 2")
+console.log(req.params)
+  let newurl = req.params[0]
+  console.log("fetching url " + newurl )
+  request(newurl).pipe(res)
+})
+
+
+
+// too limiting
+//app.use('/github.com', proxy('github.com'))
+//app.use('/raw.githubusercontent.com', proxy('raw.githubusercontent.com'))
 
 app.use(parser.json())
 

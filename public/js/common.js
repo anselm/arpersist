@@ -373,14 +373,14 @@ export class XRExampleBase {
 
 	}
 	
-	/*
-	Extending classes should override this to set up the scene during class construction
-	*/
+	//
+	// Extending classes should override this to set up the scene during class construction
+	//
 	initializeScene(){}
 
-	/*
-	Extending classes that need to update the layer during each frame should override this method
-	*/
+	//
+	// Extending classes that need to update the layer during each frame should override this method
+	//
 	updateScene(frame){}
 
 	_handleScene(frame) {

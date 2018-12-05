@@ -105,11 +105,12 @@ export class ARZones extends HTMLElement {
     for(let i = 0; i < entities.length; i++) {
       let entity = entities[i]
       let element = document.createElement("button")
-      element.innerHTML = entity.anchorUID
+      element.anchorUID = entity.anchorUID
+      element.innerHTML = entity.name
       elements.appendChild(element)
       element.onclick = (e) => {
         e.preventDefault()
-        let choice = e.srcElement.innerText
+        let choice = e.srcElement.anchorUID
         this.log("Picked map " + choice)
         this.entity_manager.mapLoad(choice)
         this.pop()

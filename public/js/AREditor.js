@@ -66,8 +66,14 @@ export class AREditor extends HTMLElement {
 		this.target = this
 
 		// get layout for it - TODO could look inside of target rather than in whole document
-		let elem = document.getElementById("edit_art") // TODO sloppy
+		let elem = 0
+
+		elem = document.getElementById("edit_name") // TODO sloppy
+		elem.value = entity.name
+
+		elem = document.getElementById("edit_art") // TODO sloppy
 		elem.value = entity.art
+
 		elem = document.getElementById("edit_uuid")
 		elem.innerHTML = entity.uuid
 
@@ -140,6 +146,7 @@ export class AREditor extends HTMLElement {
 		entity.published = 0
 
 		// revise art
+		entity.name = document.getElementById("edit_name").value
 		entity.art = document.getElementById("edit_art").value
 
 		// set tags

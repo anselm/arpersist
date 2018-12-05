@@ -391,7 +391,7 @@ class AugmentedView extends XRExampleBaseModified {
 		this.camera.add(directionalLight)
 
 		// attach something to 0,0,0
-        this.scene.add( this.AxesHelper( this.params.general_object_size ) );
+        //this.scene.add( this.AxesHelper( this.params.general_object_size ) );
 	}
 
 	///
@@ -528,7 +528,7 @@ class AugmentedView extends XRExampleBaseModified {
 		// load
 
 		let loader = new THREE.GLTFLoader()
-		loader.load(url, callback )
+		loader.load("/proxy/"+url, callback )
 
 		// return group before load is sone
 
@@ -544,15 +544,44 @@ class AugmentedView extends XRExampleBaseModified {
 
 		let size = this.params && this.params.general_object_size ? this.params.general_object_size : 0.2
 
-		 let args2 = args.toLowerCase()
+		let args2 = args.toLowerCase()
 
-		// an image?
+		// a primitive?
 
-		if(args2.endsWith(".jpg") || args2.endsWith(".png") || args2.endsWith(".gif")) {
+		if(args2 == "cylinder") {
+			let geometry = new THREE.CylinderGeometry( size/2, size/2, size/2, 32 );
+			let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
+			return new THREE.Mesh(geometry, material)
+		}
+
+		if(args2 == "sphere") {
+			let geometry = new THREE.SphereGeometry( size/2, 32, 32 );
+			let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
+			return new THREE.Mesh(geometry, material)
+		}
+
+		if(args == "box" || args == "cube") {
+			let geometry = new THREE.BoxBufferGeometry(size, size, size);
+			let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
+			return new THREE.Mesh(geometry, material)
+		}
+
+		// if not an url then force a default url
+
+		if(!args2.startsWith("http")) {
+			args = args2 = "https://raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
+		}
+
+		 // what is the path? is it an image?
+
+		var parser = document.createElement('a')
+		parser.href = args
+		let pathname = parser.pathname ? parser.pathname.toLowerCase() : 0
+
+		if(pathname.endsWith(".jpg") || pathname.endsWith(".png") || pathname.endsWith(".gif")) {
 
 			let loader = new THREE.TextureLoader()
-			loader.crossOrigin = ''
-		    var texture = loader.load( args );
+		    var texture = loader.load( '/proxy/' + encodeURIComponent(args) )
 			texture.minFilter = THREE.LinearFilter
 
 		    let geometry = new THREE.BoxGeometry(0.3,0.3,0.01,10,10)
@@ -563,34 +592,15 @@ class AugmentedView extends XRExampleBaseModified {
 		    return mesh
 		}
 
-		// a duck?
+		// hmm, not something we know?
 
-		if(args == "duck" || args == "Duck") {
-			let path = "/raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
-			return this.loadGLTF(path,size)
+		if(!pathname.endsWith(".glb") || !pathname.endsWith(".gltf")) {
+			args = args2 = "https://raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
 		}
 
-		// something else ? TODO - broken due to proxy issues
+		// load what we can
 
-		if(args.startsWith("http")) {
-			//let results = await this.loadGLTF(args)
-			//return results
-			args = "box"
-		}
-
-		// a primitive?
-
-		{
-			let geometry = 0
-			switch(args) {
-				case "cylinder": geometry = new THREE.CylinderGeometry( size/2, size/2, size/2, 32 ); break;
-				case "sphere":   geometry = new THREE.SphereGeometry( size/2, 32, 32 ); break;
-				default:         geometry = new THREE.BoxBufferGeometry(size, size, size); break;
-			}
-			let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
-			let mesh = new THREE.Mesh(geometry, material)
-			return mesh
-		}
+		return this.loadGLTF(args,size)
 	}
 
 	selectBest() {
