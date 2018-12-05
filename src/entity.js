@@ -15,7 +15,7 @@ class Entity {
     this.debugging = {}
   }
 
-  async init() {
+  init() {
 /*
 
     this.db = new DBWrapper()
@@ -58,59 +58,20 @@ class Entity {
 */
   }
 
-  error(msg) {
-    console.error(msg)
-  }
-
-  log(msg) {
-    //console.log(msg)
-  }
-
-  async create(blob) {
-/*
-    let results = await this.read(uid)
-    if(results) {
-      this.log("Found existing user from uid " + uid)
-    } else {
-      let hash = { uid:uid, pubkey:pubkey, unencrypted_secret:unencrypted_secret }
-      await this.db.insert(this.table,hash)
-      results = await this.read(uid)
-      this.log("Created new from uid " + uid)
-    }
-    this.log(results)
-    return results
-*/
-  }
-
-  async read(uid) {
-    //let user = await this.db.find(this.table,"uid",uid)
-    return user
-  }
-
-  async delete(uid) {
-    // await this.db.delete(this.table,"uid",uid)
-  }
-
-  async save(entity) {
+  save(entity) {
     let previous = this.entities[entity.uuid]
     this.entities[entity.uuid] = entity
     if(!previous) entity.createdAt = Date.now()
     entity.updatedAt = Date.now()
-
-    if(!this.debugging[entity.uuid]) {
-      this.debugging[entity.uuid] = 1
-      console.log(entity)
-    }
-
     return entity
   }
 
-  async flush(blob) {
+  flush(blob) {
     // TODO
     return {error:"TBD"}
   }
 
-  async query(query) {
+  query(query) {
     let results = {}
     if(this.entities && query.gps) {
       let keys = Object.keys(this.entities)
@@ -119,8 +80,11 @@ class Entity {
         let entity = this.entities[key]
         if(!entity || !entity.gps) continue
         let dist = this.getDistanceFromLatLonInKm(query.gps.latitude,query.gps.longitude,entity.gps.latitude,entity.gps.longitude)
-        if(dist > 1) continue
+        if(dist > 1) {
+          console.log("server decided this was too far to return " + key )
+        } else {
           console.log("server side entity query: query has decided this entity is close enough to return " + key)
+        }
           // I need to use the cesium libraries here to get to gps or i need to use cartesian coordinates or something... debate
         results[key] = entity
       }
@@ -128,7 +92,7 @@ class Entity {
     return results
   }
 
-  async map_save(filepath,args) {
+  map_save(filepath,args) {
     let target = "public/uploads/"+args.anchorUID
     fs.renameSync(filepath, target)
     return({status:"thanks"})
@@ -170,8 +134,6 @@ class Entity {
     if(!la || !lb) return false
     let ld = this.getDistanceFromLatLonInKm(la.latitude,la.longitude,lb.latitude,lb.longitude)
     if(ld < 1.00) return true
-    console.log(la)
-    console.log(lb)
     return false
   }
 }

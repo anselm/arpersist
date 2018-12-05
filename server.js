@@ -23,42 +23,37 @@ const entity = require('./src/entity.js')
 var request = require('request');
 
 app.get('/proxy/*', function(req,res) {
-console.log("got a proxy 2")
-console.log(req.params)
   let newurl = req.params[0]
-  console.log("fetching url " + newurl )
   request(newurl).pipe(res)
 })
 
-
-
-// too limiting
+// older proxy approach - too limiting
 //app.use('/github.com', proxy('github.com'))
 //app.use('/raw.githubusercontent.com', proxy('raw.githubusercontent.com'))
 
 app.use(parser.json())
 
-app.get("/", async (request, response) => {
+app.get("/", (request, response) => {
   response.sendFile(__dirname + '/public/index.html')
 })
 
-app.post('/api/entity/save', async (request, response) => {
-  let results = await entity.save(request.body)
+app.post('/api/entity/save', (request, response) => {
+  let results = entity.save(request.body)
   response.json(results)
 })
 
-app.post('/api/entity/flush', async (request, response) => {
-  let results = await entity.flush(request.body)
+app.post('/api/entity/flush', (request, response) => {
+  //let results = entity.flush(request.body)
   response.json(results)
 })
 
-app.post('/api/entity/query', async (request, response) => {
-  let results = await entity.query(request.body)
+app.post('/api/entity/query', (request, response) => {
+  let results = entity.query(request.body)
   response.json(results)
 })
 
-app.post('/api/map/save', upload.single('blob'), async (request, response) => {
-  let results = await entity.map_save(request.file.path,request.body)
+app.post('/api/map/save', upload.single('blob'), (request, response) => {
+  let results = entity.map_save(request.file.path,request.body)
   response.json(results)
 })
 
@@ -78,19 +73,23 @@ io.on('connection', (socket) => {
   })
 
   // Sockets also tell server about publishing events
-  socket.on('publish', async (msg) => {
+  socket.on('publish', (msg) => {
     let srcid = socket.id
     // save
     msg.socket_id = srcid
-    let results = await entity.save(msg)
-    // publish to all nearby - let's not reecho to self
+    let results = entity.save(msg)
+    // debug
+    let latitude = msg.gps ? msg.gps.latitude : 0
+    let longitude = msg.gps ? msg.gp.longitude : 0
+    console.log("Server port " + srcid + " received entity=" + msg.uuid + " kind=" + msg.kind + " at lat="+latitude+" lon="+longitude )
+    // publish to all nearby - let's not reecho to self 
     let ids = Object.keys(io.sockets.sockets)
     for(let i = 0; i < ids.length; i++) {
       let id = ids[i]
       if(srcid == id) continue
       let target = io.sockets.sockets[id]
       if(!entity.socket_nearby(srcid,id) ) {
-        console.log("not sending msg to socket " + id + " " + msg.uuid)
+        console.log("not sending msg to geographically distant socket " + id + " " + msg.uuid)
         continue
       }
       target.emit('publish',results)
@@ -107,9 +106,7 @@ io.on('connection', (socket) => {
 
 })
 
-http.listen(port, () => {
-  console.log('listening on port ' + port )
-})
+http.listen(port)
 
 
 

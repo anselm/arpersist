@@ -28,7 +28,7 @@ export class EntityManager {
 		this.tags = ""
 
 		// allow party to update
-		this.partyUpdateCounter = 0
+		this.partyUpdateCounter = 1
 
 		// restart entities
         return (async () => {
