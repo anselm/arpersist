@@ -112,7 +112,7 @@ export class EntityManager {
 		let relocalized_before = entity.relocalized
 
 		// relocalize all entities
-		XRAnchorCartography.relocalize(session,frame,entity,this.entityGPS)
+		XRAnchorCartography.relocalize(frame,entity,this.entityGPS)
 
 		// set gps anchor if at all possible
 		if(!this.entityGPS && entity && entity.kind == "gps" && entity.relocalized) {
@@ -162,7 +162,6 @@ export class EntityManager {
 		       tags: this.tags,
 		      party: this.party,
 		  cartesian: 0,
-		  transform: 0,
 		 quaternion: 0,
 		      scale: 0,
 		        xyz: 0,
@@ -171,7 +170,7 @@ export class EntityManager {
 		  published: 1  // don't publish gps anchors until an associated map is saved to a server
 		}
 
-		let results = await XRAnchorCartography.attach(session,frame,entity,true,false)
+		let results = await XRAnchorCartography.attach(frame,entity,true,false)
 
 		if(!results) {
 			this.err("entityAddGPS: could not make gps anchor!")
@@ -207,7 +206,6 @@ export class EntityManager {
 		       tags: this.tags,
 		      party: this.party,
 		  cartesian: 0,
-		  transform: 0,
 		 quaternion: 0,
 		      scale: 0,
 		        xyz: 0,
@@ -216,7 +214,7 @@ export class EntityManager {
 		  published: 0
 		}
 
-		let results = await XRAnchorCartography.attach(session,frame,entity,false,true)
+		let results = await XRAnchorCartography.attach(frame,entity,false,true)
 
 		if(!results) {
 			this.err("entityAddArt: anchor failed")
@@ -243,7 +241,6 @@ export class EntityManager {
 		       tags: this.tags,
 		      party: this.party,
 		  cartesian: 0,
-		  transform: 0,
 		 quaternion: 0,
 		      scale: 0,
 		        xyz: 0,
@@ -252,7 +249,7 @@ export class EntityManager {
 		  published: 0
 		}
 
-		let results = await XRAnchorCartography.attach(session,frame,entity,false,false)
+		let results = await XRAnchorCartography.attach(frame,entity,false,false)
 
 		if(!results) {
 			this.err("entityAddParty: fail?")
@@ -280,7 +277,7 @@ export class EntityManager {
 		let entity = this.entityGPS
 		if(!entity) {
 			entity = this.entityGPS = await this._entityAddGPS(session,frame)
-			XRAnchorCartography.relocalize(session,frame,this.entityGPS,0)
+			XRAnchorCartography.relocalize(frame,this.entityGPS,0)
 			entity.published = 0
 		}
 
@@ -513,7 +510,6 @@ export class EntityManager {
 			       tags: entity.tags,
 			      party: entity.party,
 			  cartesian: entity.cartesian || 0,
-			  //transform: entity.transform || 0,
 			 quaternion: entity.quaternion || 0,
 			      scale: entity.scale || 0,
 			        //xyz: entity.xyz || 0,

@@ -67,6 +67,26 @@ export class XRAnchorCartography {
 		return gps
 	}
 
+	static async move(frame,focus,xyz,q) {
+
+		// TODO this is so much easier than projecting through arkit and rebuilding anchors - maybe I should just make anchors this way in general
+
+		if(focus.anchorUID) {
+			let anchor = frame.getAnchor(focus.anchorUID)
+			if(anchor) {
+				frame.removeAnchor(focus.anchorUID)
+				console.log("removing anchor due to moving in space " + focus.anchorUID )
+				focus.anchorUID = 0
+			}
+		}
+
+		// get an anchorUID at the target point
+		const wc = frame.getCoordinateSystem(XRCoordinateSystem.TRACKER)
+		focus.anchorUID = await frame.addAnchor(wc, [xyz.x, xyz.y, xyz.z], [q.x, q.y, q.z, q.w]) // [ !actually returns an anchorUID! ]
+
+		focus.relocalized = 0
+	}
+
 	///
 	/// Get a new anchor
 	///
@@ -78,7 +98,7 @@ export class XRAnchorCartography {
 	/// As well, this engine introduces another concept on top of that of a gpsAnchor which associates an arkit anchor with a gps.
 	///
 
-	static async attach(session,frame,focus,get_location,get_raytest,screenx=0.5,screeny=0.5) {
+	static async attach(frame,focus,get_location,get_raytest,screenx=0.5,screeny=0.5) {
 
 		// get a gps reading?
 
@@ -115,24 +135,24 @@ export class XRAnchorCartography {
 
 			// probe the world and find an anchor(y kinda wrappery thing) that intersects a plane (using a ray shot from screen space)
 			let offset = await frame.findAnchor(screenx,screeny)  // [ !actually returns an anchor offset! ]
-			//let offset = await session.hitTest(screenx,screeny)
 			if(!offset) {
 				return 0
 			}
 
 			// get this anchor - which is not the final one
-			let anchor = await frame.getAnchor(offset.anchorUID)
+			let anchor = frame.getAnchor(offset.anchorUID)
 			if(!anchor) {
 				return 0
 			}
 
 			// pull a 3js transform out of temporary anchor and delete temporary anchor(y kinda wrapper thingie)
 			let m = new THREE.Matrix4()
+			let xr_transform = offset.getOffsetTransform(anchor.coordinateSystem)
+			m.fromArray(xr_transform)
+
 			let s = new THREE.Vector3()
 			let xyz = new THREE.Vector3()
 			let q = new THREE.Quaternion()
-			let xr_transform = offset.getOffsetTransform(anchor.coordinateSystem)
-			m.fromArray(xr_transform)
 			m.decompose(xyz,q,s);
 			frame.removeAnchor(offset.anchorUID);
 			console.log("throwing away temporary anchor " + offset.anchorUID )
@@ -153,7 +173,7 @@ export class XRAnchorCartography {
 		return focus
 	}
 
-	static relocalize(session,frame,focus,parent) {
+	static relocalize(frame,focus,parent) {
 
 		// try recover local anchor
 
@@ -165,15 +185,16 @@ export class XRAnchorCartography {
 
 			focus.offset = new XRAnchorOffset(focus.anchorUID)
 			focus.xr_transform = focus.offset.getOffsetTransform(focus.anchor.coordinateSystem)
-
 			let m = new THREE.Matrix4()
+			m.fromArray(focus.xr_transform)
+
 			let s = new THREE.Vector3()
 			let xyz = new THREE.Vector3()
 			let q = new THREE.Quaternion()
-			m.fromArray(focus.xr_transform)
 			m.decompose(xyz,q,s)
-			focus.quaternion = q
+			focus.quaternion = new THREE.Quaternion(q._x,q._y,q._z,q._w) // TODO huh?
 			focus.xyz = xyz
+
 
 			// (decided not to store transform in object but to always rebuild from parts)
 			//m.compose(focus.xyz,q, new THREE.Vector3(1,1,1) )

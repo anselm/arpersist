@@ -15,6 +15,9 @@
 
 */
 
+import {XRAnchorCartography} from './XRAnchorCartography.js'
+
+
 export class XRExampleBaseModified {
 
 	constructor(domElement, createVirtualReality=true, shouldStartPresenting=true, useComputerVision=false, worldSensing=false, alignEUS=true){
@@ -374,6 +377,7 @@ class AugmentedView extends XRExampleBaseModified {
 
 		this.nodes = {}
 
+		this.please_update = 1
 	}
 
 	///
@@ -390,8 +394,11 @@ class AugmentedView extends XRExampleBaseModified {
 
 		this.camera.add(directionalLight)
 
-		// attach something to 0,0,0
+		// attach something to 0,0,0 - TODO this breaks picker
         //this.scene.add( this.AxesHelper( this.params.general_object_size ) );
+
+        // attach picker
+		this.arcontrols = new ARControls(this,this.dom_element,this.camera,this.scene)
 	}
 
 	///
@@ -400,21 +407,26 @@ class AugmentedView extends XRExampleBaseModified {
 
 	updateScene(frame) {
 
-		if(this.isUpdating) {
-			// TODO - this should no longer happen so probably this can be removed
-			if(this.isUpdating == 1) this.err("updateScene: called before finished")
-			if(this.isUpdating > 99) this.isUpdating = 0
+		// is this display active?
+
+		if(!this.please_update) {
 			return
 		}
-		this.isUpdating = this.isUpdating ? this.isUpdating + 1 : 1
+
+		// scene controls helper
+
+		this.arcontrols.update(frame)
 
 		// visit all the entities and do useful frame related work ( asynchronous )
+
 		this.entity_manager.entityUpdateAll(this.session,frame)
 
 		// mark and sweep - since entities can come and go outside of local scope
+
 		for(let uuid in this.nodes) { this.nodes[uuid].survivor = 0 }
 
 		// visit all the entities again and attach art to them
+
 		this.entity_manager.entityAll((entity)=>{
 			// do nothing till ready
 			if(!entity.relocalized) return
@@ -430,7 +442,7 @@ class AugmentedView extends XRExampleBaseModified {
 			if(!node) {
 				node = this.createSceneGraphNode(entity.art)
 				node.art = entity.art
-				node.uuid = entity.uuid
+				node.myuuid = entity.uuid
 				this.scene.add(node)
 				this.nodes[entity.uuid] = node
 			}
@@ -447,9 +459,9 @@ class AugmentedView extends XRExampleBaseModified {
 			entity.transform = m
 
 			// test
-			//if(entity.xyz) {
-			//	node.position.set(entity.xyz.x,entity.xyz.y,entity.xyz.z)
-			//}
+			if(false && entity.xyz) {
+				node.position.set(entity.xyz.x,entity.xyz.y,entity.xyz.z)
+			} else
 
 			if(entity.transform) {
 				node.matrix.fromArray(entity.transform.elements)
@@ -467,7 +479,6 @@ class AugmentedView extends XRExampleBaseModified {
 			}
 		}
 
-		this.isUpdating = 0
 	}
 
 	AxesHelper( size ) {
@@ -603,84 +614,195 @@ class AugmentedView extends XRExampleBaseModified {
 		return this.loadGLTF(args,size)
 	}
 
-	selectBest() {
+}
 
-		// the selection strategy at the moment is a ray cast but this is not very good - consider using distance TODO
+class ARControls {
 
-		if(!this.raycaster) {
-			this.raycaster = new THREE.Raycaster()
+	constructor(parent,domElement,camera,scene) {
+		this.parent = parent // TODO tidy later
+		this.domElement = domElement
+		this.camera = camera
+		this.scene = scene
+		this.entity = 0
+		this.node = 0
+		this.counter = 0
+		this.raycaster = new THREE.Raycaster()
+		this.point = new THREE.Vector2(0,0)
+		if(true) {
+			let size = 0.01
+			let geometry = new THREE.CylinderGeometry( size/2, size/2, size/2, 32 );
+			let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
+			this.temp = new THREE.Mesh(geometry, material)
 		}
+
+		this.please_finish = 0
+		this.controls_active = 0
+
+		this.domElement.addEventListener( 'touchstart', this._touchstart.bind(this), false );
+		this.domElement.addEventListener( 'touchend', this._touchend.bind(this), false );
+		this.domElement.addEventListener( 'touchmove', this._touchmove.bind(this), false );
+	}
+
+	_touchstart( event ) {
+		if(this.entity || this.node) return
+		if(this.controls_active) return
+
+// hack - room for buttons - fix later TODO
+		if(event.touches.length > 0 && event.touches[0].pageX > window.innerWidth - 64 ) return
+
+		this.entity = this.parent.entity_manager.entityGetSelected()
+		if(!this.entity) return
+
+		this.controls_active = 1
+		event.preventDefault();
+		this._drag_start(this.entity)
+		this._stretch_start(event.touches)
+	}
+
+	_touchmove( event ) {
+		if(!this.entity || !this.node) return
+		if(!this.controls_active) return
+		event.preventDefault()
+		event.stopPropagation()
+		this._stretch_update(event.touches)
+	}
+
+	_touchend( event ) {
+		this.please_finish = 1
+	}
+
+	update(frame) {
+
+		// try not to hammer on the system so much
+
+		if(this.counter++ > 10) this.counter = 0; else return
+
+		// frame handler around - good time to wrap up
+
+		if(this.please_finish) {
+			this.controls_active = 0
+			this.please_finish = 0
+			this._drag_finish(frame)
+		}
+
+		// do not change target if one is active
+
+		if(this.controls_active) return
 
 		// Try pick - this fails to find some geometries TODO
 
-		var point = new THREE.Vector2(0,0)
-		this.raycaster.setFromCamera(point, this.camera )
+		this.raycaster.setFromCamera(this.point, this.camera )
 		let intersects = this.raycaster.intersectObjects( this.scene.children )
 		let intersect = 0
 		for ( var i = 0; i < intersects.length; i++ ) {
-			intersect = intersects[i].object
-			break
+			if(intersects[i].object && intersects[i].object.myuuid) {
+				intersect = intersects[i].object
+				break
+			}
 		}
 
-		// show it or nothing
+		// look for entity - and if found it will become what is the focus for editing (even before touch events)
 
-		this.showSelected(intersect)
-	}
-
-	showSelected(intersect) {
-
-		// anything?
-
-		let entity = intersect && intersect.uuid ? this.entity_manager.entitySetSelectedByUUID(intersect.uuid) : 0
-
-		// nothing found?
+		let entity = intersect && intersect.myuuid ? this.parent.entity_manager.entitySetSelectedByUUID(intersect.myuuid) : 0
 
 		if(!entity) {
 
-			// set selected to nothing
+			// deselect (it is not done above)
 
-			this.entity_manager.entitySetSelected(0)
+			this.parent.entity_manager.entitySetSelected(0)
 
-			// disable controls
+			// hide outlining
 
-			if(this.controls) { this.controls.dispose() ; this.controls.uuid = 0 }
-
-			// hide picker art
-
-			// if(this.scenePicker) this.scenePicker.visible = false
-			this.setOutlined(0)
-
-			// get out
+			this.parent.setOutlined(0)
 
 			return
 		}
 
-		this.setOutlined(intersect)
+		// show an outline on focus
 
-		//this.entity_manager.entitySetSelected(entity) <- implicitly done above
-
-		// make sure controls exist and are attached to the right thing
-
-return
-		if(!this.controls || this.controls.uuid != intersect.uuid) {
-
-			if(this.controls) {
-				this.controls.dispose()
-				this.controls.uuid = 0
-			}
-
-			let controls = this.controls = new THREE.TrackballControls( intersect, this.dom_element);
-			controls.rotateSpeed = 1.0;
-			controls.zoomSpeed = 1.2;
-			controls.panSpeed = 0.8;
-			controls.noZoom = false;
-			controls.noPan = false;
-			controls.staticMoving = true;
-			controls.dynamicDampingFactor = 0.3;
-			controls.uuid = intersect.uuid
-		}
+		this.parent.setOutlined(intersect)
 	}
+
+	_stretch_start(touches) {
+		if(touches.length<2) return
+		var dx = touches[ 0 ].pageX - touches[ 1 ].pageX
+		var dy = touches[ 0 ].pageY - touches[ 1 ].pageY
+		this.scale_distance_start = Math.sqrt( dx * dx + dy * dy )
+		console.log("stretch scale is " + this.scale_distance_start)
+	}
+
+	_stretch_update(touches) {
+		if(!this.entity || !this.node) return
+		if(touches.length<2) return
+		var dx = touches[ 0 ].pageX - touches[ 1 ].pageX
+		var dy = touches[ 0 ].pageY - touches[ 1 ].pageY
+		let scale_distance = Math.sqrt( dx * dx + dy * dy )
+		let scale = this.scale_distance_start > 0 ? scale_distance / this.scale_distance_start : 1
+		if(scale < 0.1) scale = 0.1
+		if(scale > 10) scale = 10
+		console.log("scaling is " + scale)
+		this.entity.scale = new Vector3( this.scale.x * scale, this.scale.y * scale, this.scale.z * scale )
+	}
+
+	_drag_start(entity) {
+
+		this.entity = entity
+		this.node = this.parent.nodes[this.entity.uuid]
+		this.xyz = entity.xyz ? new THREE.Vector3(entity.xyz.x,entity.xyz.y,entity.xyz.z) : new THREE.Vector3(0,0,0)
+		this.scale = entity.scale ? new THREE.Vector3(entity.scale.x,entity.scale.y,entity.scale.z) : new THREE.Vector3(1,1,1)
+
+		this.temp.art = this.node.art
+		this.parent.nodes[this.entity.uuid] = this.temp
+		this.node.matrixAutoUpdate = true
+		this.scene.remove(this.node)
+		this.camera.add(this.node)
+		this.node.position.set(0,0,-1)
+	}
+
+	_drag_finish(frame) {
+		if(!this.entity || !this.node) return
+
+		// get world details before detach
+		let xyz = new THREE.Vector3()
+		let q = new THREE.Quaternion()
+		this.node.getWorldPosition(xyz)
+		this.node.getWorldQuaternion(q)
+
+		// move back to normal place
+		this.camera.remove(this.node)
+		this.scene.add(this.node)
+		this.parent.nodes[this.entity.uuid] = this.node
+
+		// remake the anchor with this new position
+		XRAnchorCartography.move(frame,this.entity,xyz,q)
+
+		// republish - TODO - not super exactly correct - especially gps entities
+		this.entity.published = 0
+
+		// clear
+		this.entity = 0
+		this.node = 0
+	}
+
 }
+
+/*
+this.camera.updateMatrixWorld()
+this.camera.matrixWorldInverse.getInverse( this.camera.matrixWorld )
+var vec = new THREE.Vector3( 0, 0, -2 )
+vec.applyQuaternion( this.camera.quaternion )
+
+var vector = camera.position.clone();x
+vector.applyMatrix( camera.matrixWorld );
+
+vec.applyMatrix4( camera.matrixWorldInverse );
+
+var rot = camera.getWorldQuaternion();
+rot.multiply(box.getWorldQuaternion().inverse());
+var euler = new THREE.Euler().setFromQuaternion(rot);
+
+*/
+
 
 ///
 /// ARMain
@@ -723,10 +845,10 @@ export class ARMain extends HTMLElement {
 	}
 
 	onshow() {
-		if(!this.interval)this.interval = setInterval(this.view.selectBest.bind(this.view),100)
+		this.view.please_update = 1
 	}
 	onhide() {
-		clearInterval(this.interval); this.interval = 0
+		this.view.please_update = 0
 	}
 
 }

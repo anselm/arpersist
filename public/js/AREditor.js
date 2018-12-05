@@ -131,7 +131,7 @@ export class AREditor extends HTMLElement {
 		scale.z = parseFloat(elem.value) || 1
 		entity.scale = scale
 
-		let quaternion = entity.quaternion || new THREE.Quaternion()
+		let quaternion = new THREE.Quaternion()
 		var euler = new THREE.Euler().setFromQuaternion( quaternion )
 		elem = document.getElementById("edit_rotationx")
 		euler.x = parseFloat(elem.value) || 0
@@ -142,7 +142,7 @@ export class AREditor extends HTMLElement {
 		quaternion.setFromEuler(euler)
 		entity.quaternion = quaternion
 
-		// force republication
+		// force republication - TODO shouldn't really do this here... especially not gps entities
 		entity.published = 0
 
 		// revise art
