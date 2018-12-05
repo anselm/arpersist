@@ -100,6 +100,11 @@ export class EntityManager {
 		this.entityAll((entity)=>{
 			this._entityUpdateOne(session,frame,entity)
 		})
+
+		if(!this.debugging_setup) {
+			this.debugging_setup = 1
+			this.debugging(this.session)
+		}
 	}
 
 	_entityUpdateOne(session,frame,entity) {
@@ -321,20 +326,6 @@ export class EntityManager {
 
 		this.log("will try load map named " + filename )
 
-		// observe anchors showing up again - actual work is elsewhere in a busy poll loop - this is purely for debugging
-		if (!this.listenerSetup) {
-			this.listenerSetup = true
-			session.addEventListener(XRSession.NEW_WORLD_ANCHOR,(event) => {
-				let entity = 0
-				this.entityAll(e=>{ if(e.anchorUID == event.detail.uid) entity = e })
-				if(entity) {
-					if(entity.kind == "gps") this.log("<font color=green>mapLoad: " + event.detail.uid + " *** ANCHOR GOOD</font>" )
-				} else { // if (event.detail.uid.startsWith("anchor")) {
-					this.err("mapLoad: " + event.detail.uid + " *** ANCHOR BAD" )
-				}
-			})
-		}
-
 		// let's just reset everything and reload the network - probably overkill but i want to clear any gps anchors
 		await this.entityNetworkRestart()
 
@@ -520,5 +511,97 @@ export class EntityManager {
 		this.socket.emit('publish',blob);
 	}
 
+	debugging(session) {
+
+		session.addEventListener(XRSession.NEW_WORLD_ANCHOR,(event) => {
+			let entity = 0
+			this.entityAll(e=>{ if(e.anchorUID == event.detail.uid) entity = e })
+			if(entity) {
+				if(entity.kind == "gps") this.log("<font color=green>mapLoad: " + event.detail.uid + " *** ANCHOR GOOD</font>" )
+			} else { // if (event.detail.uid.startsWith("anchor")) {
+				this.err("mapLoad: " + event.detail.uid + " *** ANCHOR BAD" )
+			}
+		})
+
+        session.addEventListener(XRSession.REMOVE_WORLD_ANCHOR, (event) => {
+        	this.log("anchor deleted " + event.detail.uid)
+        })
+
+        session.addEventListener(XRSession.TRACKING_CHANGED, (event) => {
+
+	        // #define WEB_AR_TRACKING_STATE_NORMAL               @"ar_tracking_normal"
+	        // #define WEB_AR_TRACKING_STATE_LIMITED              @"ar_tracking_limited"
+	        // #define WEB_AR_TRACKING_STATE_LIMITED_INITIALIZING @"ar_tracking_limited_initializing"
+	        // #define WEB_AR_TRACKING_STATE_LIMITED_MOTION       @"ar_tracking_limited_excessive_motion"
+	        // #define WEB_AR_TRACKING_STATE_LIMITED_FEATURES     @"ar_tracking_limited_insufficient_features"
+	        // #define WEB_AR_TRACKING_STATE_NOT_AVAILABLE        @"ar_tracking_not_available"
+	        // #define WEB_AR_TRACKING_STATE_RELOCALIZING         @"ar_tracking_relocalizing"
+
+	        let msgText = ""
+	   
+	        switch (event.detail) {
+	            case "unknown": // the initial value
+	            case "ar_tracking_normal":
+	            break;
+
+	            case "ar_tracking_limited":
+	                msgText += "Spatial Tracking <em>Functionality is Limited<em>"
+	            break;
+	    
+	            case "ar_tracking_limited_initializing":
+	                msgText += "Spatial Tracking <em>Initializing</em>"
+	            break;
+	        
+	            case "ar_tracking_limited_excessive_motion":
+	                msgText += "Spatial Tracking <em>Too Much Motion</em>"
+	            break;
+	            
+	            case "ar_tracking_limited_insufficient_features":
+	                msgText += "Spatial Tracking <em>Too Much Motion</em>"
+	            break;
+	            
+	            case "ar_tracking_not_available":
+	                msgText += "Spatial Tracking <b>Unavailable</b>"        
+	            break;
+
+	            case "ar_tracking_relocalizing":
+	                msgText += "Spatial Tracking <b>Relocalizing</b><br>If relocalization does not succeed,<br>reset tracking system from menu"        
+	            break;
+	        }
+	        this.log(msgText)
+	     })
+
+     	let periodic = function() {
+		    // possible values:
+		    // #define WEB_AR_WORLDMAPPING_NOT_AVAILABLE   @"ar_worldmapping_not_available"
+		    // #define WEB_AR_WORLDMAPPING_LIMITED         @"ar_worldmapping_limited"
+		    // #define WEB_AR_WORLDMAPPING_EXTENDING       @"ar_worldmapping_extending"
+		    // #define WEB_AR_WORLDMAPPING_MAPPED          @"ar_worldmapping_mapped"
+		    var moreText = ""
+		    switch (session.getWorldMappingStatus()) {
+		        case "ar_worldmapping_not_available":
+		        moreText += "<b>World Map Not Ready</b>, look around the room"
+		        break;
+
+		        case "ar_worldmapping_limited":
+		        moreText += "<em>World Map of Limited Quality</em>, look around the room"
+		        break;
+
+		        case "ar_worldmapping_extending":
+		        moreText += "<em>World Map Ready</em>, extending..."
+		        break;
+
+		        case "ar_worldmapping_mapped":
+		        moreText += "<em>World Map Ready</em>"
+		        break;
+		    }
+		    if(moreText != this.previousMoreText) {
+		    	this.previousMoreText = moreText
+		    	this.log(moreText)
+		    }
+		}
+
+		setInterval(periodic,1000)
+	}
 }
 

@@ -80,7 +80,7 @@ io.on('connection', (socket) => {
     let results = entity.save(msg)
     // debug
     let latitude = msg.gps ? msg.gps.latitude : 0
-    let longitude = msg.gps ? msg.gp.longitude : 0
+    let longitude = msg.gps ? msg.gps.longitude : 0
     console.log("Server port " + srcid + " received entity=" + msg.uuid + " kind=" + msg.kind + " at lat="+latitude+" lon="+longitude )
     // publish to all nearby - let's not reecho to self 
     let ids = Object.keys(io.sockets.sockets)
