@@ -103,7 +103,7 @@ export class EntityManager {
 
 		if(!this.debugging_setup) {
 			this.debugging_setup = 1
-			this.debugging(this.session)
+			this.debugging(session)
 		}
 	}
 
@@ -571,7 +571,7 @@ export class EntityManager {
 	        this.log(msgText)
 	     })
 
-     	let periodic = function() {
+     	let periodic = () => {
 		    // possible values:
 		    // #define WEB_AR_WORLDMAPPING_NOT_AVAILABLE   @"ar_worldmapping_not_available"
 		    // #define WEB_AR_WORLDMAPPING_LIMITED         @"ar_worldmapping_limited"
