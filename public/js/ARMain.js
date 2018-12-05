@@ -724,11 +724,7 @@ class ARControls {
 	}
 
 	_stretch_start(touches) {
-		if(touches.length<2) return
-		var dx = touches[ 0 ].pageX - touches[ 1 ].pageX
-		var dy = touches[ 0 ].pageY - touches[ 1 ].pageY
-		this.scale_distance_start = Math.sqrt( dx * dx + dy * dy )
-		console.log("stretch scale is " + this.scale_distance_start)
+		this.scale_latch = 0
 	}
 
 	_stretch_update(touches) {
@@ -736,12 +732,17 @@ class ARControls {
 		if(touches.length<2) return
 		var dx = touches[ 0 ].pageX - touches[ 1 ].pageX
 		var dy = touches[ 0 ].pageY - touches[ 1 ].pageY
+		if(this.scale_latch == 0) {
+			this.scale_latch = 1
+			this.scale_distance_start = Math.sqrt( dx * dx + dy * dy )
+			console.log("stretch scale is " + this.scale_distance_start)
+		}
 		let scale_distance = Math.sqrt( dx * dx + dy * dy )
 		let scale = this.scale_distance_start > 0 ? scale_distance / this.scale_distance_start : 1
 		if(scale < 0.1) scale = 0.1
 		if(scale > 10) scale = 10
-		console.log("scaling is " + scale)
-		this.entity.scale = new Vector3( this.scale.x * scale, this.scale.y * scale, this.scale.z * scale )
+		let s = this.entity.scale = new THREE.Vector3( this.scale.x * scale, this.scale.y * scale, this.scale.z * scale )
+		this.node.scale.set(s.x,s.y,s.z)
 	}
 
 	_drag_start(entity) {
