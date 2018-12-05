@@ -392,6 +392,7 @@ class AugmentedView extends XRExampleBaseModified {
 		let directionalLight = new THREE.DirectionalLight('#FFF', 0.6)
 		directionalLight.position.set(0, 0, 0)
 
+		// TODO this is not working the way I want
 		this.camera.add(directionalLight)
 
 		// attach something to 0,0,0 - TODO this breaks picker
@@ -743,7 +744,7 @@ class ARControls {
 		if(scale > 10) scale = 10
 		let s = this.entity.scale = new THREE.Vector3( this.scale.x * scale, this.scale.y * scale, this.scale.z * scale )
 		this.node.scale.set(s.x,s.y,s.z)
-	}
+	} 
 
 	_drag_start(entity) {
 
@@ -829,10 +830,10 @@ export class ARMain extends HTMLElement {
 		filter: invert(0) hue-rotate(90deg) drop-shadow(16px 16px 10px rgba(0,0,0,0.9));
 		}
 		</style>
-		<button style="position:absolute;right:10;top:110" class=uxbutton><img alt="make" src="assets/flatsplatterred.png" onClick="window.push('editor')"></img></button>
-		<button style="position:absolute;right:10;top:190" class=uxbutton><img alt="maps" src="assets/flatglobered.png" onClick="window.push('maps')"></img></button>
-		<button style="position:absolute;right:10;top:270" class=uxbutton><img alt="profile" src="assets/flatheadred.png" onClick="window.push('profile')"></img></button>
-		<button style="position:absolute;right:10;top:350" class=uxbutton><img alt="zones" src="assets/flatshellred.png" onClick="window.push('zones')"></img></button>
+		<button style="position:absolute;right:10;top:40" class=uxbutton><img alt="make" src="assets/flatsplatterred.png" onClick="window.push('editor')"></img></button>
+		<button style="position:absolute;right:10;top:110" class=uxbutton><img alt="maps" src="assets/flatglobered.png" onClick="window.push('maps')"></img></button>
+		<button style="position:absolute;right:10;top:200" class=uxbutton><img alt="profile" src="assets/flatheadred.png" onClick="window.push('profile')"></img></button>
+		<button style="position:absolute;right:10;top:280" class=uxbutton><img alt="zones" src="assets/flatshellred.png" onClick="window.push('zones')"></img></button>
 		`
 	}
 

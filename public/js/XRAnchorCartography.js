@@ -170,6 +170,8 @@ export class XRAnchorCartography {
 
 		if(!focus.uuid) focus.uuid = focus.anchorUID
 
+		focus.relocalized = 0
+
 		return focus
 	}
 
