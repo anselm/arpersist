@@ -87,11 +87,11 @@ export class EntityManager {
 			await this._mapLoad(session,frame,filename)
 		}
 
-		// update the player every n refreshes (if a map is loaded)
-		if(this.entityGPS && this.partyUpdateCounter) {
+		// update the player every n refreshes (if a map is loaded and player exists for real)
+		if(this.entityGPS && this.partyUpdateCounter && this.party.name.length >0) {
 	 		this.partyUpdateCounter++
 			if(this.partyUpdateCounter > 120) {
-				this.entityUpdateParty(session,frame)
+				this.entityUpdateParty(session,frame,this.party.name)
 				this.partyUpdateCounter = 1
 			}
 		}
@@ -230,10 +230,10 @@ export class EntityManager {
 	/// Create or update the player - don't publish yet
 	/// 
 
-	async entityUpdateParty(session,frame) {
+	async entityUpdateParty(session,frame,name="unknown") {
 
 		let entity = this.entityParty || {
-		       name: this.party.name || "unknown",
+		       name: name,
 		      descr: "a representation of a person",
 		       kind: "party",
 		        art: "box",
