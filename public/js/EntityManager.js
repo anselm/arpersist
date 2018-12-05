@@ -28,7 +28,7 @@ export class EntityManager {
 		this.tags = ""
 
 		// allow party to update
-		this.partyUpdateCounter = 1
+		this.partyUpdateCounter = 0
 
 		// restart entities
         return (async () => {
@@ -329,7 +329,7 @@ export class EntityManager {
 				this.entityAll(e=>{ if(e.anchorUID == event.detail.uid) entity = e })
 				if(entity) {
 					if(entity.kind == "gps") this.log("<font color=green>mapLoad: " + event.detail.uid + " *** ANCHOR GOOD</font>" )
-				} else if (event.detail.uid.startsWith("anchor")) {
+				} else { // if (event.detail.uid.startsWith("anchor")) {
 					this.err("mapLoad: " + event.detail.uid + " *** ANCHOR BAD" )
 				}
 			})

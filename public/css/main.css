@@ -59,7 +59,7 @@ h3 {
 }
 
 .debug_logging {
-    display: none;
+    display: block;
     pointer-events: auto;
     font-family: sans-serif;
     padding: 1em;
