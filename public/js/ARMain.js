@@ -526,8 +526,8 @@ class AugmentedView extends XRExampleBaseModified {
 
 			// center on self
 			let bbox = new THREE.Box3().setFromObject(gltf.scene)
-		    const scale = size / bbox.getSize().length() * 2;
-		    const offset = bbox.getCenter().multiplyScalar(scale);
+		    const scale = size / bbox.getSize(new THREE.Vector3()).length() * 2;
+		    const offset = bbox.getCenter(new THREE.Vector3()).multiplyScalar(scale);
 		    gltf.scene.scale.set(scale, scale, scale);
 		    gltf.scene.position.sub(offset);
 

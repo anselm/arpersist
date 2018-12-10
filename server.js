@@ -14,7 +14,7 @@ const fs = require('fs')
 
 const port = 3000
 
-const entity = require('./src/entity.js')
+const entityserver = require('./src/entity.js')
 
 //////////////////////////////////////////////////
 // server
@@ -38,22 +38,22 @@ app.get("/", (request, response) => {
 })
 
 app.post('/api/entity/save', (request, response) => {
-  let results = entity.save(request.body)
+  let results = entityserver.save(request.body)
   response.json(results)
 })
 
 app.post('/api/entity/flush', (request, response) => {
-  //let results = entity.flush(request.body)
+  //let results = entityserver.flush(request.body)
   response.json(results)
 })
 
 app.post('/api/entity/query', (request, response) => {
-  let results = entity.query(request.body)
+  let results = entityserver.query(request.body)
   response.json(results)
 })
 
 app.post('/api/map/save', upload.single('blob'), (request, response) => {
-  let results = entity.map_save(request.file.path,request.body)
+  let results = entityserver.map_save(request.file.path,request.body)
   response.json(results)
 })
 
@@ -69,7 +69,7 @@ io.on('connection', (socket) => {
 
   // Sockets will tell server where they are at some point
   socket.on('location', (location) => {
-    entity.socket_remember(socket.id,location)
+    entityserver.socket_remember(socket.id,location)
   })
 
   // Sockets also tell server about publishing events
@@ -77,7 +77,7 @@ io.on('connection', (socket) => {
     let srcid = socket.id
     // save
     msg.socket_id = srcid
-    let results = entity.save(msg)
+    let results = entityserver.save(msg)
     // debug
     let latitude = msg.gps ? msg.gps.latitude : 0
     let longitude = msg.gps ? msg.gps.longitude : 0
@@ -88,7 +88,7 @@ io.on('connection', (socket) => {
       let id = ids[i]
       if(srcid == id) continue
       let target = io.sockets.sockets[id]
-      if(!entity.socket_nearby(srcid,id) ) {
+      if(!entityserver.socket_nearby(srcid,id) ) {
         console.log("not sending msg to geographically distant socket " + id + " " + msg.uuid)
         continue
       }
@@ -100,7 +100,7 @@ io.on('connection', (socket) => {
     // TODO periodically flush boring things that are attached to dead sockets - such as ghosts of participants past
     // TODO also flush participants on a dead socket now
     console.log("Socket disconnect " + socket.id)
-    entity.socket_forget(socket.id)
+    entityserver.socket_forget(socket.id)
   })
 
 

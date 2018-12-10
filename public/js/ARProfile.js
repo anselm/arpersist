@@ -33,8 +33,7 @@ export class ARProfile extends HTMLElement {
 			window.push("login")
 			return
 		}
-		console.log("setting user name to " + this.entity_manager.party.name)
-		this.children[0].elements[0].value = this.entity_manager.party ? this.entity_manager.party.name : "no name"
+		this.children[0].elements[0].value = this.entity_manager.party ? this.entity_manager.party.name : "not logged in yet"
 	}
 
 }

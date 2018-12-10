@@ -15,12 +15,11 @@ import {ARMap} from '/js/ARMap.js'
 HTMLElement.prototype.action  = UXPage.action
 HTMLElement.prototype.log  = UXPage.log
 HTMLElement.prototype.err  = UXPage.err
+HTMLElement.prototype.push = UXPage.push
 HTMLElement.prototype.pop = UXPage.pop
 window.ux = new UXPage()
 window.push = UXPage.push
 window.pop = UXPage.pop
-
-customElements.define('ux-log', UXLog)
 
 export async function main() {
 

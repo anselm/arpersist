@@ -12,13 +12,15 @@ import {XRAnchorCartography} from './XRAnchorCartography.js'
 
 export class EntityManager {
 
+	// https://stackoverflow.com/questions/105034/create-guid-uuid-in-javascript
+	// each client locally generates guids - which are likely to be non-collidant; at some point I could implement a server side check TODO
+	generateUUID() {
+	  return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+	    (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+	  )
+	}
+
 	constructor(log=0,err=0) {
-
-		// zone concept - TODO this may go away or be improved
-		this.zone = "ZZZ"
-
-		// party - this may be improved - used to distinguish players right now but is not non-collidant
-		this.party = { name:"" }
 
 		// debug output
 		this.log = log || console.log
@@ -27,24 +29,46 @@ export class EntityManager {
 		// tags - default props per entity
 		this.tags = ""
 
-		// allow party to update
-		this.partyUpdateCounter = 0
+		// globals
+		this.entityParty = 0
+		this.entityGPS = 0
+		this.entitySelected = 0
+
+		// entities
+		this.entities = {}
 
 		// restart entities
         return (async () => {
 			await this.entityNetworkRestart()
-			// also will just try make a gps anchor if one doesn't show up in a while
-			//this.forceGPS(2000)
             return this;
         })();
 
     }
 
-	entityAll(callback) {
-		for(let uuid in this.entities) {
-			callback(this.entities[uuid])
-		}
+	///
+	/// query remote (and adds to local)
+	///
+
+	async entityQueryRemote(query={}) {
+		let response = await fetch("/api/entity/query", {
+			method: 'POST',
+		    headers: {
+		      'Accept': 'application/json',
+		      'Content-Type': 'application/json'
+		    },
+    		body: JSON.stringify(query)
+		})
+		let json = await response.json()
+		let results = []
+		this.entityAll((entity)=>{
+			this.entities[entity.uuid] = entity
+			results.push(entity)
+		})
 	}
+
+	///
+	/// query locally
+	///
 
 	entityQuery(args={}) {
 		// local query only - not network
@@ -57,64 +81,70 @@ export class EntityManager {
 		return results
 	}
 
-	async entityUpdateAll(session,frame) {
+    ///
+    /// convenience helper to iterate entities
+    ///
 
-		this._session = session
-		this._frame = frame
-
-		// add a gps anchor?
-		if(this.pleaseAddGPS) {
-			this.pleaseAddGPS = 0
-			await this._entityAddGPS(session,frame)
-		}
-
-		// add an art?
-		if(this.pleaseAddArt) {
-			this.pleaseAddArt = 0
-			await this._entityAddArt(session,frame)
-		}
-
-		// save?
-		if(this.pleaseSaveMap) {
-			this.pleaseSaveMap = 0
-			await this._mapSave(session,frame)
-		}
-
-		// load?
-		if(this.pleaseLoadMap) {
-			let filename = this.pleaseLoadMap
-			this.pleaseLoadMap = 0
-			await this._mapLoad(session,frame,filename)
-		}
-
-		// update the player every n refreshes (if a map is loaded and player exists for real)
-		if(this.entityGPS && this.partyUpdateCounter && this.party.name.length >0) {
-	 		this.partyUpdateCounter++
-			if(this.partyUpdateCounter > 120) {
-				this.entityUpdateParty(session,frame,this.party.name)
-				this.partyUpdateCounter = 1
-			}
-		}
-
-		// update all entities
-		this.entityAll((entity)=>{
-			this._entityUpdateOne(session,frame,entity)
-		})
-
-		if(!this.debugging_setup) {
-			this.debugging_setup = 1
-			this.debugging(session)
+	entityAll(callback) {
+		for(let uuid in this.entities) {
+			callback(this.entities[uuid])
 		}
 	}
 
-	_entityUpdateOne(session,frame,entity) {
 
-		// keep looking for a gps anchor (either made locally or arriving from a network map load) to become defacto gps anchor
+	///
+	/// update all - and then calls itself
+	///
+
+	async entityUpdateAll(session,frame) {
+
+		if(this.still_busy) {
+			this.still_busy++
+			return
+		}
+		this.still_busy = 1
+
+		try {
+			// save arkit map?
+			if(this.pleaseSaveMap) {
+				this.pleaseSaveMap = 0
+				await this._mapSave(session,frame)
+			}
+
+			// load arkit map?
+			if(this.pleaseLoadMap) {
+				let filename = this.pleaseLoadMap
+				this.pleaseLoadMap = 0
+				await this._mapLoad(session,frame,filename)
+			}
+
+			// update all entities
+			this.entityAll((entity)=>{
+				await this._entityUpdateOne(session,frame,entity)
+			})
+
+			if(!this.debugging_setup) {
+				this.debugging_setup = 1
+				this.debugging(session)
+			}
+		} catch(e) {
+			this.err(e)
+		}
+
+		this.still_busy = 0
+	}
+
+	async _entityUpdateOne(session,frame,entity) {
+
+		// do not update unless either is a gps anchor or gps anchor exists
 		if(!this.entityGPS && entity.kind != "gps") {
 			return
 		}
 
+		// debugging
 		let relocalized_before = entity.relocalized
+
+// TODO - if this entity is the local party then go ahead and remake their anchor
 
 		// relocalize all entities
 		XRAnchorCartography.relocalize(frame,entity,this.entityGPS)
@@ -125,7 +155,7 @@ export class EntityManager {
 			this.entityGPS = entity
 		}
 
-		// debug
+		// debug - report on when things get relocalized except for the party because they move often - maybe a timer would be better TODO
 		if(!relocalized_before && entity.relocalized && entity.kind != "party" ) {
 			this.log(entity.uuid + " relocalized kind="+entity.kind+" pub="+entity.published)
 		}
@@ -148,40 +178,27 @@ export class EntityManager {
 
 	///
 	/// Make a gps entity
-	/// * at the moment multiple of these are allowed
-	/// * note that this.entityGPS is not set here - this system is a lazy loader and these things can arrive over network
+	/// * note that this.entityGPS is not set here - this system is a lazy loader (and these things can arrive over network also)
 	///
 
 	entityAddGPS() {
-		this.pleaseAddGPS = 1	
-	}
-
-	async _entityAddGPS(session,frame) {
-
 		let entity = {
-		       name: "a gps anchor!",
-		      descr: "such gps anchor!",
+			   uuid: this.generateUUID(),
+		       name: "an area map",
+		      descr: "an area map",
 		       kind: "gps",
 		        art: "cylinder",
-		       zone: this.zone,
 		       tags: this.tags,
-		      party: this.party,
+		      party: this.entityParty ? this.entityParty.party : 0,
 		  cartesian: 0,
 		 quaternion: 0,
 		      scale: 0,
 		        xyz: 0,
 		        gps: 0,
 		relocalized: 0,
-		  published: 1  // don't publish gps anchors until an associated map is saved to a server
+		  published: 1,  // don't publish gps anchors until an associated map is saved to a server
+		    _attach: "gps"   // internal command to attach to world
 		}
-
-		let results = await XRAnchorCartography.attach(frame,entity,true,false)
-
-		if(!results) {
-			this.err("entityAddGPS: could not make gps anchor!")
-			return 0
-		}
-
 		this.entities[entity.uuid] = entity
 		this.entitySetSelected(entity)
 		return entity
@@ -193,81 +210,52 @@ export class EntityManager {
 	///
 
 	entityAddArt() {
-		this.pleaseAddArt = 1	
-	}
-
-	async _entityAddArt(session=0,frame=0) {
-
-		if(!session) session = this._session
-		if(!frame) frame = this._frame
-		if(!session || !frame) return
-
 		let	entity = {
+			   uuid: this.generateUUID(),
 		       name: "art!",
 		      descr: "user art!",
 		       kind: "content",
 		        art: "box",
-		       zone: this.zone,
 		       tags: this.tags,
-		      party: this.party,
+		      party: this.entityParty ? this.entityParty.party : 0,
 		  cartesian: 0,
 		 quaternion: 0,
 		      scale: 0,
 		        xyz: 0,
 		        gps: 0,
 		relocalized: 0,
-		  published: 0
+		  published: 0,
+		    _attach: "project"
 		}
-
-		let results = await XRAnchorCartography.attach(frame,entity,false,true)
-
-		if(!results) {
-			this.err("entityAddArt: anchor failed")
-			return 0
-		}
-
 		this.entities[entity.uuid] = entity
 		this.entitySetSelected(entity)
 		return entity
 	}
 
 	///
-	/// Create or update the player - don't publish yet
+	/// Create player
 	/// 
 
-	async entityUpdateParty(session,frame,name="unknown") {
-
-		let entity = this.entityParty || {
-		       name: name,
+	entityAddParty(newname="") {
+		let entity = {
+			   uuid: this.generateUUID(),
+		       name: newname,
 		      descr: "a representation of a person",
 		       kind: "party",
 		        art: "box",
-		       zone: this.zone,
 		       tags: this.tags,
-		      party: this.party,
+		      party: newname,
 		  cartesian: 0,
 		 quaternion: 0,
 		      scale: 0,
 		        xyz: 0,
 		        gps: 0,
 		relocalized: 0,
-		  published: 0
+		  published: 0,
+		    _attach: "eye"
 		}
-
-		let results = await XRAnchorCartography.attach(frame,entity,false,false)
-
-		if(!results) {
-			this.err("entityAddParty: fail?")
-			return 0
-		}
-
-		// force republish when changed
-		entity.published = 0
-
-		// set as the party
-		this.entityParty = entity
-
 		this.entities[entity.uuid] = entity
+		this.entitySetSelected(entity)
 		return entity
 	}
 
@@ -278,12 +266,18 @@ export class EntityManager {
 
 	async _mapSave(session,frame) {
 
-		// this is a helper - if there is no gps anchor at all then make one (prior to fetching map)
+		// this is an optional helper - if there is no gps anchor at all then make one (prior to fetching map)
 		let entity = this.entityGPS
 		if(!entity) {
-			entity = this.entityGPS = await this._entityAddGPS(session,frame)
-			XRAnchorCartography.relocalize(frame,this.entityGPS,0)
-			entity.published = 0
+			entity = this.entityAddGPS()
+			await XRAnchorCartography.relocalize(frame,entity,0)
+			if(entity.relocalized) {
+				this.entityGPS = entity
+			}
+		}
+		if(!this.entityGPS) {
+			this.err("mapSave: failed to relocalize")
+			return 0
 		}
 
 		this.log("entity mapSave: UX saving map")
@@ -329,9 +323,6 @@ export class EntityManager {
 		// let's just reset everything and reload the network - probably overkill but i want to clear any gps anchors
 		await this.entityNetworkRestart()
 
-		// and start a timer to make a fresh gps - but give it a sizeable delay for the map one first to succeed
-		//this.forceGPS(10000)
-
 		// fetch map itself - which will eventually resolve the anchor loaded above
 		let response = await fetch("uploads/"+filename)
 		let data = await response.text()
@@ -346,33 +337,21 @@ export class EntityManager {
 	// network
 	//////////////////////////////////////////////////////////////////////////////////
 
-    forceGPS(delay) {
-    	// keep retrying to get an anchor - useful on startup and after a map load
-    	if(this.interval) return
-    	this.interval = setInterval(() => {
-    		if(!this.entityGPS) {
-		        this.pleaseAddGPS = 1
-		    } else {
-		    	clearInterval(this.interval)
-		    	this.interval = 0
-		    }
-	    },delay)
-	}
-
 	async entityNetworkRestart() {
 
 		// get a gps location hopefully
 		this.gps = await XRAnchorCartography.gps()
 		this.log("GPS is lat=" + this.gps.latitude + " lon=" + this.gps.longitude + " alt=" + this.gps.altitude )
 
-		// local flush - not network
+		// local flush 
 		this.entities = {}
 
 		// unset anything selected
 		this.entitySetSelected(0)
 
-		// wipe the gps one also
+		// wipe other odds and ends
 		this.entityGPS = 0
+		this.entityParty = 0
 
 		// open connection if none
 		if(!this.socket) {
@@ -381,11 +360,11 @@ export class EntityManager {
 			this.socket.emit('location',this.gps)
 		}
 
-		// periodically send location
+		// periodically send location - TODO need to update gps itself!
 		if(!this.gpsInterval) {
 			this.gpsInterval = setInterval(()=>{
 				if(this.socket) {
-					this.socket.emit('location',this.party && this.party.gps ? this.party.gps : this.gps )
+					this.socket.emit('location',this.gps )
 				}
 			},1000)
 		}
@@ -497,7 +476,6 @@ export class EntityManager {
 			      descr: entity.descr,
 			       kind: entity.kind,
 			        art: entity.art,
-			       zone: entity.zone,
 			       tags: entity.tags,
 			      party: entity.party,
 			  cartesian: entity.cartesian || 0,

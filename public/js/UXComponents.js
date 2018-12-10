@@ -212,3 +212,6 @@ export class UXLog extends HTMLElement {
   }
 }
 
+customElements.define('ux-log', UXLog)
+
+

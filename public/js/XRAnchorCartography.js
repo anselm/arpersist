@@ -98,7 +98,7 @@ export class XRAnchorCartography {
 	/// As well, this engine introduces another concept on top of that of a gpsAnchor which associates an arkit anchor with a gps.
 	///
 
-	static async attach(frame,focus,get_location,get_raytest,screenx=0.5,screeny=0.5) {
+	static async _attach(frame,focus,get_location,get_raytest,screenx=0.5,screeny=0.5) {
 
 		// get a gps reading?
 
@@ -176,6 +176,28 @@ export class XRAnchorCartography {
 	}
 
 	static relocalize(frame,focus,parent) {
+
+		// attempt to get gps and or anchor at the eye or at a projection of the eye
+
+		switch(focus._attach) {
+			case "gps":
+				if(await XRAnchorCartography.attach(frame,focus,true,false)) {
+					focus._attach = 0
+				}
+				break
+			case "project":
+				if(await XRAnchorCartography.attach(frame,focus,false,true)) {
+					focus._attach = 0
+				} else if (await XRAnchorCartography.attach(frame,focus,false,false)) {
+					focus._attach = 0
+				}
+				break
+			case "eye":
+				if(await XRAnchorCartography.attach(frame,focus,false,false)) {
+					focus._attach = 0					
+				}
+				break
+		}
 
 		// try recover local anchor
 

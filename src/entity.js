@@ -1,13 +1,33 @@
 const fs = require('fs')
 
-
-//const DBWrapper = require('./dbwrapper.js')
-
 ///
-/// Entity - server side management
+/// haversine - https://stackoverflow.com/questions/27928/calculate-distance-between-two-latitude-longitude-points-haversine-formula
 ///
 
-class Entity {
+function getDistanceFromLatLonInKm(lat1,lon1,lat2,lon2) {
+
+  function deg2rad(deg) {
+    return deg * (Math.PI/180)
+  }
+
+  var R = 6371; // Radius of the earth in km
+  var dLat = deg2rad(lat2-lat1);  // deg2rad below
+  var dLon = deg2rad(lon2-lon1); 
+  var a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2)
+    ; 
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+  var d = R * c; // Distance in km
+  return d;
+}
+
+///
+/// EntityServer - server side management
+///
+
+class EntityServer {
 
   constructor(db,tablename="entity") {
     this.entities = {}
@@ -15,50 +35,17 @@ class Entity {
     this.debugging = {}
   }
 
-  init() {
-/*
-
-    this.db = new DBWrapper()
-
-    this.table = tablename
-    this.schema = [
-      "zone TEXT",          // all things are of some layer for noise reduction
-      "kind TEXT",          // all things are of some kind (party,art,...)
-      "name TEXT",          // all things have a title or name
-      "link TEXT",          // some things may link to other assets
-      "art TEXT",           // some things may have an iconic representation
-      "descr TEXT",         // some things may have a description
-      "party TEXT",         // some things may be sponsored by a party
-      "zone TEXT",          // some things may have a zone
-      "tags TEXT",          // some things may have tags
-      "parent INT",         // some things may have a parent node 
-      "priority INT",       // some things may be visible from far away
-      "public INT",         // some things may be private, protected, public
-      "permissions INT",    // some things may be not publically editable
-      "x DOUBLE",           // most things have cartesian coordinates
-      "y DOUBLE",
-      "z DOUBLE",
-      "rx DOUBLE",          // many things have an orientation absolutely
-      "ry DOUBLE",
-      "rz DOUBLE",
-      "radius DOUBLE",      // many things have a radius
-      "xmin DOUBLE",        // many things have a radius
-      "xmax DOUBLE",        // many things have a radius
-      "ymin DOUBLE",        // many things have a radius
-      "ymax DOUBLE",        // many things have a radius
-      "zmin DOUBLE",        // many things have a radius
-      "zmax DOUBLE",        // many things have a radius
-      "created_at TIMESTAMP NOT NULL DEFAULT NOW() ON UPDATE NOW()",
-      "updated_at TIMESTAMP NOT NULL",
-    ]
-    return (async () => {
-      await this.db.table(this.table,this.schema)
-      return this
-    })()
-*/
+  sanitize(entity) {
+    // makes sure entities have key properties
+    if(!entity.quaternion) entity.quaternion = { w:0, x:0, y:0, z:0 }
+    if(!entity.scale) entity.scale = { x:0, y:0, z:0 }
+    if(!entity.xyz) entity.xyz = { x:0, y:0, z:0 }
+    if(!entity.gps) entity.gps = { latitude:0, longitude:0, altitude:0 }
+    if(!entity.cartesian) entity.cartesian = { x:0, y:0, z:0 }
   }
 
   save(entity) {
+    this.sanitize(entity)
     let previous = this.entities[entity.uuid]
     this.entities[entity.uuid] = entity
     if(!previous) entity.createdAt = Date.now()
@@ -67,25 +54,28 @@ class Entity {
   }
 
   flush(blob) {
-    // TODO
+    // TODO tbd
     return {error:"TBD"}
   }
 
   query(query) {
     let results = {}
-    if(this.entities && query.gps) {
-      let keys = Object.keys(this.entities)
-      for(let i = 0; i < keys.length;i++) {
-        let key = keys[i]
-        let entity = this.entities[key]
-        if(!entity || !entity.gps) continue
-        let dist = this.getDistanceFromLatLonInKm(query.gps.latitude,query.gps.longitude,entity.gps.latitude,entity.gps.longitude)
-        if(dist > 1) {
-          console.log("server decided this was too far to return " + key )
-        } else {
-          console.log("server side entity query: query has decided this entity is close enough to return " + key)
+    for(let uuid in this.entities) {
+      let entity = this.entities[uuid]
+      for(let key in query) {
+        let value = query[key]
+        if(key == "gps" && value && entity.gps) {
+          let dist = getDistanceFromLatLonInKm(value.latitude, value.longitude, entity.gps.latitude, entity.gps.longitude)
+          if(dist > 1) {
+            console.log("server decided this was too far to return " + key )
+            continue
+          } else {
+            console.log("server side entity query: query has decided this entity is close enough to return " + key)
+          }
+        } else if(entity[key]!=value) { // case sensitive? should consider numerics? TODO?
+          continue
         }
-          // I need to use the cesium libraries here to get to gps or i need to use cartesian coordinates or something... debate
+        // TODO remove password/pass from results - maybe have _results that are ignored
         results[key] = entity
       }
     }
@@ -96,26 +86,6 @@ class Entity {
     let target = "public/uploads/"+args.anchorUID
     fs.renameSync(filepath, target)
     return({status:"thanks"})
-  }
-
-
-  getDistanceFromLatLonInKm(lat1,lon1,lat2,lon2) { // haversine - https://stackoverflow.com/questions/27928/calculate-distance-between-two-latitude-longitude-points-haversine-formula
-
-    function deg2rad(deg) {
-      return deg * (Math.PI/180)
-    }
-
-    var R = 6371; // Radius of the earth in km
-    var dLat = deg2rad(lat2-lat1);  // deg2rad below
-    var dLon = deg2rad(lon2-lon1); 
-    var a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2)
-      ; 
-    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-    var d = R * c; // Distance in km
-    return d;
   }
 
   socket_remember(id,location) {
@@ -132,12 +102,29 @@ class Entity {
     let la = this.socket_locations[a]
     let lb = this.socket_locations[b]
     if(!la || !lb) return false
-    let ld = this.getDistanceFromLatLonInKm(la.latitude,la.longitude,lb.latitude,lb.longitude)
+    let ld = getDistanceFromLatLonInKm(la.latitude,la.longitude,lb.latitude,lb.longitude)
     if(ld < 1.00) return true
     return false
   }
 }
 
-const instance = new Entity()
+const instance = new EntityServer()
 Object.freeze(instance)
 module.exports = instance
+
+//////////////////////////////////////////////////
+// hardcoded users
+//////////////////////////////////////////////////
+
+instance.save({
+  uuid: "anselm12341234",
+  name: "anselm",
+  _pass: "secret", // TODO hash this
+  admin: 10,
+  descr: "admin",
+  kind: "party",
+  tags: "",
+  party: "anselm",
+})
+
+
