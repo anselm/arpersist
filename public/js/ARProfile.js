@@ -29,11 +29,11 @@ export class ARProfile extends HTMLElement {
 	}
 
 	onshow() {
-		if(this.entity_manager.party.name.length < 1) {
+		if(!this.entity_manager.party || this.entity_manager.party.name.length < 1) {
 			window.push("login")
 			return
 		}
-		this.children[0].elements[0].value = this.entity_manager.party ? this.entity_manager.party.name : "not logged in yet"
+		this.children[0].elements[0].value = this.entity_manager.party.name
 	}
 
 }

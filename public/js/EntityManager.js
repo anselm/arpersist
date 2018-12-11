@@ -8,6 +8,8 @@ import {XRAnchorCartography} from './XRAnchorCartography.js'
 ///
 /// Manages a concept of 'entities' which are networkable collections of art and gps locations
 ///
+/// TODO later have an Entity class that owns its own methods ... I want an ECS pattern for that
+///
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export class EntityManager {
@@ -33,6 +35,7 @@ export class EntityManager {
 		this.entityParty = 0
 		this.entityGPS = 0
 		this.entitySelected = 0
+		this.entityPartyUpdateCounter = 0
 
 		// entities
 		this.entities = {}
@@ -96,76 +99,144 @@ export class EntityManager {
 	/// update all - and then calls itself
 	///
 
-	async entityUpdateAll(session,frame) {
+	entityUpdateAll(session,frame) {
 
-		if(this.still_busy) {
-			this.still_busy++
-			return
+		// tack on some debugging event observers if none yet to report on arkit status
+		if(!this.debugging_setup) {
+			this.debugging_setup = 1
+			this.debugging(session)
 		}
-		this.still_busy = 1
 
-		try {
-			// save arkit map?
-			if(this.pleaseSaveMap) {
+		// Save map?
+		if(this.pleaseSaveMap == 1) {
+			// block duplicate invocations
+			this.pleaseSaveMap = 2
+			try {
+				this._mapSave(session,frame).then(results => {
+					this.pleaseSaveMap = 0
+					this.log("map save done with status " + results)
+				})
+			} catch(e) {
 				this.pleaseSaveMap = 0
-				await this._mapSave(session,frame)
+				this.err(e)
 			}
-
-			// load arkit map?
-			if(this.pleaseLoadMap) {
-				let filename = this.pleaseLoadMap
-				this.pleaseLoadMap = 0
-				await this._mapLoad(session,frame,filename)
-			}
-
-			// update all entities
-			this.entityAll((entity)=>{
-				await this._entityUpdateOne(session,frame,entity)
-			})
-
-			if(!this.debugging_setup) {
-				this.debugging_setup = 1
-				this.debugging(session)
-			}
-		} catch(e) {
-			this.err(e)
 		}
 
-		this.still_busy = 0
+		// Load map?
+		if(this.pleaseLoadMap && this.pleaseLoadMap != "loading") {
+			let filename = this.pleaseLoadMap
+			// block duplicate invocations
+			this.pleaseLoadMap = "loading"
+			try {
+				this._mapLoad(session,frame,filename).then(results => {
+					this.pleaseLoadMap = 0
+					this.log("map loading done with status " + results)
+				})
+			} catch(e) {
+				this.pleaseLoadMap = 0
+				this.err(e)
+			}
+		}
+
+		// periodically update entity party
+		// TODO - if entity party then keep updating the party anchor!! and keep republishing
+		if(this.entityPartyUpdateCounter && this.entityParty) {
+			this.entityPartyUpdateCounter++
+			if(this.entityPartyUpdateCounter > 60) {
+				this.entityPartyUpdateCounter = 1
+				if(this.entityParty._attach != "busy") {
+					this.entityParty._attach = "eye"
+					this.entityParty.published = 0
+				}
+			}
+		}
+
+		// update all entities synchronously
+		this.entityAll((entity)=>{
+			this._entityUpdateOne(session,frame,entity)
+		})
+
 	}
 
 	async _entityUpdateOne(session,frame,entity) {
 
-		// do not update unless either is a gps anchor or gps anchor exists
+		// do not update anything else - unless either is a gps anchor or gps anchor exists already
+
 		if(!this.entityGPS && entity.kind != "gps") {
 			return
 		}
 
 		// debugging
+
 		let relocalized_before = entity.relocalized
 
-// TODO - if this entity is the local party then go ahead and remake their anchor
+		// newly locally created entities specify how they would like to be anchored - here I avoid awaiting asynchronous events
+		// will set relocalized to 0
 
-		// relocalize all entities
+		switch(focus._attach) {
+			case "gps":
+				focus._attach = "busy"
+				XRAnchorCartography.attach(frame,focus,true,false).then(results => {
+					if(results) {
+						results._attach = 0
+					}
+				})
+				break
+			case "project":
+				focus._attach = "busy"
+				// try shoot a ray intersection
+				XRAnchorCartography.attach(frame,focus,false,true).then(results => {
+					if(results) {
+						results._attach = 0
+					} else {
+						// try as a fallback just attaching to the camera - this should never fail
+						XRAnchorCartography.attach(frame,focus,false,false).then(results => {
+							if(results) {
+								results._attach = 0
+							}
+						})
+					}
+				})
+				break
+			case "eye":
+				focus._attach = "busy"
+				XRAnchorCartography.attach(frame,focus,false,false).then(results => {
+					if(results) {
+						results._attach = 0
+					}
+				})
+			case "busy":
+				break
+			default:
+				break
+		}
+
+		// mark and sweep - try relocalize any entity I can based on whatever data I can scavenge from it
+		// will set relocalized to 1 - but will not set published state 
+
 		XRAnchorCartography.relocalize(frame,entity,this.entityGPS)
 
-		// set gps anchor if at all possible
+		// set shared gps anchor if at all possible - this is used to anchor the entire scene and all other entities
+
 		if(!this.entityGPS && entity && entity.kind == "gps" && entity.relocalized) {
 			this.log("*** entityGPS found " + entity.uuid)
 			this.entityGPS = entity
 		}
 
-		// debug - report on when things get relocalized except for the party because they move often - maybe a timer would be better TODO
+		// debug - report on when things get relocalized once - except for the party because they move often - maybe a timer would be better? TODO
+
 		if(!relocalized_before && entity.relocalized && entity.kind != "party" ) {
 			this.log(entity.uuid + " relocalized kind="+entity.kind+" pub="+entity.published)
 		}
 
-		// until a gps anchor shows up do not network
+		// until a gps anchor shows up do not network anything ever
+
 		if(!this.entityGPS) {
 			return
 		}
 
-		// publish?
+		// publish anything once that is not published yet
+
 		if(!entity.published && entity.relocalized) {
 			this._entityPublish(entity)
 			entity.published = 1
@@ -260,22 +331,31 @@ export class EntityManager {
 	}
 
 	mapSave() {
-		this.pleaseSaveMap = 1
+		if(!this.pleaseSaveMap) this.pleaseSaveMap = 1
 		return
 	}
 
 	async _mapSave(session,frame) {
 
-		// this is an optional helper - if there is no gps anchor at all then make one (prior to fetching map)
+		// a slight hack/helper: force create a gps anchor right now if none yet - this reduces the hassle of having to make an anchor earlier
 		let entity = this.entityGPS
 		if(!entity) {
+			// produce the shallow object
 			entity = this.entityAddGPS()
-			await XRAnchorCartography.relocalize(frame,entity,0)
-			if(entity.relocalized) {
-				this.entityGPS = entity
+			entity = await XRAnchorCartography.attach(frame,entity,true,false)
+			if(entity) {
+				XRAnchorCartography.relocalize(frame,entity,0)
+				if(entity.relocalized) {
+					this.entityGPS = entity
+				} else {
+					entity = 0
+				}
 			}
 		}
-		if(!this.entityGPS) {
+
+		// generally speaking there's no point in saving a map without knowing the latitude/longitude
+
+		if(!entity) {
 			this.err("mapSave: failed to relocalize")
 			return 0
 		}
@@ -305,7 +385,9 @@ export class EntityManager {
 		this.log("entity mapSave: succeeded ")
 		console.log(json)
 
-		// this engine avoids publishing gps anchors until associated with a saved map
+		// normally the entity is marked as published already to prevent it from being published...
+		// by marking it as not published the mark-and-sweep logic will re-publish it
+		// (this engine avoids publishing gps anchors until associated with a saved map)
 
 		entity.published = 0
 
@@ -371,6 +453,10 @@ export class EntityManager {
 
 		// reload or load everything (typically AFTER the network is started to avoid missing chatter) - can happen before map load - can be called over and over
 		await this._entityLoadAll(this.gps)
+
+		// also rebind to self if possible
+		await this.entityRebindToParty()
+
 	}
 
 	///
@@ -581,5 +667,65 @@ export class EntityManager {
 
 		setInterval(periodic,1000)
 	}
+
+	//////////////////////////////////////////////////////
+	// sovereign self identity
+
+	async entityRebindToParty(params={}) {
+
+		let keypair = params.keypair || 0
+		let mnemonic = params.mnemonic || 0
+		let name = params.name || 0
+		let force = params.force || 0
+
+		// if already have a party uh, it's really unclear.... log them out?
+
+		if(this.entityParty) this.entityParty = 0
+
+		// if there is a mnemonic then make keypair - this overrides any supplied keypair
+
+		if(mnemonic) {
+			keypair = sovereign.mnemonic_to_keypair(mnemonic)
+		}
+
+		// if a keypair is supplied (in some way) then save it and use it - else see if one was saved earlier
+
+		if(keypair) {
+			keypair = { privateKey: keypair.privateKey, publicKey: keypair.publicKey, compressed:keypair.compressed, name:name }
+			localstorage.setItem("sovereign_identity_keypair",keypair)
+		} else {
+			keypair = localStorage.getItem("sovereign_identity_keypair")
+		}
+
+		// bail if no keys
+
+		if(!keypair) {
+			return 0
+		}
+
+		// sign a generic statement - TODO later have server give me a nonce to sign to help prevent man in the middle attacks
+
+		let signed = sovereign.sign(keypair,"welcome to my world")
+
+		// is there an entity that matches us? TODO really the public key is not needed
+
+		let results = await this.entityQueryRemote({ kind:"party", publickey: keypair.publicKey, signed:signed, edit:true })
+
+		if(results && results.length) {
+			this.entityParty = results[0]
+			return this.entityParty
+		}
+
+		if(!force) {
+			return 0
+		}
+
+		// make one...
+
+		this.entityParty = this.entityAddParty()
+
+		return this.entityParty
+	}
+
 }
 

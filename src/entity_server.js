@@ -1,5 +1,12 @@
 const fs = require('fs')
 
+// for self sign up with client side keys
+
+const bitcoin = require('bitcoinjs-lib')
+const bitcoinMessage = require('bitcoinjs-message')
+const bip39 = require('bip39')
+const bip32 = require('bip32')
+
 ///
 /// haversine - https://stackoverflow.com/questions/27928/calculate-distance-between-two-latitude-longitude-points-haversine-formula
 ///
@@ -112,8 +119,43 @@ const instance = new EntityServer()
 Object.freeze(instance)
 module.exports = instance
 
+
+
+
+
+
+const mnemonic = bip39.generateMnemonic()
+const status = bip39.validateMnemonic(mnemonic)
+const seed = bip39.mnemonicToSeed(mnemonic)
+const node = bip32.fromSeed(seed)
+
+//const child = node.derivePath('m/0/0')
+//const child2 = node.derivePath("m/44'/0'/0'")
+//const string = node.toBase58()
+//const restored = bip32.fromBase58(string)
+
+const keyPair = bitcoin.ECPair.fromPrivateKey(node.privateKey)
+
+// const keyPair = bitcoin.ECPair.fromWIF('Kxr9tQED9H44gCmp6HAdmemAzU3n84H3dGkuWTKvE23JgHMW8gct')
+// const keyPair = bitcoin.ECPair.makeRandom({ rng: Buffer.from('zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz') })
+
+const { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey })
+
+// Test message
+var message = 'This is an example of a signed message.'
+var signature = bitcoinMessage.sign(message, keyPair.privateKey, keyPair.compressed)
+let verified = bitcoinMessage.verify(message, address, signature)
+
+// Results
+
+console.log(mnemonic)
+console.log(signature.toString('base64'))
+console.log(address)
+console.log(verified)
+
+
 //////////////////////////////////////////////////
-// hardcoded users
+// hardcoded admin users
 //////////////////////////////////////////////////
 
 instance.save({

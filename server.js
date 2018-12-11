@@ -14,7 +14,7 @@ const fs = require('fs')
 
 const port = 3000
 
-const entityserver = require('./src/entity.js')
+const entityserver = require('./src/entity_server.js')
 
 //////////////////////////////////////////////////
 // server

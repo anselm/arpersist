@@ -67,6 +67,9 @@ The client web app usage is as follows:
 	+ i wonder if there are actual behaviors that i can render on objects
 
 
+BIP39
+
+https://www.mobilefish.com/developer/nodejs/nodejs_quickguide_browserify_bip39.html
 
 
 

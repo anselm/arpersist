@@ -170,34 +170,14 @@ export class XRAnchorCartography {
 
 		if(!focus.uuid) focus.uuid = focus.anchorUID
 
+		// now has an anchor but that anchor is not actually transformed into geo-coordinates - so mark it as not relocalized
+
 		focus.relocalized = 0
 
 		return focus
 	}
 
 	static relocalize(frame,focus,parent) {
-
-		// attempt to get gps and or anchor at the eye or at a projection of the eye
-
-		switch(focus._attach) {
-			case "gps":
-				if(await XRAnchorCartography.attach(frame,focus,true,false)) {
-					focus._attach = 0
-				}
-				break
-			case "project":
-				if(await XRAnchorCartography.attach(frame,focus,false,true)) {
-					focus._attach = 0
-				} else if (await XRAnchorCartography.attach(frame,focus,false,false)) {
-					focus._attach = 0
-				}
-				break
-			case "eye":
-				if(await XRAnchorCartography.attach(frame,focus,false,false)) {
-					focus._attach = 0					
-				}
-				break
-		}
 
 		// try recover local anchor
 
