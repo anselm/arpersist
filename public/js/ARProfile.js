@@ -30,7 +30,7 @@ export class ARProfile extends HTMLElement {
 
 	onshow() {
 		if(!this.entity_manager.party || this.entity_manager.party.name.length < 1) {
-			window.push("login")
+			this.show("login")
 			return
 		}
 		this.children[0].elements[0].value = this.entity_manager.party.name

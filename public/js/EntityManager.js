@@ -583,12 +583,12 @@ export class EntityManager {
 			if(entity) {
 				if(entity.kind == "gps") this.log("<font color=green>mapLoad: " + event.detail.uid + " *** ANCHOR GOOD</font>" )
 			} else { // if (event.detail.uid.startsWith("anchor")) {
-				this.err("mapLoad: " + event.detail.uid + " *** ANCHOR BAD" )
+				this.err("event: " + event.detail.uid + " *** ANCHOR BAD" )
 			}
 		})
 
         session.addEventListener(XRSession.REMOVE_WORLD_ANCHOR, (event) => {
-        	this.log("anchor deleted " + event.detail.uid)
+        	this.log("event: anchor deleted " + event.detail.uid)
         })
 
         session.addEventListener(XRSession.TRACKING_CHANGED, (event) => {
@@ -691,10 +691,20 @@ export class EntityManager {
 		// if a keypair is supplied (in some way) then save it and use it - else see if one was saved earlier
 
 		if(keypair) {
-			keypair = { privateKey: keypair.privateKey, publicKey: keypair.publicKey, compressed:keypair.compressed, name:name }
-			localstorage.setItem("sovereign_identity_keypair",keypair)
-		} else {
-			keypair = localStorage.getItem("sovereign_identity_keypair")
+			window.localStorage.setItem("priv",keypair.privateKey)
+			window.localStorage.setItem("pub",keypair.publicKey)
+			window.localStorage.setItem("ow",keypair)
+		}
+
+let ow = window.localStorage.getItem("ow")
+console.log(ow)
+
+		// always reget from storage to test storage
+
+		let priv = window.localStorage.getItem("prixv")
+		let pub = window.localStorage.getItem("pub")
+		if(priv && pub) {
+			keypair = { privateKey: new Buffer(priv), publicKey: new Buffer(pub), compressed:true }
 		}
 
 		// bail if no keys
@@ -716,13 +726,13 @@ export class EntityManager {
 			return this.entityParty
 		}
 
-		if(!force) {
+		if(!force || !name) {
 			return 0
 		}
 
 		// make one...
 
-		this.entityParty = this.entityAddParty()
+		this.entityParty = this.entityAddParty(name)
 
 		return this.entityParty
 	}

@@ -34236,6 +34236,7 @@ module.exports = {
 
 }).call(this,require("buffer").Buffer)
 },{"bs58check":66,"buffer":145}],142:[function(require,module,exports){
+(function (Buffer){
 
 const bitcoin = require('bitcoinjs-lib')
 const bitcoinMessage = require('bitcoinjs-message')
@@ -34246,7 +34247,7 @@ function mnemonic() {
    return bip39.generateMnemonic()
 }
 
-function mnemonic_to_keypair(mnemonicstr) {
+function mnemonic_to_keypair(mnemonicstr=0) {
 
   if(!mnemonicstr) {
      mnemonicstr = bip39.generateMnemonic()
@@ -34268,14 +34269,25 @@ function mnemonic_to_keypair(mnemonicstr) {
 
   let keyPair = bitcoin.ECPair.fromPrivateKey(node.privateKey)
 
+  // must convert for publication to outside world
+  keyPair = {
+    publicKey: JSON.stringify(keyPair.publicKey),
+    privateKey: JSON.stringify(keyPair.privateKey),
+    masterKeyJSON: JSON.stringify(node.privateKey),
+    compressed: keyPair.compressed
+  }
+
   return keyPair
 }
 
-function privatekey_to_keypair(privatekey) {
-  return bitcoin.ECPair.fromPrivateKey(privatekey)
-}
-
 function sign(keyPair,message) {
+
+  let masterKey = Buffer.from(JSON.parse(keyPair.privateKey).data)
+
+  keyPair = bitcoin.ECPair.fromPrivateKey(masterKey)
+
+  //  keyPair = bitcoin.ECPair.fromPrivateKey(Buffer.from(keyPairRaw.masterKeyStr,'utf8'))
+
   const { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey })
   let signature = bitcoinMessage.sign(message, keyPair.privateKey, keyPair.compressed)
   let verified = bitcoinMessage.verify(message, address, signature)
@@ -34292,8 +34304,15 @@ module.exports = {
   mnemonic_to_keypair: mnemonic_to_keypair
 }
 
+/*
+console.log("***** testing keypair generation ****")
+let keypair = mnemonic_to_keypair()
+let sig = sign(keypair,"hello")
+console.log(JSON.stringify(sig))
+*/
 
-},{"bip32":4,"bip39":5,"bitcoinjs-lib":23,"bitcoinjs-message":61}],143:[function(require,module,exports){
+}).call(this,require("buffer").Buffer)
+},{"bip32":4,"bip39":5,"bitcoinjs-lib":23,"bitcoinjs-message":61,"buffer":145}],143:[function(require,module,exports){
 'use strict'
 
 exports.byteLength = byteLength

@@ -26,37 +26,42 @@ export class ARLogin extends HTMLElement {
   		if(_id) this.id = _id
   		if(_class) this.className = _class
   		this.entity_manager = entity_manager
+  	}
+
+  	onshow() {
 		this.innerHTML = this.content()
 	    let form = this.children[0]
 	    let input_name = form.elements[0]
 	    let input_pass = form.elements[1]
 	    input_name.placeholder = window.chance.first() + " " + window.chance.last() + " " + window.chance.animal()
 	    input_pass.placeholder = sovereign.mnemonic()
-	    form.onsubmit = async (e) => {
+	    let msg = document.getElementById("login_message")
+	    let callback = async (e) => {
 			e.preventDefault()
 			// back out
-			if(e.srcElement.id == "login_back") {
+			if(e.target.id == "login_back") {
+				console.log("popping")
 				this.pop()
 				return false
 			}
 			// valid name and pass?
 			let name = input_name.value || input_name.placeholder
-			let pass = input_pass.value
+			let pass = input_pass.value || input_pass.placeholder
 			if(!name || name.length <3 ) {
-				document.getElementById("login_message").innerHTML = "<font color=red>please enter a longer name</font>"
+				msg.innerHTML = "<font color=red>please enter a longer name</font>"
 				return false
 			}
 			if(!pass || pass.length <3 ) {
-				document.getElementById("login_message").innerHTML = "<font color=red>please enter a longer pass phrase</font>"
+				msg.innerHTML = "<font color=red>please enter a longer pass phrase</font>"
 				return false
 			}
 
 			// do not force create unless asked to
-			let force = e.srcElement.id == "login_signup"
+			let force = e.target.id == "login_signup" ? 1 : 0
 
 			// given an identity - always preferentially look for it on server
 
-			let results = this.entity_manager.entityRebindToParty({
+			let results = await this.entity_manager.entityRebindToParty({
 				name:name,
 				mnemonic:pass,
 				force:force
@@ -71,9 +76,14 @@ export class ARLogin extends HTMLElement {
 
 			// for a sign in request, if a party was not rebound, then that's an error... tell the user
 
-			document.getElementById("login_message").innerHTML = "<font color=red>hmm cannot find name/pass - try again?</font>"
+			msg.innerHTML = "<font color=red>hmm cannot find name/pass - try again?</font>"
 			return false
 	    }
+
+	    this.querySelectorAll("button").forEach(element => {
+	    	element.onclick = callback
+	    })
+
 	}
 
 }

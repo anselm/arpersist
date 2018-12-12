@@ -13,7 +13,7 @@ export class ARZones extends HTMLElement {
     // rebuild picker from scratch every time 
 
     let entities = this.entity_manager.entityQuery({kind:"gps"})
-    let admin = this.entity_manager.party.admin
+    let admin = this.entity_manager.entityParty ? this.entity_manager.entityParty.admin : 0
 
     this.innerHTML = "<br/><br/><br/>"
 

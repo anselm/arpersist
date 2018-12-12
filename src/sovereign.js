@@ -30,14 +30,25 @@ function mnemonic_to_keypair(mnemonicstr=0) {
 
   let keyPair = bitcoin.ECPair.fromPrivateKey(node.privateKey)
 
+  // must convert for publication to outside world
+  keyPair = {
+    publicKey: JSON.stringify(keyPair.publicKey),
+    privateKey: JSON.stringify(keyPair.privateKey),
+    masterKeyJSON: JSON.stringify(node.privateKey),
+    compressed: keyPair.compressed
+  }
+
   return keyPair
 }
 
-function privatekey_to_keypair(privatekey) {
-  return bitcoin.ECPair.fromPrivateKey(privatekey)
-}
-
 function sign(keyPair,message) {
+
+  let masterKey = Buffer.from(JSON.parse(keyPair.privateKey).data)
+
+  keyPair = bitcoin.ECPair.fromPrivateKey(masterKey)
+
+  //  keyPair = bitcoin.ECPair.fromPrivateKey(Buffer.from(keyPairRaw.masterKeyStr,'utf8'))
+
   const { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey })
   let signature = bitcoinMessage.sign(message, keyPair.privateKey, keyPair.compressed)
   let verified = bitcoinMessage.verify(message, address, signature)
@@ -54,7 +65,9 @@ module.exports = {
   mnemonic_to_keypair: mnemonic_to_keypair
 }
 
-//let keypair = mnemonic_to_keypair()
-//let sig = sign(keypair,"hello")
-//console.log(JSON.stringify(sig))
-
+/*
+console.log("***** testing keypair generation ****")
+let keypair = mnemonic_to_keypair()
+let sig = sign(keypair,"hello")
+console.log(JSON.stringify(sig))
+*/
