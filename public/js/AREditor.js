@@ -46,14 +46,14 @@ export class AREditor extends HTMLElement {
 		observer.observe(this, { attributes: true });
 	}
 
-	async onshow() {
+	onshow() {
 
 		// is there a current focus?
 		let entity = this.entity_manager.entityGetSelected()
 
 		// if nothing picked then make something - and it will become selected by magicks
 		if(!entity) {
-			entity = await this.entity_manager._entityAddArt()
+			entity = this.entity_manager.entityAddArt()
 		}
 
 		// a null entity can occur if there was no intersection to place an anchor against

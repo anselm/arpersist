@@ -2,7 +2,7 @@
 
 import {EntityManager} from '/js/EntityManager.js'
 
-import {UXComponent,UXPage,UXLog} from '/js/UXComponents.js'
+import {UXComponent,UXPage,UXLog} from '/js/UXComponents.js' // TODO try remove all this and merge
 
 import {ARMain} from '/js/ARMain.js'
 import {ARLogin} from '/js/ARLogin.js'

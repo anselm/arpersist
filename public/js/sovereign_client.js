@@ -34273,7 +34273,7 @@ function mnemonic_to_keypair(mnemonicstr=0) {
   keyPair = {
     publicKey: JSON.stringify(keyPair.publicKey),
     privateKey: JSON.stringify(keyPair.privateKey),
-    masterKeyJSON: JSON.stringify(node.privateKey),
+    masterKey: JSON.stringify(node.privateKey),
     compressed: keyPair.compressed
   }
 
@@ -34282,11 +34282,8 @@ function mnemonic_to_keypair(mnemonicstr=0) {
 
 function sign(keyPair,message) {
 
-  let masterKey = Buffer.from(JSON.parse(keyPair.privateKey).data)
-
+  let masterKey = Buffer.from(JSON.parse(keyPair.masterKey).data)
   keyPair = bitcoin.ECPair.fromPrivateKey(masterKey)
-
-  //  keyPair = bitcoin.ECPair.fromPrivateKey(Buffer.from(keyPairRaw.masterKeyStr,'utf8'))
 
   const { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey })
   let signature = bitcoinMessage.sign(message, keyPair.privateKey, keyPair.compressed)
@@ -34299,17 +34296,11 @@ function sign(keyPair,message) {
 }
 
 module.exports = {
-  sign: sign,
-  mnemonic: mnemonic,
-  mnemonic_to_keypair: mnemonic_to_keypair
+  mnemonic,
+  mnemonic_to_keypair: mnemonic_to_keypair,
+  sign: sign
 }
 
-/*
-console.log("***** testing keypair generation ****")
-let keypair = mnemonic_to_keypair()
-let sig = sign(keypair,"hello")
-console.log(JSON.stringify(sig))
-*/
 
 }).call(this,require("buffer").Buffer)
 },{"bip32":4,"bip39":5,"bitcoinjs-lib":23,"bitcoinjs-message":61,"buffer":145}],143:[function(require,module,exports){

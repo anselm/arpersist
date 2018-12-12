@@ -43,12 +43,15 @@ class EntityServer {
   }
 
   sanitize(entity) {
-    // makes sure entities have key properties
-    if(!entity.quaternion) entity.quaternion = { w:0, x:0, y:0, z:0 }
-    if(!entity.scale) entity.scale = { x:0, y:0, z:0 }
-    if(!entity.xyz) entity.xyz = { x:0, y:0, z:0 }
-    if(!entity.gps) entity.gps = { latitude:0, longitude:0, altitude:0 }
-    if(!entity.cartesian) entity.cartesian = { x:0, y:0, z:0 }
+
+    // first joiner is an admin
+    if(entity.kind == "party") {
+      for(let uuid in this.entities) {
+        if(this.entities[uuid].kind == "party") return
+      }
+      entity.admin = 10
+    }
+
   }
 
   save(entity) {
@@ -77,13 +80,14 @@ class EntityServer {
             console.log("server decided this was too far to return " + key )
             continue
           } else {
-            console.log("server side entity query: query has decided this entity is close enough to return " + key)
+            console.log("query: returning nearby entity " + uuid)
           }
         } else if(entity[key]!=value) { // case sensitive? should consider numerics? TODO?
+          console.log("query: rejecting " + uuid + " " + value )
           continue
         }
         // TODO remove password/pass from results - maybe have _results that are ignored
-        results[key] = entity
+        results[uuid] = entity
       }
     }
     return results
@@ -118,55 +122,5 @@ class EntityServer {
 const instance = new EntityServer()
 Object.freeze(instance)
 module.exports = instance
-
-
-
-
-
-
-const mnemonic = bip39.generateMnemonic()
-const status = bip39.validateMnemonic(mnemonic)
-const seed = bip39.mnemonicToSeed(mnemonic)
-const node = bip32.fromSeed(seed)
-
-//const child = node.derivePath('m/0/0')
-//const child2 = node.derivePath("m/44'/0'/0'")
-//const string = node.toBase58()
-//const restored = bip32.fromBase58(string)
-
-const keyPair = bitcoin.ECPair.fromPrivateKey(node.privateKey)
-
-// const keyPair = bitcoin.ECPair.fromWIF('Kxr9tQED9H44gCmp6HAdmemAzU3n84H3dGkuWTKvE23JgHMW8gct')
-// const keyPair = bitcoin.ECPair.makeRandom({ rng: Buffer.from('zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz') })
-
-const { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey })
-
-// Test message
-var message = 'This is an example of a signed message.'
-var signature = bitcoinMessage.sign(message, keyPair.privateKey, keyPair.compressed)
-let verified = bitcoinMessage.verify(message, address, signature)
-
-// Results
-
-console.log(mnemonic)
-console.log(signature.toString('base64'))
-console.log(address)
-console.log(verified)
-
-
-//////////////////////////////////////////////////
-// hardcoded admin users
-//////////////////////////////////////////////////
-
-instance.save({
-  uuid: "anselm12341234",
-  name: "anselm",
-  _pass: "secret", // TODO hash this
-  admin: 10,
-  descr: "admin",
-  kind: "party",
-  tags: "",
-  party: "anselm",
-})
 
 

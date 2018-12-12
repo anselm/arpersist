@@ -26,6 +26,13 @@ export class ARLogin extends HTMLElement {
   		if(_id) this.id = _id
   		if(_class) this.className = _class
   		this.entity_manager = entity_manager
+
+  		// wipe keys
+
+		window.localStorage.setItem("priv",0)
+		window.localStorage.setItem("pub",0)
+		window.localStorage.setItem("master",0)
+
   	}
 
   	onshow() {
@@ -57,17 +64,14 @@ export class ARLogin extends HTMLElement {
 			}
 
 			// do not force create unless asked to
+
 			let force = e.target.id == "login_signup" ? 1 : 0
 
 			// given an identity - always preferentially look for it on server
 
-			let results = await this.entity_manager.entityRebindToParty({
-				name:name,
-				mnemonic:pass,
-				force:force
-			})
+			let results = await this.entity_manager.entityRebindToParty(name,pass,force)
 
-			// if there is an entity then I guess we are good...
+			// if there is an entity everything worked out - can exit
 
 			if(results) {
 				this.pop()

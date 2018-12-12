@@ -7,8 +7,8 @@ export class ARProfile extends HTMLElement {
 		<center>
 		<br/><label>Your name is </label>
 		<br/><input readonly></input>
-		<br/><button onclick="event.preventDefault(); window.push('login');return 0;"> Logout </button>
-		<br/><button> Back </button>
+		<br/><button id="profile_logout"> Logout </button>
+		<br/><button id="provile_backup"> Back </button>
 		</center>
 		</form>
 		`
@@ -20,20 +20,30 @@ export class ARProfile extends HTMLElement {
   		if(_class) this.className = _class
   		this.entity_manager = entity_manager
 		this.innerHTML = this.content()
-	    let form = this.children[0]
-	    form.onsubmit = (e) => {
-	      e.preventDefault()
-	      this.pop()
-	      return false
-	    }
+
+		let callback = (e) => {
+    		e.preventDefault()
+			switch(e.target.id) {
+				case "profile_backup":
+					this.pop()
+					break
+				case "profile_logout":
+					entity_manager.entityLogout()
+					this.pop()
+					break
+			}
+			return false
+    	}
+
+	    this.querySelectorAll("button").forEach(element => { element.onclick = callback })
 	}
 
 	onshow() {
-		if(!this.entity_manager.party || this.entity_manager.party.name.length < 1) {
+		if(!this.entity_manager.entityParty) {
 			this.show("login")
 			return
 		}
-		this.children[0].elements[0].value = this.entity_manager.party.name
+		this.children[0].elements[0].value = this.entity_manager.entityParty.name
 	}
 
 }

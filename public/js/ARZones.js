@@ -13,7 +13,6 @@ export class ARZones extends HTMLElement {
     // rebuild picker from scratch every time 
 
     let entities = this.entity_manager.entityQuery({kind:"gps"})
-    let admin = this.entity_manager.entityParty ? this.entity_manager.entityParty.admin : 0
 
     this.innerHTML = "<br/><br/><br/>"
 
@@ -72,8 +71,8 @@ export class ARZones extends HTMLElement {
       elements.appendChild(document.createElement("br"))
     }
 
-    // reset and wipe everything - for admins only
-    if(admin) {
+    // reset and wipe everything - disabled for now - no point can just refresh app
+    if(false) {
       let element = document.createElement("button")
       element.innerHTML = "reset"
       element.style.color = "red"
@@ -86,8 +85,8 @@ export class ARZones extends HTMLElement {
       elements.appendChild(document.createElement("br"))
     }
 
-    // save a map file - for admins only
-    if(admin) {
+    // save a map file - for admins only ideally but exposed for now
+    if(true) {
       let element = document.createElement("button")
       element.id = "login_show_save"
       element.innerHTML = "save zone"

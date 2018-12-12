@@ -98,7 +98,7 @@ export class XRAnchorCartography {
 	/// As well, this engine introduces another concept on top of that of a gpsAnchor which associates an arkit anchor with a gps.
 	///
 
-	static async _attach(frame,focus,get_location,get_raytest,screenx=0.5,screeny=0.5) {
+	static async attach(frame,focus,get_location,get_raytest,screenx=0.5,screeny=0.5) {
 
 		// get a gps reading?
 

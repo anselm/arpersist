@@ -158,7 +158,7 @@ export class EntityManager {
 
 	}
 
-	async _entityUpdateOne(session,frame,entity) {
+	_entityUpdateOne(session,frame,entity) {
 
 		// do not update anything else - unless either is a gps anchor or gps anchor exists already
 
@@ -173,6 +173,7 @@ export class EntityManager {
 		// newly locally created entities specify how they would like to be anchored - here I avoid awaiting asynchronous events
 		// will set relocalized to 0
 
+		let focus = entity
 		switch(focus._attach) {
 			case "gps":
 				focus._attach = "busy"
@@ -260,7 +261,7 @@ export class EntityManager {
 		       kind: "gps",
 		        art: "cylinder",
 		       tags: this.tags,
-		      party: this.entityParty ? this.entityParty.party : 0,
+		      party: this.entityParty ? this.entityParty.uuid : 0,
 		  cartesian: 0,
 		 quaternion: 0,
 		      scale: 0,
@@ -288,7 +289,7 @@ export class EntityManager {
 		       kind: "content",
 		        art: "box",
 		       tags: this.tags,
-		      party: this.entityParty ? this.entityParty.party : 0,
+		      party: this.entityParty ? this.entityParty.uuid : 0,
 		  cartesian: 0,
 		 quaternion: 0,
 		      scale: 0,
@@ -315,7 +316,7 @@ export class EntityManager {
 		       kind: "party",
 		        art: "box",
 		       tags: this.tags,
-		      party: newname,
+		      party: 0,
 		  cartesian: 0,
 		 quaternion: 0,
 		      scale: 0,
@@ -510,10 +511,10 @@ export class EntityManager {
 				parseFloat(entity.cartesian.z)
 				)
 		entity.quaternion = entity.quaternion ? new THREE.Quaternion(
-				parseFloat(entity.quaternion.x),
-				parseFloat(entity.quaternion.y),
-				parseFloat(entity.quaternion.z),
-				parseFloat(entity.quaternion.w) ) : new THREE.Quaternion()
+				parseFloat(entity.quaternion._x),
+				parseFloat(entity.quaternion._y),
+				parseFloat(entity.quaternion._z),
+				parseFloat(entity.quaternion._w) ) : new THREE.Quaternion()
 		entity.published = 1
 		entity.relocalized = 0
 		let previous = this.entities[entity.uuid]
@@ -581,14 +582,14 @@ export class EntityManager {
 			let entity = 0
 			this.entityAll(e=>{ if(e.anchorUID == event.detail.uid) entity = e })
 			if(entity) {
-				if(entity.kind == "gps") this.log("<font color=green>mapLoad: " + event.detail.uid + " *** ANCHOR GOOD</font>" )
+				if(entity.kind == "gps") this.log("<font color=green>debug: " + event.detail.uid + " *** ANCHOR GOOD</font>" )
 			} else { // if (event.detail.uid.startsWith("anchor")) {
-				this.err("event: " + event.detail.uid + " *** ANCHOR BAD" )
+				this.err("debug: " + event.detail.uid + " *** ANCHOR BAD" )
 			}
 		})
 
         session.addEventListener(XRSession.REMOVE_WORLD_ANCHOR, (event) => {
-        	this.log("event: anchor deleted " + event.detail.uid)
+        	this.log("debug: deleted " + event.detail.uid)
         })
 
         session.addEventListener(XRSession.TRACKING_CHANGED, (event) => {
@@ -671,45 +672,44 @@ export class EntityManager {
 	//////////////////////////////////////////////////////
 	// sovereign self identity
 
-	async entityRebindToParty(params={}) {
+	entityLogout() {
+		this.entityParty = 0
+		window.localStorage.setItem("priv","")
+		window.localStorage.setItem("pub","")
+		window.localStorage.setItem("master","")
+	}
 
-		let keypair = params.keypair || 0
-		let mnemonic = params.mnemonic || 0
-		let name = params.name || 0
-		let force = params.force || 0
+	async entityRebindToParty(name=0,mnemonic=0,force=0) {
 
-		// if already have a party uh, it's really unclear.... log them out?
+		// store new login or signup keys
 
-		if(this.entityParty) this.entityParty = 0
+		let keypair = 0
 
-		// if there is a mnemonic then make keypair - this overrides any supplied keypair
+		if(name && mnemonic) {
 
-		if(mnemonic) {
-			keypair = sovereign.mnemonic_to_keypair(mnemonic)
+			keypair = mnemonic ? sovereign.mnemonic_to_keypair(mnemonic) : 0
+
+			if(keypair) {
+				window.localStorage.setItem("priv",keypair.privateKey)
+				window.localStorage.setItem("pub",keypair.publicKey)
+				window.localStorage.setItem("master",keypair.masterKey)
+			}
 		}
 
-		// if a keypair is supplied (in some way) then save it and use it - else see if one was saved earlier
+		// always fetch keys from storage - to exercise the storage system
 
-		if(keypair) {
-			window.localStorage.setItem("priv",keypair.privateKey)
-			window.localStorage.setItem("pub",keypair.publicKey)
-			window.localStorage.setItem("ow",keypair)
-		}
-
-let ow = window.localStorage.getItem("ow")
-console.log(ow)
-
-		// always reget from storage to test storage
-
-		let priv = window.localStorage.getItem("prixv")
+		let priv = window.localStorage.getItem("priv")
 		let pub = window.localStorage.getItem("pub")
-		if(priv && pub) {
-			keypair = { privateKey: new Buffer(priv), publicKey: new Buffer(pub), compressed:true }
+		let master = window.localStorage.getItem("master")
+
+		if(priv && pub && master && master.length > 4) {
+			keypair = { privateKey: priv, publicKey: pub, master: master, compressed:true }
 		}
 
-		// bail if no keys
+		// bail if no keys - no way of reconnecting to a new identity or making a fresh one
 
 		if(!keypair) {
+			this.log("Login: did not log party in ")
 			return 0
 		}
 
@@ -717,12 +717,13 @@ console.log(ow)
 
 		let signed = sovereign.sign(keypair,"welcome to my world")
 
-		// is there an entity that matches us? TODO really the public key is not needed
+		// is there an entity that matches us?
 
-		let results = await this.entityQueryRemote({ kind:"party", publickey: keypair.publicKey, signed:signed, edit:true })
+		let results = await this.entityQueryRemote({ kind:"party", signed:signed, edit:true })
 
 		if(results && results.length) {
 			this.entityParty = results[0]
+			this.log("Login: found party from network " + this.entityParty.name )
 			return this.entityParty
 		}
 
@@ -730,9 +731,11 @@ console.log(ow)
 			return 0
 		}
 
-		// make one...
+		// establish new entity representing the player - it will eventually publish itself to network
 
 		this.entityParty = this.entityAddParty(name)
+
+		this.log("Login: created new party " + name)
 
 		return this.entityParty
 	}
