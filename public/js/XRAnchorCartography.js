@@ -101,20 +101,13 @@ export class XRAnchorCartography {
 			}
 		}
 
-		// at origin
+		// at origin (which can change dynamically in arkit so this does not mean a lot)
 
 		if(style == "gpsorigin") {
 			const wc = frame.getCoordinateSystem(XRCoordinateSystem.TRACKER)
 			let xyz = new THREE.Vector3()
 			let q = new THREE.Quaternion()
 			focus.anchorUID = await frame.addAnchor(wc, [xyz.x, xyz.y, xyz.z], [q.x, q.y, q.z, q.w]) // [ !actually returns an anchorUID! ]
-			//let anchor = frame.getAnchor(focus.anchorUID)
-			//let m = new THREE.Matrix4()
-			//let xr_transform = focus.anchorUID.getOffsetTransform(anchor.coordinateSystem)
-			//m.fromArray(xr_transform)
-			//xyz = new THREE.Vector3(xr_transform[12],xr_transform[13],xr_transform[14])
-			//frame.removeAnchor(focus.anchorUID);
-			//focus.anchorUID = await frame.addAnchor(wc, [xyz.x, xyz.y, xyz.z], [q.x, q.y, q.z, q.w]) // [ !actually returns an anchorUID! ]
 		}
 
 		// get an anchor at camera?
@@ -144,33 +137,26 @@ export class XRAnchorCartography {
 			let m = new THREE.Matrix4()
 			let xr_transform = offset.getOffsetTransform(anchor.coordinateSystem)
 			m.fromArray(xr_transform)
-
 			let s = new THREE.Vector3()
 			let xyz = new THREE.Vector3()
 			let q = new THREE.Quaternion()
 			m.decompose(xyz,q,s);
+
 			frame.removeAnchor(offset.anchorUID);
 			console.log("throwing away temporary anchor " + offset.anchorUID )
 
 			// get an anchorUID at the target point
 			const wc = frame.getCoordinateSystem(XRCoordinateSystem.TRACKER)
 			focus.anchorUID = await frame.addAnchor(wc, [xyz.x, xyz.y, xyz.z], [q.x, q.y, q.z, q.w]) // [ !actually returns an anchorUID! ]
-			//console.log("built ordinary anchor at " + focus.anchorUID)
-			//console.log(xyz)
-			//console.log(q)
-			// there is enough information here to relocalize immediately but allow the relocalization step to do the work below
 		}
 
 		if(focus) {
-
-			// now has an anchor but that anchor is not actually transformed into geo-coordinates - so mark it as not relocalized
-
+			// although there's enough information above to relocalize, I prefer to exercise the code below consistently
 			focus.relocalized = 0
 		}
 
 		return focus
 	}
-
 
 	///
 	/// relocalize
@@ -183,27 +169,28 @@ export class XRAnchorCartography {
 		// Use the anchor to update gps objects every frame, and to update ordinary objects once only
 
 		if(focus.kind == "gps" || !focus.relocalized) {
-
 			focus.anchor = focus.anchorUID ? frame.getAnchor(focus.anchorUID) : 0
-
 			if(focus.anchor) {
 
-				// given an anchor go ahead and get the arkit local coordinate system pose
+				// remake xyz of object
 
-				focus.offset = new XRAnchorOffset(focus.anchorUID)
-				let xr_transform = focus.offset.getOffsetTransform(focus.anchor.coordinateSystem)
+				let offset = new XRAnchorOffset(focus.anchorUID)
+				let xr_transform = offset.getOffsetTransform(focus.anchor.coordinateSystem)
 				let m = new THREE.Matrix4()
 				m.fromArray(xr_transform)
-
-				// generate local rendering scene graph information - ignore scale
-
 				let s = new THREE.Vector3()
 				let xyz = new THREE.Vector3()
 				let q = new THREE.Quaternion()
 				m.decompose(xyz,q,s)
-				focus.quaternion = new THREE.Quaternion(q._x,q._y,q._z,q._w) 
-				focus.euler = new THREE.Euler().setFromQuaternion( focus.quaternion )
 				focus.xyz = xyz
+				focus.anchor_xyz = xyz // for debugging
+
+				// remake orientation - but for gps objects don't remake it unless needed (this allows the user to adjust it)
+
+				if(focus.kind != "gps" || !focus.euler || !focus.quaternion ) {
+					focus.quaternion = new THREE.Quaternion(q._x,q._y,q._z,q._w)
+					focus.euler = new THREE.Euler().setFromQuaternion( focus.quaternion )
+				}
 
 				// If this is gps object then update the details for this frame and return - note I kill the euler
 
@@ -215,7 +202,7 @@ export class XRAnchorCartography {
 					return
 				}
 
-				// Attempt to locate relative to parent
+				// Attempt to establish cartesian coordinates relative to parent
 
 				if(parent) {
 
@@ -235,24 +222,15 @@ export class XRAnchorCartography {
 
 					// although is now relocalized - do allow it to fall through to exercise cartesian recovery
 
-					focus.relocalized = 1
+					// focus.relocalized = 1
 				}
 			}
 		}
 
-		// No point in attempting to relocalize further if no context - return if no parent
+		// Relocalize relative to parent
 
-		if(!parent) {
-			return
-		}
+		if(parent) {
 
-		if(!parent.xyz) {
-			// weird TODO remove if it stops showing up
-			console.error("xranchorcarto parent bad - this is not excellent")
-			return
-		}
-
-		{
 			// get a vector that is relative to the gps anchor (transform from ECEF to be relative to gps anchor)
 
 			let temp = Cesium.Matrix4.multiplyByPoint(parent.inverse, focus.cartesian, new Cesium.Cartesian3());
@@ -273,10 +251,6 @@ export class XRAnchorCartography {
 				parent.xyz.z + temp2.z
 			)
 
-			// mark as relocalized
-
-			focus.relocalized = 1
-
 			// back compute the gps because it is used by the network - remote gps entities could have made it to here so block that
 
 			if(focus.kind != "gps") {
@@ -286,6 +260,10 @@ export class XRAnchorCartography {
 				let altitude = carto.height
 				focus.gps = { latitude:latitude, longitude:longitude, altitude:altitude }
 			}
+
+			// mark as relocalized
+
+			focus.relocalized = 1
 		}
 	}
 
@@ -309,6 +287,9 @@ export class XRAnchorCartography {
 		// later on it will regenerate actual position of the feature...
 		// TODO note it is probably a bad idea to move the gps anchor because the anchorUID will no longer match the saved file
 
+		focus.euler = 0
+		focus.quaternion = 0
+		focus.xyz = 0
 		focus.relocalized = 0
 	}
 

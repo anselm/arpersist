@@ -396,11 +396,11 @@ class AugmentedView extends XRExampleBaseModified {
 		let pointLight = new THREE.PointLight( 0xffffff );
 		this.camera.add(pointLight);
 
-		let flashlight = new THREE.SpotLight(0xffffff,4,40);
-		this.camera.add(flashlight);
-		flashlight.position.set(0,0,1);
-		flashlight.target = this.camera;
-		flashlight.castShadow = false;
+		//let flashlight = new THREE.SpotLight(0xffffff,4,40);
+		//this.camera.add(flashlight);
+		//flashlight.position.set(0,0,1);
+		//flashlight.target = this.camera;
+		//flashlight.castShadow = false;
 
 		// attach something to 0,0,0 - TODO this breaks picker HORRIBLY
         //this.scene.add( this.AxesHelper( this.params.general_object_size ) );
@@ -663,7 +663,9 @@ class ARControls {
 		if(event.touches.length > 0 && event.touches[0].pageX > window.innerWidth - 64 ) return
 
 		this.entity = this.parent.entity_manager.entityGetSelected()
-		if(!this.entity || this.entity == "gps") return // TODO right now I don't see how I can let users move the gps anchor
+
+// hack - let user move the gps illegally for now
+//		if(!this.entity || this.entity.kind == "gps") return // TODO right now I don't see how I can let users move the gps anchor
 
 		this.controls_active = 1
 		event.preventDefault();

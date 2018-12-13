@@ -144,7 +144,7 @@ export class EntityManager {
 			this.entityPartyUpdateCounter++
 			if(this.entityPartyUpdateCounter > 60) {
 				this.entityPartyUpdateCounter = 1
-				if(this.entityParty._attach != "busy") {
+				if(!this.entityParty._attach) {
 					this.entityParty._attach = "eye"
 					this.entityParty.published = 0
 				}
@@ -173,37 +173,36 @@ export class EntityManager {
 		// newly locally created entities specify how they would like to be anchored - here I avoid awaiting asynchronous events
 		// will set relocalized to 0
 
-		let focus = entity
-		switch(focus._attach) {
+		switch(entity._attach) {
 			case "gps":
-				focus._attach = "busy"
-				XRAnchorCartography.attach(frame,focus,"gps").then(results => {
+				entity._attach = "busy"
+				XRAnchorCartography.attach(frame,entity,"gps").then(results => {
 					if(results) {
-						results._attach = 0
+						entity._attach = 0
 					}
 				})
 				break
 			case "project":
-				focus._attach = "busy"
+				entity._attach = "busy"
 				// try shoot a ray intersection
-				XRAnchorCartography.attach(frame,focus,"project").then(results => {
+				XRAnchorCartography.attach(frame,entity,"project").then(results => {
 					if(results) {
-						results._attach = 0
+						entity._attach = 0
 					} else {
 						// try as a fallback just attaching to the camera - this should never fail
-						XRAnchorCartography.attach(frame,focus,"eye").then(results => {
+						XRAnchorCartography.attach(frame,entity,"eye").then(results => {
 							if(results) {
-								results._attach = 0
+								entity._attach = 0
 							}
 						})
 					}
 				})
 				break
 			case "eye":
-				focus._attach = "busy"
-				XRAnchorCartography.attach(frame,focus,"eye").then(results => {
+				entity._attach = "busy"
+				XRAnchorCartography.attach(frame,entity,"eye").then(results => {
 					if(results) {
-						results._attach = 0
+						entity._attach = 0
 					}
 				})
 				break
@@ -213,12 +212,22 @@ export class EntityManager {
 
 		// stop this thread from skipping ahead - due to the above asynchronous pattern
 
-		if(focus._attach == "busy") return
+		if(entity._attach) {
+			return
+		}
 
 		// mark and sweep - try relocalize any entity I can based on whatever data I can scavenge from it
 		// will set relocalized to 1 - but will not set published state 
 
+let fresh = entity.xyz ? 0 : 1
+
 		XRAnchorCartography.relocalize(frame,entity,this.entityGPS)
+
+if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
+	// looking to see how well the cartesian recovery matches the original inputs
+	this.log("Fresh1 x=" + entity.anchor_xyz.x.toFixed(3) + " y=" + entity.anchor_xyz.y.toFixed(3) + " z=" + entity.anchor_xyz.z.toFixed(3) )
+	this.log("Fresh2 x=" + entity.xyz.x.toFixed(3) + " y=" + entity.xyz.y.toFixed(3) + " z=" + entity.xyz.z.toFixed(3) )
+}
 
 		// set shared gps anchor if at all possible - this is used to anchor the entire scene and all other entities
 
@@ -526,6 +535,7 @@ export class EntityManager {
 			parseFloat(entity.euler._z)) : new THREE.Euler()
 		entity.published = 1
 		entity.relocalized = 0
+		entity._attach = 0 // paranoia
 		let previous = this.entities[entity.uuid]
 		if(!previous) {
 			this.entities[entity.uuid] = entity
@@ -543,9 +553,23 @@ export class EntityManager {
 			previous.gps = entity.gps
 			previous.published = 1
 			previous.relocalized = 0
+			previous._attach = 0 // paranoia
 			//this.log("entityReceive: remote entity found again and updated " + entity.uuid)
 		}
+
+		this.entityDebug(entity,"Network ")
 	}
+
+	entityDebug(entity, msg="Debug ") {
+		if(entity.kind == "party") return // too noisy
+		this.log(msg + " received id="+entity.uuid+ " kind="+entity.kind)
+		this.log("  x=" + entity.xyz.x.toFixed(3) + " y=" + entity.xyz.y.toFixed(3) + " z="+entity.xyz.z.toFixed(3) )
+		let e = entity.euler || new THREE.Euler()
+		this.log("  p=" + THREE.Math.radToDeg(e._x).toFixed(3)
+			    + " y=" + THREE.Math.radToDeg(e._y).toFixed(3)
+			    + " r=" + THREE.Math.radToDeg(e._z).toFixed(3) )
+	}
+
 
 	///
 	/// Publish an entity to network

@@ -5,8 +5,8 @@ export class AREditor extends HTMLElement {
 		return `
 		<form>
 		<center>
-		<br/><button id="editdone" onClick="event.preventDefault(); window.pop(); return 0;"> done</button>
-		<br/><button id="delete" onClick="event.preventDefault();window.ux.action('delete'); return 0;"> delete</button>
+		<br/><button onClick="event.preventDefault(); window.pop(); return 0;"> done</button>
+		<br/><button id="delete" onClick="event.preventDefault();window.ux.action('delete'); window.pop(); return 0;"> delete</button>
 		<br/><input id="edit_name" placeholder="a name"></input>
 		<br/><input id="edit_art" placeholder="url to art OR words to show"></input>
 		<br/><label id="xedit_upright"  >   Upright </label><label class="switch">      <input id="edit_upright" type="checkbox"><span class="slider"></span></label>
@@ -17,12 +17,13 @@ export class AREditor extends HTMLElement {
 		<br/><label id="xedit_persist"  >   Persist </label><label class="switch">      <input id="edit_persist" type="checkbox"><span class="slider"></span></label>
 		<br/><label id="xedit_public"   >    Public </label><label class="switch">      <input id="edit_public" type="checkbox"><span class="slider"></span></label>
 		<br/><label id="xedit_priority" >  Priority </label><label class="switch">      <input id="edit_priority" type="checkbox"><span class="slider"></span></label>
+		<br/><label>pitch  </label><input id="edit_rotationx"></input>
+		<br/><label>yaw    </label><input id="edit_rotationy"></input>
+		<br/><label>roll   </label><input id="edit_rotationz"></input>
 		<br/><label>scale x</label><input id="edit_scalex"></input>
 		<br/><label>scale y</label><input id="edit_scaley"></input>
 		<br/><label>scale z</label><input id="edit_scalez"></input>
-		<br/><label>rotat x</label><input id="edit_rotationx"></input>
-		<br/><label>rotat y</label><input id="edit_rotationy"></input>
-		<br/><label>rotat z</label><input id="edit_rotationz"></input>
+		<br/><button onClick="event.preventDefault(); window.pop(); return 0;"> done</button>
 		<br/>
 		<div id="edit_uuid">object uid if any</div>
 		</center>
@@ -95,21 +96,21 @@ export class AREditor extends HTMLElement {
 		// set scale and rotation
 		let scale = entity.scale || { x:1,y:1,z:1}
 		elem = document.getElementById("edit_scalex")
-		elem.value = scale.x
+		elem.value = scale.x.toFixed(4)
 		elem = document.getElementById("edit_scaley")
-		elem.value = scale.y
+		elem.value = scale.y.toFixed(4)
 		elem = document.getElementById("edit_scalez")
-		elem.value = scale.z
+		elem.value = scale.z.toFixed(4)
 
 		//let quaternion = entity.quaternion || new THREE.Quaternion()
 		//let euler = new THREE.Euler().setFromQuaternion( quaternion )
 		let euler = entity.euler || new THREE.Euler()
 		elem = document.getElementById("edit_rotationx")
-		elem.value = euler._x
+		elem.value = THREE.Math.radToDeg( euler._x ).toFixed(0)
 		elem = document.getElementById("edit_rotationy")
-		elem.value = euler._y
+		elem.value = THREE.Math.radToDeg( euler._y ).toFixed(0)
 		elem = document.getElementById("edit_rotationz")
-		elem.value = euler._z
+		elem.value = THREE.Math.radToDeg( euler._z ).toFixed(0)
 
 	}
 
@@ -137,11 +138,11 @@ export class AREditor extends HTMLElement {
 		//var euler = new THREE.Euler().setFromQuaternion( quaternion )
 		let euler = {}
 		elem = document.getElementById("edit_rotationx")
-		euler.x = parseFloat(elem.value) || 0
+		euler.x = THREE.Math.degToRad( parseFloat(elem.value) ) || 0
 		elem = document.getElementById("edit_rotationy")
-		euler.y = parseFloat(elem.value) || 0
+		euler.y = THREE.Math.degToRad( parseFloat(elem.value) ) || 0
 		elem = document.getElementById("edit_rotationz")
-		euler.z = parseFloat(elem.value) || 0
+		euler.z = THREE.Math.degToRad( parseFloat(elem.value) ) || 0
 		//quaternion.setFromEuler(euler)
 		//entity.quaternion = quaternion
 		entity.euler = new THREE.Euler(euler.x,euler.y,euler.z)
