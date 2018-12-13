@@ -455,7 +455,9 @@ class AugmentedView extends XRExampleBaseModified {
 			let m = new THREE.Matrix4()
 			let xyz = entity.xyz || new THREE.Vector3(0,0,0)
 			let s = entity.scale || new THREE.Vector3(1,1,1)
-			let q = entity.quaternion || new THREE.Quaternion()
+			//let q = entity.quaternion || new THREE.Quaternion()
+			let q = new THREE.Quaternion()
+			q.setFromEuler( entity.euler || new THREE.Euler() )
 			m.compose(xyz,q,s)
 			entity.transform = m
 
@@ -540,7 +542,8 @@ class AugmentedView extends XRExampleBaseModified {
 		// load
 
 		let loader = new THREE.GLTFLoader()
-		loader.load("/proxy/"+url, callback )
+		if(url.startsWith("http")) url = "/proxy" + url
+		loader.load(url, callback )
 
 		// return group before load is sone
 
@@ -578,9 +581,9 @@ class AugmentedView extends XRExampleBaseModified {
 			return new THREE.Mesh(geometry, material)
 		}
 
-		// if not an url then force a default url
+		// duck?
 
-		if(!args2.startsWith("http")) {
+		if(args2.startsWith("duck")) {
 			args = args2 = "https://raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
 		}
 
@@ -606,9 +609,9 @@ class AugmentedView extends XRExampleBaseModified {
 
 		// hmm, not something we know?
 
-		if(!pathname.endsWith(".glb") || !pathname.endsWith(".gltf")) {
-			args = args2 = "https://raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
-		}
+		//if(!pathname.endsWith(".glb") || !pathname.endsWith(".gltf")) {
+		//	args = args2 = "https://raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
+		//}
 
 		// load what we can
 
@@ -652,7 +655,7 @@ class ARControls {
 		if(event.touches.length > 0 && event.touches[0].pageX > window.innerWidth - 64 ) return
 
 		this.entity = this.parent.entity_manager.entityGetSelected()
-		if(!this.entity) return
+		if(!this.entity || this.entity == "gps") return // TODO right now I don't see how I can let users move the gps anchor
 
 		this.controls_active = 1
 		event.preventDefault();
@@ -761,7 +764,7 @@ class ARControls {
 		this.node.position.set(0,0,-1)
 	}
 
-	_drag_finish(frame) {
+	async _drag_finish(frame) {
 		if(!this.entity || !this.node) return
 
 		// get world details before detach
@@ -776,7 +779,7 @@ class ARControls {
 		this.parent.nodes[this.entity.uuid] = this.node
 
 		// remake the anchor with this new position
-		XRAnchorCartography.move(frame,this.entity,xyz,q)
+		await XRAnchorCartography.move(frame,this.entity,xyz,q)
 
 		// republish - TODO - not super exactly correct - especially gps entities
 		this.entity.published = 0

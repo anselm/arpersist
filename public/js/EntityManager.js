@@ -177,7 +177,7 @@ export class EntityManager {
 		switch(focus._attach) {
 			case "gps":
 				focus._attach = "busy"
-				XRAnchorCartography.attach(frame,focus,true,false).then(results => {
+				XRAnchorCartography.attach(frame,focus,"gps").then(results => {
 					if(results) {
 						results._attach = 0
 					}
@@ -186,12 +186,12 @@ export class EntityManager {
 			case "project":
 				focus._attach = "busy"
 				// try shoot a ray intersection
-				XRAnchorCartography.attach(frame,focus,false,true).then(results => {
+				XRAnchorCartography.attach(frame,focus,"project").then(results => {
 					if(results) {
 						results._attach = 0
 					} else {
 						// try as a fallback just attaching to the camera - this should never fail
-						XRAnchorCartography.attach(frame,focus,false,false).then(results => {
+						XRAnchorCartography.attach(frame,focus,"eye").then(results => {
 							if(results) {
 								results._attach = 0
 							}
@@ -201,16 +201,19 @@ export class EntityManager {
 				break
 			case "eye":
 				focus._attach = "busy"
-				XRAnchorCartography.attach(frame,focus,false,false).then(results => {
+				XRAnchorCartography.attach(frame,focus,"eye").then(results => {
 					if(results) {
 						results._attach = 0
 					}
 				})
-			case "busy":
 				break
 			default:
 				break
 		}
+
+		// stop this thread from skipping ahead - due to the above asynchronous pattern
+
+		if(focus._attach == "busy") return
 
 		// mark and sweep - try relocalize any entity I can based on whatever data I can scavenge from it
 		// will set relocalized to 1 - but will not set published state 
@@ -259,11 +262,12 @@ export class EntityManager {
 		       name: "an area map",
 		      descr: "an area map",
 		       kind: "gps",
-		        art: "cylinder",
+		        art: "/meshes/crow/scene.gltf",
 		       tags: this.tags,
 		      party: this.entityParty ? this.entityParty.uuid : 0,
 		  cartesian: 0,
 		 quaternion: 0,
+		      euler: 0,
 		      scale: 0,
 		        xyz: 0,
 		        gps: 0,
@@ -287,11 +291,12 @@ export class EntityManager {
 		       name: "art!",
 		      descr: "user art!",
 		       kind: "content",
-		        art: "box",
+		        art: "/meshes/hornet/scene.gltf",
 		       tags: this.tags,
 		      party: this.entityParty ? this.entityParty.uuid : 0,
 		  cartesian: 0,
 		 quaternion: 0,
+		      euler: 0,
 		      scale: 0,
 		        xyz: 0,
 		        gps: 0,
@@ -318,7 +323,7 @@ export class EntityManager {
 		       tags: this.tags,
 		      party: 0,
 		  cartesian: 0,
-		 quaternion: 0,
+		      euler: 0,
 		      scale: 0,
 		        xyz: 0,
 		        gps: 0,
@@ -506,15 +511,19 @@ export class EntityManager {
 
 	_entityReceive(entity) {
 		entity.cartesian = new Cesium.Cartesian3(
-				parseFloat(entity.cartesian.x),
-				parseFloat(entity.cartesian.y),
-				parseFloat(entity.cartesian.z)
-				)
+			parseFloat(entity.cartesian.x),
+			parseFloat(entity.cartesian.y),
+			parseFloat(entity.cartesian.z)
+			)
 		entity.quaternion = entity.quaternion ? new THREE.Quaternion(
-				parseFloat(entity.quaternion._x),
-				parseFloat(entity.quaternion._y),
-				parseFloat(entity.quaternion._z),
-				parseFloat(entity.quaternion._w) ) : new THREE.Quaternion()
+			parseFloat(entity.quaternion._x),
+			parseFloat(entity.quaternion._y),
+			parseFloat(entity.quaternion._z),
+			parseFloat(entity.quaternion._w) ) : new THREE.Quaternion()
+		entity.euler = entity.euler ? new THREE.Euler(
+			parseFloat(entity.euler._x),
+			parseFloat(entity.euler._y),
+			parseFloat(entity.euler._z)) : new THREE.Euler()
 		entity.published = 1
 		entity.relocalized = 0
 		let previous = this.entities[entity.uuid]
@@ -528,6 +537,7 @@ export class EntityManager {
 			previous.tags = entity.tags
 			previous.cartesian = entity.cartesian
 			previous.quaternion = entity.quaternion
+			previous.euler = entity.euler
 			previous.scale = entity.scale
 			previous.xyz = entity.xyz
 			previous.gps = entity.gps
@@ -567,8 +577,9 @@ export class EntityManager {
 			      party: entity.party,
 			  cartesian: entity.cartesian || 0,
 			 quaternion: entity.quaternion || 0,
+			      euler: entity.euler || 0,
 			      scale: entity.scale || 0,
-			        //xyz: entity.xyz || 0,
+			        //xyz: entity.xyz || 0, - don't publish this because it should be different per instance
 			        gps: entity.gps || 0,
 			//relocalized: entity.relocalized ? 1 : 0,
 			  //published: entity.published ? 1 : 0

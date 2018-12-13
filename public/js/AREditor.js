@@ -101,14 +101,15 @@ export class AREditor extends HTMLElement {
 		elem = document.getElementById("edit_scalez")
 		elem.value = scale.z
 
-		let quaternion = entity.quaternion || new THREE.Quaternion()
-		var euler = new THREE.Euler().setFromQuaternion( quaternion )
+		//let quaternion = entity.quaternion || new THREE.Quaternion()
+		//let euler = new THREE.Euler().setFromQuaternion( quaternion )
+		let euler = entity.euler || new THREE.Euler()
 		elem = document.getElementById("edit_rotationx")
-		elem.value = euler.x
+		elem.value = euler._x
 		elem = document.getElementById("edit_rotationy")
-		elem.value = euler.y
+		elem.value = euler._y
 		elem = document.getElementById("edit_rotationz")
-		elem.value = euler.z
+		elem.value = euler._z
 
 	}
 
@@ -120,9 +121,10 @@ export class AREditor extends HTMLElement {
 			return
 		}
 
+		let elem = 0
+
 		// set scale and rotation
 		let scale = entity.scale || { x:1,y:1,z:1}
-		let elem = 0
 		elem = document.getElementById("edit_scalex")
 		scale.x = parseFloat(elem.value) || 1
 		elem = document.getElementById("edit_scaley")
@@ -131,16 +133,18 @@ export class AREditor extends HTMLElement {
 		scale.z = parseFloat(elem.value) || 1
 		entity.scale = scale
 
-		let quaternion = new THREE.Quaternion()
-		var euler = new THREE.Euler().setFromQuaternion( quaternion )
+		//let quaternion = new THREE.Quaternion()
+		//var euler = new THREE.Euler().setFromQuaternion( quaternion )
+		let euler = {}
 		elem = document.getElementById("edit_rotationx")
 		euler.x = parseFloat(elem.value) || 0
 		elem = document.getElementById("edit_rotationy")
 		euler.y = parseFloat(elem.value) || 0
 		elem = document.getElementById("edit_rotationz")
 		euler.z = parseFloat(elem.value) || 0
-		quaternion.setFromEuler(euler)
-		entity.quaternion = quaternion
+		//quaternion.setFromEuler(euler)
+		//entity.quaternion = quaternion
+		entity.euler = new THREE.Euler(euler.x,euler.y,euler.z)
 
 		// force republication - TODO shouldn't really do this here... especially not gps entities
 		entity.published = 0
