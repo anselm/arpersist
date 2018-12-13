@@ -319,7 +319,7 @@ export class EntityManager {
 		       name: newname,
 		      descr: "a representation of a person",
 		       kind: "party",
-		        art: "box",
+		        art: "/meshes/heart/scene.gltf",
 		       tags: this.tags,
 		      party: 0,
 		  cartesian: 0,

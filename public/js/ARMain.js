@@ -389,13 +389,20 @@ class AugmentedView extends XRExampleBaseModified {
 
 		// add some light
 		this.scene.add(new THREE.AmbientLight('#FFF', 0.2))
+
 		let directionalLight = new THREE.DirectionalLight('#FFF', 0.6)
-		directionalLight.position.set(0, 0, 0)
+		directionalLight.position.set(1, 1, 1)
 
-		// TODO this is not working the way I want
-		this.camera.add(directionalLight)
+		let pointLight = new THREE.PointLight( 0xffffff );
+		this.camera.add(pointLight);
 
-		// attach something to 0,0,0 - TODO this breaks picker
+		let flashlight = new THREE.SpotLight(0xffffff,4,40);
+		this.camera.add(flashlight);
+		flashlight.position.set(0,0,1);
+		flashlight.target = this.camera;
+		flashlight.castShadow = false;
+
+		// attach something to 0,0,0 - TODO this breaks picker HORRIBLY
         //this.scene.add( this.AxesHelper( this.params.general_object_size ) );
 
         // attach picker
@@ -457,7 +464,8 @@ class AugmentedView extends XRExampleBaseModified {
 			let s = entity.scale || new THREE.Vector3(1,1,1)
 			//let q = entity.quaternion || new THREE.Quaternion()
 			let q = new THREE.Quaternion()
-			q.setFromEuler( entity.euler || new THREE.Euler() )
+			let what = entity.euler ? new THREE.Euler( entity.euler._x, entity.euler._y, entity.euler._z ) : new THREE.Euler()
+			q.setFromEuler(what)
 			m.compose(xyz,q,s)
 			entity.transform = m
 
@@ -761,7 +769,7 @@ class ARControls {
 		this.node.matrixAutoUpdate = true
 		this.scene.remove(this.node)
 		this.camera.add(this.node)
-		this.node.position.set(0,0,-1)
+		this.node.position.set(0,0,-0.5)
 	}
 
 	async _drag_finish(frame) {
