@@ -35,7 +35,7 @@ export class EntityManager {
 		this.entityParty = 0
 		this.entityGPS = 0
 		this.entitySelected = 0
-		this.entityPartyUpdateCounter = 0
+		this.entityPartyUpdateCounter = 1
 
 		// entities
 		this.entities = {}
