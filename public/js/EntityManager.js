@@ -738,7 +738,7 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 		let master = window.localStorage.getItem("master")
 
 		if(priv && pub && master && master.length > 4) {
-			keypair = { privateKey: priv, publicKey: pub, master: master, compressed:true }
+			keypair = { privateKey: priv, publicKey: pub, masterKey: master, compressed:true }
 		}
 
 		// bail if no keys - no way of reconnecting to a new identity or making a fresh one
