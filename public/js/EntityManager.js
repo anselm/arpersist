@@ -563,7 +563,7 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 	entityDebug(entity, msg="Debug ") {
 		if(entity.kind == "party") return // too noisy
 		this.log(msg + " received id="+entity.uuid+ " kind="+entity.kind)
-		this.log("  x=" + entity.xyz.x.toFixed(3) + " y=" + entity.xyz.y.toFixed(3) + " z="+entity.xyz.z.toFixed(3) )
+		//this.log("  x=" + entity.xyz.x.toFixed(3) + " y=" + entity.xyz.y.toFixed(3) + " z="+entity.xyz.z.toFixed(3) )
 		let e = entity.euler || new THREE.Euler()
 		this.log("  p=" + THREE.Math.radToDeg(e._x).toFixed(3)
 			    + " y=" + THREE.Math.radToDeg(e._y).toFixed(3)
