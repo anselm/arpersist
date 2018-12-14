@@ -1,15 +1,4 @@
 
-import {EntityManager} from '/js/EntityManager.js'
-
-// extend HTMLElement with some custom helpers - TODO eventually remove and do a nicer way
-import {UXPage} from '/js/UXComponents.js'
-HTMLElement.prototype.listen = UXPage.listen
-HTMLElement.prototype.log  = UXPage.log
-HTMLElement.prototype.err  = UXPage.err
-HTMLElement.prototype.show = UXPage.show
-HTMLElement.prototype.push = UXPage.push
-HTMLElement.prototype.pop = UXPage.pop
-
 // HTMLElements
 
 import {ARLog} from '/js/ARLog.js'
@@ -20,13 +9,39 @@ import {ARZones} from '/js/ARZones.js'
 import {AREditor} from '/js/AREditor.js'
 import {ARMap} from '/js/ARMap.js'
 
+// State
+
+import {EntityManager} from '/js/EntityManager.js'
+import {Messaging} from '/js/Messaging.js'
+import {Router} from '/js/Router.js'
+
+// Bootup
+
 export async function main() {
 
-    // catch logging messages and paint them to a div for debugging
+    // anonymous messaging
+
+    let messaging = new Messaging()
+
+    // route page transitions
+
+    let router = new Router()
+
+    // have router listen to these messages
+
+    Messaging.listen("push",(e) => { Router.push(e) } )
+    Messaging.listen("show",(e) => { Router.show(e)} )
+    Messaging.listen("pop",(e) => { Router.pop()} )
+
+    // as a hack make routing available globally
+
+    window.history.pop = function(e) { Messaging.message("pop") }
+    window.history.show = function(e) { Messaging.message("show",e) }
+    window.history.push = function(e) { Messaging.message("push",e) }
 
     // networked entity state manager used by components
 
-    let entity_manager = await new EntityManager(UXPage.log,UXPage.err)
+    let entity_manager = await new EntityManager()
 
     // the ui
 
@@ -44,7 +59,6 @@ export async function main() {
 
     // goto main page
 
-    UXPage.push("main")
+   // window.history.push("main")
+   Messaging.message("push","main")
 }
-
-

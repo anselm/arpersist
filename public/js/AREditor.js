@@ -43,11 +43,11 @@ export class AREditor extends HTMLElement {
 			switch(e.currentTarget.id) {
 				case "editor_done1":
 				case "editor_done2":
-					this.pop()
+					window.history.back()
 					break
 				case "editor_delete":
 					// delete TBD
-					this.pop()
+					window.history.back()
 					break
 			}
 			return 0
@@ -58,12 +58,7 @@ export class AREditor extends HTMLElement {
 
 	    // observe hide/show
 		new MutationObserver(() => {
-			console.log("editor hideshow " + this.style.display)
-			if(this.style.display != "block") {
-				this.onhide()
-				return
-			}
-			this.onshow()
+			this.style.display != "block" ? this.onhide() : this.onshow()
 		}).observe(this, { attributes: true })
 	}
 
@@ -79,7 +74,7 @@ export class AREditor extends HTMLElement {
 
 		// a null entity can occur if there was no intersection to place an anchor against
 		if(!entity) {
-			this.pop()
+			window.history.back()
 			return
 		}
 
@@ -183,7 +178,7 @@ export class AREditor extends HTMLElement {
 			if(!e.checked) return
 			buildset.push(tag)
 		})
-		this.log("tags set to " + buildset + " on " + entity.uuid )
+		console.log("tags set to " + buildset + " on " + entity.uuid )
 		entity.tags = buildset.join(" ")
 	}
 }

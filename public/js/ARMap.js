@@ -22,12 +22,7 @@ export class ARMap extends HTMLElement {
 		this.centerlatlng = { lat:37.7749, lng:-122.4194, altitude:0 }
 
 		new MutationObserver(() => {
-			console.log("map hideshow " + this.style.display)
-			if(this.style.display != "block") {
-				this.onhide()
-				return
-			}
-			this.onshow()
+			this.style.display != "block" ? this.onhide() : this.onshow()
 		}).observe(this, { attributes: true });
 
 	}
@@ -36,7 +31,7 @@ export class ARMap extends HTMLElement {
 
 		// google maps present?
 		if(typeof google === 'undefined') {
-			this.err("cannot find google maps")
+			console.error("cannot find google maps")
 			return
 		}
 
@@ -52,20 +47,19 @@ export class ARMap extends HTMLElement {
 			navigator.geolocation.getCurrentPosition(async (position) => {
 				let latitude = position.coords.latitude
 				let longitude = position.coords.longitude
-				let response = 0
-				let altitude = 0
+				let altitude = position.coords.altitude
+/* fails TODO
 				try {
 					let key = "AIzaSyBrirea7OVV4aKJ9Y0UAp6Nbr6-fXtr-50"
 					let url = "https://maps.googleapis.com/maps/api/elevation/json?locations="+latitude+","+longitude+"&key="+key
-	                response = await fetch(url)
+	                let response = await fetch(url)
 	                let json = await response.json()
-	                console.log("fetched json")
-	                console.log(json)
-	                console.log(json.results.elevation)
+	                console.log("fetched elevation " + json.results.elevation)
 	                let altitude = json.results.elevation
 	            } catch(e) {
-	            	this.err(e)
+	            	console.error(e)
 	            }
+*/
 				this.centerlatlng = { lat:position.coords.latitude, lng:position.coords.longitude, altitude:altitude }
 				this._mapShow()
 			}, () => {
@@ -98,7 +92,7 @@ export class ARMap extends HTMLElement {
 			button.className = "uxbutton"
 			button.innerHTML = "back"
 			button.style.backgroundColor = "white"
-			button.onclick = this.pop
+			button.onclick = function(e) { window.history.back() }
 			this.map.controls[google.maps.ControlPosition.LEFT_TOP].push(button);
 
 		}
@@ -113,8 +107,8 @@ export class ARMap extends HTMLElement {
 	}
 
 	_mapError(message) {
-		this.err(message)
-		return
+		console.error(message)
+		return // TODO turn on map error msgs? leave off for now
 		if(!this.map) return
 		if(!this.infoWindow) this.infoWindow = new google.maps.InfoWindow
 		this.this.infoWindow.setPosition(this.centerlatlng)
@@ -172,7 +166,6 @@ export class ARMap extends HTMLElement {
 		})
 
 		marker.addListener('click', () => {
-			this.err("marker selected " + uuid)
 			this.entity_manager.entitySetSelectedByUUID(uuid)
 		})
 

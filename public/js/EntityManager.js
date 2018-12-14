@@ -22,11 +22,7 @@ export class EntityManager {
 	  )
 	}
 
-	constructor(log=0,err=0) {
-
-		// debug output
-		this.log = log || console.log
-		this.err = err || console.error
+	constructor() {
 
 		// tags - default props per entity
 		this.tags = ""
@@ -114,11 +110,11 @@ export class EntityManager {
 			try {
 				this._mapSave(session,frame).then(results => {
 					this.pleaseSaveMap = 0
-					this.log("map save done with status " + results)
+					console.log("map save done with status " + results)
 				})
 			} catch(e) {
 				this.pleaseSaveMap = 0
-				this.err(e)
+				console.error(e)
 			}
 		}
 
@@ -130,11 +126,11 @@ export class EntityManager {
 			try {
 				this._mapLoad(session,frame,filename).then(results => {
 					this.pleaseLoadMap = 0
-					this.log("map loading done with status " + results)
+					console.log("map loading done with status " + results)
 				})
 			} catch(e) {
 				this.pleaseLoadMap = 0
-				this.err(e)
+				console.error(e)
 			}
 		}
 
@@ -225,21 +221,21 @@ let fresh = entity.xyz ? 0 : 1
 
 if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 	// looking to see how well the cartesian recovery matches the original inputs
-	this.log("Fresh1 x=" + entity.anchor_xyz.x.toFixed(3) + " y=" + entity.anchor_xyz.y.toFixed(3) + " z=" + entity.anchor_xyz.z.toFixed(3) )
-	this.log("Fresh2 x=" + entity.xyz.x.toFixed(3) + " y=" + entity.xyz.y.toFixed(3) + " z=" + entity.xyz.z.toFixed(3) )
+	console.log("Fresh1 x=" + entity.anchor_xyz.x.toFixed(3) + " y=" + entity.anchor_xyz.y.toFixed(3) + " z=" + entity.anchor_xyz.z.toFixed(3) )
+	console.log("Fresh2 x=" + entity.xyz.x.toFixed(3) + " y=" + entity.xyz.y.toFixed(3) + " z=" + entity.xyz.z.toFixed(3) )
 }
 
 		// set shared gps anchor if at all possible - this is used to anchor the entire scene and all other entities
 
 		if(!this.entityGPS && entity && entity.kind == "gps" && entity.relocalized) {
-			this.log("*** entityGPS found " + entity.uuid)
+			console.log("*** entityGPS found " + entity.uuid)
 			this.entityGPS = entity
 		}
 
 		// debug - report on when things get relocalized once - except for the party because they move often - maybe a timer would be better? TODO
 
 		if(!relocalized_before && entity.relocalized && entity.kind != "party" ) {
-			this.log(entity.uuid + " relocalized kind="+entity.kind+" pub="+entity.published)
+			console.log(entity.uuid + " relocalized kind="+entity.kind+" pub="+entity.published)
 		}
 
 		// until a gps anchor shows up do not network anything ever
@@ -371,21 +367,21 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 		// generally speaking there's no point in saving a map without knowing the latitude/longitude
 
 		if(!entity) {
-			this.err("mapSave: failed to relocalize")
+			console.error("mapSave: failed to relocalize")
 			return 0
 		}
 
-		this.log("entity mapSave: UX saving map")
+		console.log("entity mapSave: UX saving map")
 
 		let results = 0
 		try {
 			results = await session.getWorldMap()
 		} catch(e) {
-			this.err(e)
+			console.error(e)
 			return 0
 		}
 		if(!results) {
-			this.err("entity MapSave: [error] this engine does not have a good map from arkit yet")
+			console.error("entity MapSave: [error] this engine does not have a good map from arkit yet")
 			return 0
 		}
 
@@ -397,7 +393,7 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 		data.append('anchorUID',   entity.anchorUID )
 		let response = await fetch('/api/map/save', { method: 'POST', body: data })
 		let json = await response.json()
-		this.log("entity mapSave: succeeded ")
+		console.log("entity mapSave: succeeded ")
 		console.log(json)
 
 		// normally the entity is marked as published already to prevent it from being published...
@@ -415,7 +411,7 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 
 	async _mapLoad(session,frame,filename) {
 
-		this.log("will try load map named " + filename )
+		console.log("will try load map named " + filename )
 
 		// let's just reset everything and reload the network - probably overkill but i want to clear any gps anchors
 		await this.entityNetworkRestart()
@@ -424,7 +420,7 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 		let response = await fetch("uploads/"+filename)
 		let data = await response.text()
 		let results = await session.setWorldMap({worldMap:data})
-		this.log("fresh map file arrived " + filename + " results=" + results.loaded )
+		console.log("fresh map file arrived " + filename + " results=" + results.loaded )
 		console.log(results)
 
 		return 1
@@ -438,7 +434,7 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 
 		// get a gps location hopefully
 		this.gps = await XRAnchorCartography.gps()
-		this.log("GPS is lat=" + this.gps.latitude + " lon=" + this.gps.longitude + " alt=" + this.gps.altitude )
+		console.log("GPS is lat=" + this.gps.latitude + " lon=" + this.gps.longitude + " alt=" + this.gps.altitude )
 
 		// local flush 
 		this.entities = {}
@@ -481,7 +477,7 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 	async _entityLoadAll() {
 		// load all the entities from the server in one go - and rebinding/gluing state back together will happen later on in update()
 		if(!this.gps) {
-			this.log("entityLoadAll: this engine needs a gps location before loading maps")
+			console.log("entityLoadAll: this engine needs a gps location before loading maps")
 			return 0
 		}
 
@@ -539,7 +535,7 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 		let previous = this.entities[entity.uuid]
 		if(!previous) {
 			this.entities[entity.uuid] = entity
-			this.log("entityReceive: saving new remote entity " + entity.uuid)
+			console.log("entityReceive: saving new remote entity " + entity.uuid)
 			console.log(entity)
 		} else {
 			// scavenge choice morsels from the network traffic and throw network traffic away
@@ -554,7 +550,7 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 			previous.published = 1
 			previous.relocalized = 0
 			previous._attach = 0 // paranoia
-			//this.log("entityReceive: remote entity found again and updated " + entity.uuid)
+			//console.log("entityReceive: remote entity found again and updated " + entity.uuid)
 		}
 
 		this.entityDebug(entity,"Network ")
@@ -562,10 +558,10 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 
 	entityDebug(entity, msg="Debug ") {
 		if(entity.kind == "party") return // too noisy
-		this.log(msg + " received id="+entity.uuid+ " kind="+entity.kind)
-		//this.log("  x=" + entity.xyz.x.toFixed(3) + " y=" + entity.xyz.y.toFixed(3) + " z="+entity.xyz.z.toFixed(3) )
+		console.log(msg + " received id="+entity.uuid+ " kind="+entity.kind)
+		//console.log("  x=" + entity.xyz.x.toFixed(3) + " y=" + entity.xyz.y.toFixed(3) + " z="+entity.xyz.z.toFixed(3) )
 		let e = entity.euler || new THREE.Euler()
-		this.log("  p=" + THREE.Math.radToDeg(e._x).toFixed(3)
+		console.log("  p=" + THREE.Math.radToDeg(e._x).toFixed(3)
 			    + " y=" + THREE.Math.radToDeg(e._y).toFixed(3)
 			    + " r=" + THREE.Math.radToDeg(e._z).toFixed(3) )
 	}
@@ -580,7 +576,7 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 	_entityPublish(entity) {
 
 		if(!entity.relocalized || !entity.cartesian) {
-			this.log("entityPublish: [error] entity has no cartesian " + entity.uuid )
+			console.log("entityPublish: [error] entity has no cartesian " + entity.uuid )
 			return
 		}
 
@@ -617,14 +613,14 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 			let entity = 0
 			this.entityAll(e=>{ if(e.anchorUID == event.detail.uid) entity = e })
 			if(entity) {
-				if(entity.kind == "gps") this.log("<font color=green>debug: " + event.detail.uid + " *** ANCHOR GOOD</font>" )
+				if(entity.kind == "gps") console.log("<font color=green>debug: " + event.detail.uid + " *** ANCHOR GOOD</font>" )
 			} else { // if (event.detail.uid.startsWith("anchor")) {
-				this.err("debug: " + event.detail.uid + " *** ANCHOR BAD" )
+				console.error("debug: " + event.detail.uid + " *** ANCHOR BAD" )
 			}
 		})
 
         session.addEventListener(XRSession.REMOVE_WORLD_ANCHOR, (event) => {
-        	this.log("debug: deleted " + event.detail.uid)
+        	console.log("debug: deleted " + event.detail.uid)
         })
 
         session.addEventListener(XRSession.TRACKING_CHANGED, (event) => {
@@ -668,7 +664,7 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 	                msgText += "Spatial Tracking <b>Relocalizing</b><br>If relocalization does not succeed,<br>reset tracking system from menu"        
 	            break;
 	        }
-	        this.log(msgText)
+	        console.log(msgText)
 	     })
 
      	let periodic = () => {
@@ -697,7 +693,7 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 		    }
 		    if(moreText != this.previousMoreText) {
 		    	this.previousMoreText = moreText
-		    	this.log(moreText)
+		    	console.log(moreText)
 		    }
 		}
 
@@ -744,7 +740,7 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 		// bail if no keys - no way of reconnecting to a new identity or making a fresh one
 
 		if(!keypair) {
-			this.log("Login: did not log party in ")
+			console.log("Login: did not log party in ")
 			return 0
 		}
 
@@ -758,7 +754,7 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 
 		if(results && results.length) {
 			this.entityParty = results[0]
-			this.log("Login: found party from network " + this.entityParty.name )
+			console.log("Login: found party from network " + this.entityParty.name )
 			return this.entityParty
 		}
 
@@ -770,7 +766,7 @@ if(fresh && entity.kind != "party" && entity.xyz && entity.anchor_xyz) {
 
 		this.entityParty = this.entityAddParty(name)
 
-		this.log("Login: created new party " + name)
+		console.log("Login: created new party " + name)
 
 		return this.entityParty
 	}

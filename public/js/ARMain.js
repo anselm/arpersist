@@ -357,7 +357,7 @@ export class XRExampleBaseModified {
 
 class AugmentedView extends XRExampleBaseModified {
 
-	constructor(entity_manager,dom_element,logging,errors) {
+	constructor(entity_manager,dom_element) {
 
         super(dom_element,false,true,false,true,true)
 
@@ -371,9 +371,6 @@ class AugmentedView extends XRExampleBaseModified {
 		this.requestedFloor = true
 
 		this.entity_manager = entity_manager
-
-		this.log = logging || console.log
-		this.err = errors || console.error
 
 		this.nodes = {}
 
@@ -442,7 +439,7 @@ class AugmentedView extends XRExampleBaseModified {
 			let node = this.nodes[entity.uuid]
 			// did art change? throw node away - cannot rely on mark and sweep because the entry itself is rewritten below
 			if(node && node.art != entity.art) {
-				this.log("entity has new art = " + entity.uuid + " " + entity.art )
+				console.log("entity has new art = " + entity.uuid + " " + entity.art )
 				this.scene.remove(node)
 				node = 0
 			}
@@ -856,20 +853,18 @@ export class ARMain extends HTMLElement {
   		if(_class) this.className = _class
   		this.entity_manager = entity_manager
 		this.innerHTML = this.content()
-		let view = new AugmentedView(this.entity_manager,this,this.log,this.err)
+		let view = new AugmentedView(this.entity_manager,this)
 
 		// observe button events
 		let callback = (e) => {
 			e.preventDefault()
-			console.log("going to " + e.target.alt)
-			this.push(e.target.alt)
+			window.history.push(e.target.alt)
 			return 0
 		}
 	    this.querySelectorAll("button").forEach(element => { element.onclick = callback })
 
 	    // observe hide / show and tell the augmented view to update or not
 		new MutationObserver(() => {
-			console.log("main hideshow " + this.style.display)
 			view.please_update = this.style.display == "block"
 		}).observe(this,{attributes:true})
 	}

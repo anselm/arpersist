@@ -26,11 +26,11 @@ export class ARProfile extends HTMLElement {
     		e.preventDefault()
 			switch(e.target.id) {
 				case "profile_backup":
-					this.pop()
+					window.history.back()
 					break
 				case "profile_logout":
 					entity_manager.entityLogout()
-					this.pop()
+					window.history.back()
 					break
 			}
 			return false
@@ -42,7 +42,7 @@ export class ARProfile extends HTMLElement {
 			console.log("profile hideshow " + this.style.display)
 			if(this.style.display != "block") return
 			if(!this.entity_manager.entityParty) {
-				this.show("login")
+				window.history.show("login")
 				return
 			}
 			this.children[0].elements[0].value = this.entity_manager.entityParty.name
