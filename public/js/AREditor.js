@@ -5,8 +5,8 @@ export class AREditor extends HTMLElement {
 		return `
 		<form>
 		<center>
-		<br/><button onClick="event.preventDefault(); window.pop(); return 0;"> done</button>
-		<br/><button id="delete" onClick="event.preventDefault();window.ux.action('delete'); window.pop(); return 0;"> delete</button>
+		<br/><button id="editor_done1"> done</button>
+		<br/><button id="editor_delete"> delete</button>
 		<br/><input id="edit_name" placeholder="a name"></input>
 		<br/><input id="edit_art" placeholder="url to art OR words to show"></input>
 		<br/><label id="xedit_upright"  >   Upright </label><label class="switch">      <input id="edit_upright" type="checkbox"><span class="slider"></span></label>
@@ -23,7 +23,7 @@ export class AREditor extends HTMLElement {
 		<br/><label>scale x</label><input id="edit_scalex"></input>
 		<br/><label>scale y</label><input id="edit_scaley"></input>
 		<br/><label>scale z</label><input id="edit_scalez"></input>
-		<br/><button onClick="event.preventDefault(); window.pop(); return 0;"> done</button>
+		<br/><button id="editor_done2"> done</button>
 		<br/>
 		<div id="edit_uuid">object uid if any</div>
 		</center>
@@ -38,13 +38,33 @@ export class AREditor extends HTMLElement {
   		this.entity_manager = entity_manager
 		this.innerHTML = this.content()
 
-	    // this is one way to notice if editor is up
-		var observer = new MutationObserver((mutations) => {
-			if(mutations[0].target.style.display != 'none') {
-				console.log("showing editor")
+		let callback = (e) => {
+			e.preventDefault()
+			switch(e.currentTarget.id) {
+				case "editor_done1":
+				case "editor_done2":
+					this.pop()
+					break
+				case "editor_delete":
+					// delete TBD
+					this.pop()
+					break
 			}
-		})
-		observer.observe(this, { attributes: true });
+			return 0
+		}
+
+		// observe buttons
+	    this.querySelectorAll("button").forEach(element => { element.onclick = callback })
+
+	    // observe hide/show
+		new MutationObserver(() => {
+			console.log("editor hideshow " + this.style.display)
+			if(this.style.display != "block") {
+				this.onhide()
+				return
+			}
+			this.onshow()
+		}).observe(this, { attributes: true })
 	}
 
 	onshow() {

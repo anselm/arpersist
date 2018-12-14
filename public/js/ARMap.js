@@ -21,6 +21,15 @@ export class ARMap extends HTMLElement {
 		this.markers = {}
 		this.centerlatlng = { lat:37.7749, lng:-122.4194, altitude:0 }
 
+		new MutationObserver(() => {
+			console.log("map hideshow " + this.style.display)
+			if(this.style.display != "block") {
+				this.onhide()
+				return
+			}
+			this.onshow()
+		}).observe(this, { attributes: true });
+
 	}
 
 	onshow() {

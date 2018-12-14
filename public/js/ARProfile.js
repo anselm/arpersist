@@ -21,6 +21,7 @@ export class ARProfile extends HTMLElement {
   		this.entity_manager = entity_manager
 		this.innerHTML = this.content()
 
+    	// observe buttons
 		let callback = (e) => {
     		e.preventDefault()
 			switch(e.target.id) {
@@ -34,16 +35,19 @@ export class ARProfile extends HTMLElement {
 			}
 			return false
     	}
-
 	    this.querySelectorAll("button").forEach(element => { element.onclick = callback })
-	}
 
-	onshow() {
-		if(!this.entity_manager.entityParty) {
-			this.show("login")
-			return
-		}
-		this.children[0].elements[0].value = this.entity_manager.entityParty.name
+	    // observe hide show
+		new MutationObserver(() => {
+			console.log("profile hideshow " + this.style.display)
+			if(this.style.display != "block") return
+			if(!this.entity_manager.entityParty) {
+				this.show("login")
+				return
+			}
+			this.children[0].elements[0].value = this.entity_manager.entityParty.name
+		}).observe(this,{attributes:true})
+
 	}
 
 }

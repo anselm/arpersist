@@ -142,7 +142,7 @@ export class EntityManager {
 		// TODO - if entity party then keep updating the party anchor!! and keep republishing
 		if(this.entityPartyUpdateCounter && this.entityParty) {
 			this.entityPartyUpdateCounter++
-			if(this.entityPartyUpdateCounter > 60) {
+			if(this.entityPartyUpdateCounter > 10) {
 				this.entityPartyUpdateCounter = 1
 				if(!this.entityParty._attach) {
 					this.entityParty._attach = "eye"

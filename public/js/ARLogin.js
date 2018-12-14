@@ -33,6 +33,12 @@ export class ARLogin extends HTMLElement {
 		window.localStorage.setItem("pub",0)
 		window.localStorage.setItem("master",0)
 
+		new MutationObserver(() => {
+			console.log("login hideshow " + this.style.display)
+			if(this.style.display != "block") return
+			this.onshow()
+		}).observe(this, { attributes: true })
+
   	}
 
   	onshow() {

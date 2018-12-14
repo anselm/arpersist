@@ -6,6 +6,13 @@ export class ARZones extends HTMLElement {
       if(_id) this.id = _id
       if(_class) this.className = _class
       this.entity_manager = entity_manager
+
+      new MutationObserver(() => {
+        console.log("zones hideshow " + this.style.display)
+        if(this.style.display != "block") return
+        this.onshow()
+      }).observe(this, { attributes: true });
+
   }
 
   onshow() {

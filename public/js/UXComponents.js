@@ -1,19 +1,10 @@
 
-
-// helper to get url params
-export function UXUrlParams(vars={}) {
-    window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, (m,key,value) => { vars[key] = value })
-    return vars;
-}
-
-
 ///
 /// UXComponent
 ///
 ///	- a base class for components
 ///	- provides inter component messaging
 ///	- doesn't support an observables pattern yet - wouldn't be hard to add
-///	- does have some sugar with log() and action() wrappers for msg()
 ///	- right now msg takes a single hash and the 'kind' attribute is the message target; arguably this could be two params but thats bulkier
 ///	- does have a state storage system to allow state to be shared between things easily; may remove?
 ///
@@ -66,58 +57,8 @@ export class UXComponent {
 	}
 
 
-	static action(name,subvalue=0) {
-		// for convenienve - send a message called action
-		let args = {kind:'action',value:name,subvalue:subvalue}
-		UXPage.msg(args)
-	}
-	action(name,subvalue=0) {
-		let args = {kind:'action',value:name,subvalue:subvalue,className:this.__proto__.constructor.name}
-		return this.constructor.msg(args)
-	}
-
-
-	static save(name,value) {
-		// save and load shared state variables visible to component subclasses
-		ux_state[name] = value
-	}
-	save(name,value) {
-		return this.constructor.save(name,value)
-	}
-
-	static load(name) {
-		return ux_state[name];
-	}
-	load(name) {
-		return this.constructor.load(name)
-	}
-
 }
 
-///
-/// A concept of a dom painter that lets a developer build up a dom with some minimal help
-///
-
-export class UXDOM {
-
-	constructor() {
-		this.buffer = "";
-	}
-
-	raw(str) {
-		this.buffer += str + "\n";
-	}
-	div(contents,_class="",style="") {
-		this.buffer += "<div class='"+_class+"' style='"+style+"'>"+contents+"</div>";
-	}
-	h1(contents,_class="",style="") {
-		this.buffer += "<h1 class='"+_class+"' style='"+style+"'>"+contents+"</h1>";
-	}
-	finish() {
-		//document.getElementById("root").innerHTML = buffer;
-	}
-
-}
 
 ///
 /// UXPage
@@ -132,19 +73,6 @@ export class UXDOM {
 let ux_showing = 0
 
 export class UXPage extends UXComponent {
-
-	constructor() {
-		super()
-		window.onpopstate = (e) => {
-			// sets onpopstate handler over and over but that should be ok - another option would be to make this static
-			if(!e || !e.state) {
-				this.err(" backbutton - bad input for popstate; or external push state?")
-			} else {
-				//this.log(" user hit back button " + document.location + ", state: " + JSON.stringify(event.state) )
-				this.show(e.state.name)
-			}
-		}
-	}
 
 	static push(name) {
 		history.pushState({name:name},name,"#" + name );
@@ -176,42 +104,14 @@ export class UXPage extends UXComponent {
 	show(name) { return this.constructor.show(name) }
 }
 
-///
-/// UXLog
-///
+// TODO - having a hard coded router is kind of coercive
 
-export class UXLog extends HTMLElement {
-
-  constructor(_id=0,_class=0) {
-    super()
-    if(_id) this.id = _id
-    if(_class) this.className = _class
-    this.display = []
-    this.innerHTML = "debugging"
-    UXComponent.listen("log",this.print.bind(this))
-    UXComponent.listen("err",this.print.bind(this))
-  }
-
-  print(args) {
-    let buffer = ""
-    if (typeof args.value == 'string' || args.value instanceof String) {
-      buffer = args.value
-    } else if(args.value instanceof Array || Array.isArray(args.value)) {
-      buffer = args.value.join(" ")
-    }
-    let cname = args.className || ""
-    if(args.kind=="err") {
-      console.error(cname + " message: " + buffer)      
-      buffer = "<font color=red> " + buffer + "</font>"
-    } else {
-      console.log(cname + " message: " + buffer)      
-    }
-    this.display.unshift(buffer)
-    this.display = this.display.slice(0,10)
-    this.innerHTML = this.display.join("<br/>")
-  }
+window.onpopstate = (e) => {
+	if(!e || !e.state) {
+		UXPage.err(" backbutton - bad input for popstate; or external push state?")
+	} else {
+		UXPage.show(e.state.name)
+	}
 }
-
-customElements.define('ux-log', UXLog)
 
 
