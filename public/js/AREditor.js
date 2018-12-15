@@ -43,11 +43,11 @@ export class AREditor extends HTMLElement {
 			switch(e.currentTarget.id) {
 				case "editor_done1":
 				case "editor_done2":
-					window.history.back()
+				    this.dispatchEvent(new Event('router_pop',{bubbles:true}))
 					break
 				case "editor_delete":
 					// delete TBD
-					window.history.back()
+				    this.dispatchEvent(new Event('router_pop',{bubbles:true}))
 					break
 			}
 			return 0
@@ -74,7 +74,7 @@ export class AREditor extends HTMLElement {
 
 		// a null entity can occur if there was no intersection to place an anchor against
 		if(!entity) {
-			window.history.back()
+		    this.dispatchEvent(new Event('router_pop',{bubbles:true}))
 			return
 		}
 

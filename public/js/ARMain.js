@@ -858,7 +858,8 @@ export class ARMain extends HTMLElement {
 		// observe button events
 		let callback = (e) => {
 			e.preventDefault()
-			window.history.push(e.target.alt)
+		    document.body.dispatchEvent( new CustomEvent('router_push', { bubbles: true, detail: e.target.alt }) )
+			//window.history.push(e.target.alt)
 			return 0
 		}
 	    this.querySelectorAll("button").forEach(element => { element.onclick = callback })

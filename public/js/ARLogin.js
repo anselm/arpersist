@@ -53,7 +53,7 @@ export class ARLogin extends HTMLElement {
 			e.preventDefault()
 			// back out
 			if(e.target.id == "login_back") {
-				window.history.back()
+			    this.dispatchEvent(new Event('router_pop',{bubbles:true}))
 				return false
 			}
 			// valid name and pass?
@@ -79,7 +79,7 @@ export class ARLogin extends HTMLElement {
 			// if there is an entity everything worked out - can exit
 
 			if(results) {
-				window.history.back()
+			    this.dispatchEvent(new Event('router_pop',{bubbles:true}))
 				return false
 			}
 

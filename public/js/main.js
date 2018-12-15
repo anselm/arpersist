@@ -8,44 +8,24 @@ import {ARProfile} from '/js/ARProfile.js'
 import {ARZones} from '/js/ARZones.js'
 import {AREditor} from '/js/AREditor.js'
 import {ARMap} from '/js/ARMap.js'
+import {Router} from '/js/Router.js'
 
 // State
 
 import {EntityManager} from '/js/EntityManager.js'
-import {Messaging} from '/js/Messaging.js'
-import {Router} from '/js/Router.js'
 
 // Bootup
 
 export async function main() {
 
-    // anonymous messaging
-
-    let messaging = new Messaging()
-
-    // route page transitions
-
-    let router = new Router()
-
-    // have router listen to these messages
-
-    Messaging.listen("push",(e) => { Router.push(e) } )
-    Messaging.listen("show",(e) => { Router.show(e)} )
-    Messaging.listen("pop",(e) => { Router.pop()} )
-
-    // as a hack make routing available globally
-
-    window.history.pop = function(e) { Messaging.message("pop") }
-    window.history.show = function(e) { Messaging.message("show",e) }
-    window.history.push = function(e) { Messaging.message("push",e) }
-
     // networked entity state manager used by components
 
     let entity_manager = await new EntityManager()
 
-    // the ui
+    // other elements
 
     let elements = [
+      new Router(),
       new ARLog("debug_logging","debug_logging"),
       new ARMain("main","page",entity_manager),
       new ARLogin("login","page",entity_manager),
@@ -57,8 +37,7 @@ export async function main() {
 
     elements.forEach(elem => { document.body.appendChild(elem) } )
 
-    // goto main page
+    // go to home page by issuing a custom event that the Router catches
 
-   // window.history.push("main")
-   Messaging.message("push","main")
+    document.body.dispatchEvent( new CustomEvent('router_push', { bubbles: true, detail: "main"  })  )
 }

@@ -26,11 +26,11 @@ export class ARProfile extends HTMLElement {
     		e.preventDefault()
 			switch(e.target.id) {
 				case "profile_backup":
-					window.history.back()
+				    this.dispatchEvent(new Event('router_pop',{bubbles:true}))
 					break
 				case "profile_logout":
 					entity_manager.entityLogout()
-					window.history.back()
+				    this.dispatchEvent(new Event('router_pop',{bubbles:true}))
 					break
 			}
 			return false
@@ -42,7 +42,7 @@ export class ARProfile extends HTMLElement {
 			console.log("profile hideshow " + this.style.display)
 			if(this.style.display != "block") return
 			if(!this.entity_manager.entityParty) {
-				window.history.show("login")
+			    this.dispatchEvent(new CustomEvent('router_show',{bubbles:true, detail: "login"}))
 				return
 			}
 			this.children[0].elements[0].value = this.entity_manager.entityParty.name

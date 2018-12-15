@@ -1,4 +1,5 @@
 
+/*
 ///
 /// Allow senders and receivers to be totally decoupled
 ///
@@ -25,3 +26,4 @@ export class Messaging {
   }
 }
 
+*/

@@ -43,7 +43,7 @@ export class ARZones extends HTMLElement {
       element.style.color = "green"
       element.onclick = (e) => {
         e.preventDefault()
-        window.history.back()
+          this.dispatchEvent(new Event('router_pop',{bubbles:true}))
         return false
       }
       elements.appendChild(element)
@@ -57,7 +57,7 @@ export class ARZones extends HTMLElement {
       element.onclick = (e) => {
         e.preventDefault()
         this.entity_manager.entityAddGPS()
-        window.history.back()
+        this.dispatchEvent(new Event('router_pop',{bubbles:true}))
         return false
       }
       elements.appendChild(element)
@@ -100,7 +100,7 @@ export class ARZones extends HTMLElement {
       element.onclick = (e) => {
         e.preventDefault()
         this.entity_manager.mapSave()
-        window.history.back()
+        this.dispatchEvent(new Event('router_pop',{bubbles:true}))
         return false
       }
       elements.appendChild(element)
@@ -119,7 +119,7 @@ export class ARZones extends HTMLElement {
         let choice = e.srcElement.anchorUID
         console.log("Picked map " + choice)
         this.entity_manager.mapLoad(choice)
-        window.history.back()
+        this.dispatchEvent(new Event('router_pop',{bubbles:true}))
         return false
       }
       elements.appendChild(document.createElement("br"))

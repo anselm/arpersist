@@ -92,7 +92,7 @@ export class ARMap extends HTMLElement {
 			button.className = "uxbutton"
 			button.innerHTML = "back"
 			button.style.backgroundColor = "white"
-			button.onclick = function(e) { window.history.back() }
+			button.onclick = function(e) { this.dispatchEvent(new Event('router_pop',{bubbles:true})) }
 			this.map.controls[google.maps.ControlPosition.LEFT_TOP].push(button);
 
 		}
