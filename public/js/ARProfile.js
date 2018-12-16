@@ -39,7 +39,6 @@ export class ARProfile extends HTMLElement {
 
 	    // observe hide show
 		new MutationObserver(() => {
-			console.log("profile hideshow " + this.style.display)
 			if(this.style.display != "block") return
 			if(!this.entity_manager.entityParty) {
 			    this.dispatchEvent(new CustomEvent('router_show',{bubbles:true, detail: "login"}))

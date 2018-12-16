@@ -7,7 +7,7 @@ export class Router extends HTMLElement {
 
   hide(name) {
     if(!name) return
-    let element = document.getElementById(name)
+    let element = this.querySelector("#"+name)
     if(element) element.style.display = "none"
   }
 
@@ -15,7 +15,7 @@ export class Router extends HTMLElement {
     if(this.ux_showing == name ) return
     if(this.ux_showing) this.hide(this.ux_showing)
     this.ux_showing = name
-    let element = document.getElementById(name)
+    let element = this.querySelector("#"+name)
     if(element) element.style.display = "block"
   }
 
@@ -32,13 +32,32 @@ export class Router extends HTMLElement {
     }
   }
 
-  constructor() {
+  constructor(...elements) {
     super()
-    this.innerHTML = ""
+    //this.innerHTML = ""
+
+    // watch navigator history events
+
     window.onpopstate = this.onpopstate.bind(this)
-    document.body.addEventListener('router_pop', this.pop )
-    document.body.addEventListener('router_push', e => { this.push(e.detail) })
-    document.body.addEventListener('router_show', e => { this.show(e.detail) })
+
+    // watch for custom navigation events to bubble up
+
+    this.addEventListener('router_pop', this.pop )
+    this.addEventListener('router_push', e => { this.push(e.detail) })
+    this.addEventListener('router_show', e => { this.show(e.detail) })
+
+    // add children that this router switches between
+
+    elements.forEach(elem => { this.appendChild(elem) } )
+
+    // goto the first child
+
+    this.push(elements[0].id)
+
+    // add self to dom
+
+    document.body.appendChild(this)
+
   }
 
 }

@@ -858,7 +858,7 @@ export class ARMain extends HTMLElement {
 		// observe button events
 		let callback = (e) => {
 			e.preventDefault()
-		    document.body.dispatchEvent( new CustomEvent('router_push', { bubbles: true, detail: e.target.alt }) )
+		    this.dispatchEvent( new CustomEvent('router_push', { bubbles: true, detail: e.target.alt }) )
 			//window.history.push(e.target.alt)
 			return 0
 		}

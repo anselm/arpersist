@@ -8,7 +8,6 @@ export class ARZones extends HTMLElement {
       this.entity_manager = entity_manager
 
       new MutationObserver(() => {
-        console.log("zones hideshow " + this.style.display)
         if(this.style.display != "block") return
         this.onshow()
       }).observe(this, { attributes: true });
@@ -117,7 +116,6 @@ export class ARZones extends HTMLElement {
       element.onclick = (e) => {
         e.preventDefault()
         let choice = e.srcElement.anchorUID
-        console.log("Picked map " + choice)
         this.entity_manager.mapLoad(choice)
         this.dispatchEvent(new Event('router_pop',{bubbles:true}))
         return false

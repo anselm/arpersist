@@ -34,12 +34,12 @@ export class ARLogin extends HTMLElement {
 		window.localStorage.setItem("master",0)
 
 		new MutationObserver(() => {
-			console.log("login hideshow " + this.style.display)
-			if(this.style.display != "block") return
-			this.onshow()
+			this.style.display != "block" ? this.onhide() : this.onshow()
 		}).observe(this, { attributes: true })
 
   	}
+
+  	onhide() {}
 
   	onshow() {
 		this.innerHTML = this.content()

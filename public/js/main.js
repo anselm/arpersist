@@ -22,22 +22,15 @@ export async function main() {
 
     let entity_manager = await new EntityManager()
 
-    // other elements
+    // layout the website - including a simple router
 
-    let elements = [
-      new Router(),
-      new ARLog("debug_logging","debug_logging"),
+    let router = new Router(
       new ARMain("main","page",entity_manager),
+      new ARLog("debug_logging","debug_logging"),
       new ARLogin("login","page",entity_manager),
       new ARProfile("profile","page",entity_manager),
       new ARZones("zones","page",entity_manager),
       new AREditor("editor","page_overflow",entity_manager),
       new ARMap("maps","page",entity_manager)
-    ]
-
-    elements.forEach(elem => { document.body.appendChild(elem) } )
-
-    // go to home page by issuing a custom event that the Router catches
-
-    document.body.dispatchEvent( new CustomEvent('router_push', { bubbles: true, detail: "main"  })  )
+    )
 }
