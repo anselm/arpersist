@@ -15,6 +15,18 @@
 
 */
 
+function warning() {
+  let url = "https://itunes.apple.com/us/app/webxr-viewer/id1295998056?mt=8"
+  document.body.innerHTML =
+    `<br/><br/><center>
+     <div style="color:white;width:80%;background:#400;border:3px solid red">
+     Please use the WebXR iOS browser to experience this app.
+     <br/><br/>
+     <a href="https://itunes.apple.com/us/app/webxr-viewer/id1295998056?mt=8">
+     https://itunes.apple.com/us/app/webxr-viewer/id1295998056?mt=8</a></div>
+   `
+}
+
 import {XRAnchorCartography} from './XRAnchorCartography.js'
 
 
@@ -71,6 +83,7 @@ export class XRExampleBaseModified {
 			alignEUS: this.alignEUS,
 			worldSensing: this.worldSensing
 		}
+
 		for(let display of this.displays){
 			if(display.supportsSession(sessionInitParameters)){
 				this.display = display
@@ -85,6 +98,11 @@ export class XRExampleBaseModified {
 			this.session = session
 			this.session.depthNear = 0.1
 			this.session.depthFar = 1000.0
+
+if(!this.display._arKitWrapper) {
+  warning();
+  return
+}
 
 			// Handle session lifecycle events
 			this.session.addEventListener('focus', ev => { this.handleSessionFocus(ev) })
@@ -244,7 +262,7 @@ export class XRExampleBaseModified {
 			}
 	        requestAnimationFrame( render );
 
-			{
+			if(false) {
 				let geometry = new THREE.SphereGeometry( 0.07, 32, 32 ); 
 				let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
 				let mesh = new THREE.Mesh(geometry, material)
