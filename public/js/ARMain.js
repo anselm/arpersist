@@ -402,6 +402,13 @@ class AugmentedView extends XRExampleBaseModified {
 	initializeScene() {
 		this.listenerSetup = false
 
+		// load a font
+		var loader = new THREE.FontLoader();
+		loader.load( '/fonts/helvetiker_bold.typeface.json', font => {
+			console.log(font)
+			this.font = font
+		})
+
 		// add some light
 		this.scene.add(new THREE.AmbientLight('#FFF', 0.2))
 
@@ -462,13 +469,18 @@ class AugmentedView extends XRExampleBaseModified {
 				node = 0
 			}
 			// if invalid node then remake
-			if(!node) {
+			if(!node && !entity.triedToLoadArt) {
+				entity.triedToLoadArt = 1
 				node = this.createSceneGraphNode(entity.art)
+				if(!node) return
 				node.art = entity.art
 				node.myuuid = entity.uuid
 				this.scene.add(node)
 				this.nodes[entity.uuid] = node
 			}
+
+			if(!node) return
+
 			// mark as surviving
 			node.survivor = 1
 
@@ -565,7 +577,6 @@ class AugmentedView extends XRExampleBaseModified {
 		// load
 
 		let loader = new THREE.GLTFLoader()
-		if(url.startsWith("http")) url = "/proxy" + url
 		loader.load(url, callback )
 
 		// return group before load is sone
@@ -580,9 +591,13 @@ class AugmentedView extends XRExampleBaseModified {
 
 	createSceneGraphNode(args = 0) {
 
+		if(!args || !args.length) args = "duck"
+
 		let size = this.params && this.params.general_object_size ? this.params.general_object_size : 0.2
 
 		let args2 = args.toLowerCase()
+		let isurl = args2.startsWith("http")
+		let ispath = args2.startsWith("/")
 
 		// a primitive?
 
@@ -598,28 +613,43 @@ class AugmentedView extends XRExampleBaseModified {
 			return new THREE.Mesh(geometry, material)
 		}
 
-		if(args == "box" || args == "cube") {
+		if(args2 == "box" || args2 == "cube") {
 			let geometry = new THREE.BoxBufferGeometry(size, size, size);
 			let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
 			return new THREE.Mesh(geometry, material)
 		}
 
-		// duck?
-
-		if(args2.startsWith("duck")) {
+		if(args2 == "duck") {
 			args = args2 = "https://raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
 		}
 
-		 // what is the path? is it an image?
+		// text?
+
+		if(!isurl && !ispath) {
+
+			var geometry = new THREE.TextGeometry( args, {
+				font: this.font,
+				size: 0.1,
+				height: 0.01,
+			} )
+
+			let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
+			return new THREE.Mesh(geometry, material)
+		}
+
+		// it is some kind of url - if not local then proxy requests at the server
+
+		let path = isurl ? ('/proxy/' + encodeURIComponent(args)) : args
+
+		// is it an image?
 
 		var parser = document.createElement('a')
 		parser.href = args
 		let pathname = parser.pathname ? parser.pathname.toLowerCase() : 0
-
-		if(pathname.endsWith(".jpg") || pathname.endsWith(".png") || pathname.endsWith(".gif")) {
+		if(pathname.endsWith(".jpg") || pathname.endsWith(".jpeg") || pathname.endsWith(".png") || pathname.endsWith(".gif")) {
 
 			let loader = new THREE.TextureLoader()
-		    var texture = loader.load( '/proxy/' + encodeURIComponent(args) )
+		    var texture = loader.load( path )
 			texture.minFilter = THREE.LinearFilter
 
 		    let geometry = new THREE.BoxGeometry(0.3,0.3,0.01,10,10)
@@ -636,9 +666,7 @@ class AugmentedView extends XRExampleBaseModified {
 		//	args = args2 = "https://raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
 		//}
 
-		// load what we can
-
-		return this.loadGLTF(args,size)
+		return this.loadGLTF(path,size)
 	}
 
 }
