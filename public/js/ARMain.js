@@ -222,7 +222,7 @@ if(!this.display._arKitWrapper) {
 			})
 			this.renderer.setPixelRatio(1)
 			this.renderer.autoClear = false
-			//this.renderer.setClearColor('#000', 0)
+			this.renderer.setClearColor('#000', 0)
 
 			this.initComposer(width,height)
 
@@ -466,6 +466,7 @@ class AugmentedView extends XRExampleBaseModified {
 			if(node && node.art != entity.art) {
 				console.log("entity has new art = " + entity.uuid + " " + entity.art )
 				this.scene.remove(node)
+				entity.triedToLoadArt = 0
 				node = 0
 			}
 			// if invalid node then remake
@@ -623,17 +624,128 @@ class AugmentedView extends XRExampleBaseModified {
 			args = args2 = "https://raw.githubusercontent.com/mozilla/webxr-polyfill/master/examples/image_detection/DuckyMesh.glb"
 		}
 
+		// text bubble?
+
+		if(args2.startsWith("bub ")) {
+
+			args = args.substring(4)
+
+/*https://stackoverflow.com/questions/1255512/how-to-draw-a-rounded-rectangle-on-html-canvas
+				CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+				  if (w < 2 * r) r = w / 2;
+				  if (h < 2 * r) r = h / 2;
+				  this.beginPath();
+				  this.moveTo(x+r, y);
+				  this.arcTo(x+w, y,   x+w, y+h, r);
+				  this.arcTo(x+w, y+h, x,   y+h, r);
+				  this.arcTo(x,   y+h, x,   y,   r);
+				  this.arcTo(x,   y,   x+w, y,   r);
+				  this.closePath();
+				  return this;
+				}
+
+*/
+				CanvasRenderingContext2D.prototype.roundRect = function(sx,sy,ex,ey,r) {
+				    var r2d = Math.PI/180;
+				    if( ( ex - sx ) - ( 2 * r ) < 0 ) { r = ( ( ex - sx ) / 2 ); } //ensure that the radius isn't too large for x
+				    if( ( ey - sy ) - ( 2 * r ) < 0 ) { r = ( ( ey - sy ) / 2 ); } //ensure that the radius isn't too large for y
+				    this.beginPath();
+				    this.moveTo(sx+r,sy);
+				    this.lineTo(ex-r,sy);
+				    this.arc(ex-r,sy+r,r,r2d*270,r2d*360,false);
+				    this.lineTo(ex,ey-r);
+				    this.arc(ex-r,ey-r,r,r2d*0,r2d*90,false);
+				    this.lineTo(sx+r,ey);
+				    this.arc(sx+r,ey-r,r,r2d*90,r2d*180,false);
+				    this.lineTo(sx,sy+r);
+				    this.arc(sx+r,sy+r,r,r2d*180,r2d*270,false);
+				    this.closePath();
+				}
+
+				function drawBubble(ctx, x, y, w, h, radius)
+				{
+				  var r = x + w;
+				  var b = y + h;
+				  ctx.beginPath();
+				  ctx.strokeStyle="#30A030";
+				  ctx.lineWidth="6";
+				  ctx.moveTo(x+radius, y);
+				  //ctx.lineTo(x+radius/2, y-10);
+				  //ctx.lineTo(x+radius * 2, y);
+				  ctx.lineTo(r-radius, y);
+				  ctx.quadraticCurveTo(r, y, r, y+radius);
+				  ctx.lineTo(r, y+h-radius);
+				  ctx.quadraticCurveTo(r, b, r-radius, b);
+				  ctx.lineTo(x+radius, b);
+				  ctx.quadraticCurveTo(x, b, x, b-radius);
+				  ctx.lineTo(x, y+radius);
+				  ctx.quadraticCurveTo(x, y, x+radius, y);
+				  ctx.stroke();
+				}
+
+		      function wrapText(context, text, x, y, maxWidth, lineHeight) {
+		        var words = text.split(' ');
+		        var line = '';
+		        for(var n = 0; n < words.length; n++) {
+		          var testLine = line + words[n] + ' '
+		          var metrics = context.measureText(testLine);
+		          var testWidth = metrics.width
+		          if (testWidth > maxWidth && n > 0) {
+		            context.fillText(line, x, y)
+		            line = words[n] + ' '
+		            y += lineHeight
+		          }
+		          else {
+		            line = testLine
+		          }
+		        }
+		        context.fillText(line, x, y)
+		        console.log(line)
+		      }
+    
+    let fsize = 40
+    let w = 600.0
+    let h = 220.0
+
+			let canvas = document.createElement("canvas")
+			canvas.width = w
+			canvas.height = h
+			let context = canvas.getContext("2d")
+			//context.clearRect(0,0,w,h);
+			context.font = fsize + "pt Arial"
+			//context.textAlign = "center"
+			//context.fillStyle = "#000000"
+			//context.fillRect(0, 0, w, h)
+			context.fillStyle = "#cc00cc"
+			context.strokeStyle = "#cc00cc";
+			//context.fillText(args, canvas.width / 2, canvas.height / 2)
+
+			//	context.roundRect(0,0,600,600,10).stroke(); //or .fill() for a filled rect
+			//_cxt.roundRect(35,10,260,120,20);
+			//_cxt.strokeStyle = "#000";
+			//_cxt.stroke();
+
+			drawBubble(context,10,10,w-20,h-20,5)
+
+			wrapText(context,args,fsize,fsize*1.5+2,w-fsize*2,fsize+2)
+
+			let texture = new THREE.Texture(canvas)
+			texture.needsUpdate = true
+			let material = new THREE.MeshBasicMaterial({map : texture})
+			return new THREE.Mesh(new THREE.PlaneGeometry(0.5, h/w, 10, 10), material)
+		}
+
 		// text?
 
-		if(!isurl && !ispath) {
-
+		if(args2.startsWith("text ")) {
+			args = args.substring(5)
 			var geometry = new THREE.TextGeometry( args, {
 				font: this.font,
 				size: 0.1,
 				height: 0.01,
 			} )
 
-			let material = new THREE.MeshPhongMaterial({ color: '#FF0099' })
+			let material = new THREE.MeshPhongMaterial({ color: '#CC00CC' })
 			return new THREE.Mesh(geometry, material)
 		}
 
