@@ -1,48 +1,20 @@
 
-/*
-	XRExampleBase holds all of the common XR setup, rendering, and teardown code for a THREE.js based app
-	It also holds a list of THREE nodes and XRAnchorOffsets which it uses to update the nodes' poses
-
-	Extending classes should be able to focus mainly on rendering their scene and handling user input
-
-	Parameters:
-		domElement: an element used to show error messages
-		createVirtualReality: if true, create a new empty reality for this app
-
-	WebVR 1.1 displays require that the call to requestPresent be a direct result of an input event like a click.
-	If you're trying to use a WebVR 1.1 display then you'll need to pass false in the shouldStartPresenting parameter
-	of the constructor and then call this.startPresenting() inside an input event handler.
-
-*/
-
-function warning() {
-  let url = "https://itunes.apple.com/us/app/webxr-viewer/id1295998056?mt=8"
-  document.body.innerHTML =
-    `<br/><br/><center>
-     <div style="color:white;width:80%;background:#400;border:3px solid red">
-     Please use the WebXR iOS browser to experience this app.
-     <br/><br/>
-     <a href="https://itunes.apple.com/us/app/webxr-viewer/id1295998056?mt=8">
-     https://itunes.apple.com/us/app/webxr-viewer/id1295998056?mt=8</a></div>
-   `
-}
-
 import {XRAnchorCartography} from './XRAnchorCartography.js'
 
+///
+/// XR Support
+///
 
-export class XRExampleBaseModified {
+export class XRBase {
 
-	constructor(domElement, createVirtualReality=true, shouldStartPresenting=true, useComputerVision=false, worldSensing=false, alignEUS=true){
+	startup(args) {
 
-		this.el = domElement
+		// Useful for setting up the requestAnimationFrame callback
+		this._boundHandleFrame = this._handleFrame.bind(this)
 
-		this.createVirtualReality = createVirtualReality
-		this.shouldStartPresenting = shouldStartPresenting
-		this.useComputerVision = useComputerVision
-		this.alignEUS = alignEUS
-		this.worldSensing = worldSensing
-
-		this._boundHandleFrame = this._handleFrame.bind(this) // Useful for setting up the requestAnimationFrame callback
+		// callback for caller to update 3js
+		this.glContext = args.glContext
+		this.updateScene = args.updateScene
 
 		// Set during the XR.getDisplays call below
 		this.displays = null
@@ -63,10 +35,7 @@ export class XRExampleBaseModified {
 				return
 			}
 			this.displays = displays
-			this.init3js()
-			// Give extending classes the opportunity to initially populate the scene
-			this.initializeScene()
-			this._startSession()
+			this._startSession(args)
 		}).catch(err => {
 			console.error('Error getting XR displays', err)
 			this.showMessage('Could not get XR displays')
@@ -74,44 +43,39 @@ export class XRExampleBaseModified {
 
 	}
 
-	_startSession(){
+	_startSession(args){
 
 		let sessionInitParameters = {
-			exclusive: this.createVirtualReality,
-			type: this.createVirtualReality ? XRSession.REALITY : XRSession.AUGMENTATION,
-			videoFrames: this.useComputerVision,    //computer_vision_data
-			alignEUS: this.alignEUS,
-			worldSensing: this.worldSensing
+			exclusive: args.createVirtualReality,
+			type: args.createVirtualReality ? XRSession.REALITY : XRSession.AUGMENTATION,
+			videoFrames: args.useComputerVision,    //computer_vision_data
+			alignEUS: args.alignEUS,
+			worldSensing: args.worldSensing
 		}
 
-		for(let display of this.displays){
-			if(display.supportsSession(sessionInitParameters)){
+		for(let display of this.displays) {
+			if(display.supportsSession(sessionInitParameters)) {
 				this.display = display
 				break
 			}
 		}
-		if(this.display === null){
+
+		if(this.display === null) {
 			this.showMessage('Could not find a display for this type of session')
 			return
 		}
+
 		this.display.requestSession(sessionInitParameters).then(session => {
 			this.session = session
 			this.session.depthNear = 0.1
 			this.session.depthFar = 1000.0
 
-if(!this.display._arKitWrapper) {
-  warning();
-  return
-}
+			if(!this.display._arKitWrapper) {
+			  this.popupWarning()
+			  return
+			}
 
-			// Handle session lifecycle events
-			this.session.addEventListener('focus', ev => { this.handleSessionFocus(ev) })
-			this.session.addEventListener('blur', ev => { this.handleSessionBlur(ev) })
-			this.session.addEventListener('end', ev => { this.handleSessionEnded(ev) })
-
-			this.newSession();
-
-			if(this.shouldStartPresenting){
+			if(args.shouldStartPresenting) {
 				// VR Displays need startPresenting called due to input events like a click
 				this.startPresenting()
 			}
@@ -121,33 +85,9 @@ if(!this.display._arKitWrapper) {
 		})
 	}
 
-	/*
-	  Clients should override to be called when a new session is created
-	  */
-	newSession() {}
-
-	/*
-		Empties this.el, adds a div with the message text, and shows a button to test rendering the scene to this.el
-	*/
-	showMessage(messageText){
-		let messages = document.getElementsByClassName('common-message')
-		if(messages.length > 0){
-			var message = messages[0]
-		} else {
-			var message = document.createElement('div')
-			message.setAttribute('class', 'common-message')
-			this.el.append(message)
-		}
-		let div = document.createElement('div')
-		div.innerHTML = messageText
-		message.appendChild(div)
-	}
-
-	/*
-	WebVR 1.1 displays require that the call to requestPresent be a direct result of an input event like a click.
-	If you're trying to set up a VR display, you'll need to pass false in the shouldStartPresenting parameter of the constructor
-	and then call this.startPresenting() inside an input event handler.
-	*/
+	// WebVR 1.1 displays require that the call to requestPresent be a direct result of an input event like a click.
+	// If you're trying to set up a VR display, you'll need to pass false in the shouldStartPresenting parameter of the constructor
+	// and then call this.startPresenting() inside an input event handler.
 	startPresenting(){
 		if(this.session === null){
 			this.showMessage('Can not start presenting without a session')
@@ -157,37 +97,85 @@ if(!this.display._arKitWrapper) {
 		// Set the session's base layer into which the app will render
 		this.session.baseLayer = new XRWebGLLayer(this.session, this.glContext)
 
-		// Handle layer focus events
-		this.session.baseLayer.addEventListener('focus', ev => { this.handleLayerFocus(ev) })
-		this.session.baseLayer.addEventListener('blur', ev => { this.handleLayerBlur(ev) })
-
 		this.session.requestFrame(this._boundHandleFrame)
-	}
-
-	// Extending classes can react to these events
-	handleSessionFocus(ev){}
-	handleSessionBlur(ev){}
-	handleSessionEnded(ev){}
-	handleLayerFocus(ev){}
-	handleLayerBlur(ev){}
-
-	// set up the video processing
-	//
-	setVideoWorker(worker){
-		this.session.setVideoFrameHandler(worker)
-	}
-
-	// request the next frame
-	// buffers is an optional parameter, suggesting buffers that could be used
-	requestVideoFrame() {
-		this.session.requestVideoFrame();
 	}
 
 	_handleFrame(frame){
 		const nextFrameRequest = this.session.requestFrame(this._boundHandleFrame)
-		this.headPose = frame.getDisplayPose(frame.getCoordinateSystem(XRCoordinateSystem.HEAD_MODEL))
-		//this._handleAnchors(frame)
-		this._handleScene(frame)
+		this.updateScene(this.session,frame)
+	}
+
+	///
+	/// a div with the message text, and shows a button to test rendering the scene
+	///
+	showMessage(messageText) {
+		let messages = document.getElementsByClassName('common-message')
+		if(messages.length > 0){
+			var message = messages[0]
+		} else {
+			var message = document.createElement('div')
+			message.setAttribute('class', 'common-message')
+			document.body.append(message)
+		}
+		let div = document.createElement('div')
+		div.innerHTML = messageText
+		message.appendChild(div)
+	}
+
+	///
+	/// helper
+	///
+	popupWarning() {
+	  let url = "https://itunes.apple.com/us/app/webxr-viewer/id1295998056?mt=8"
+	  document.body.innerHTML =
+	    `<br/><br/><center>
+	     <div style="color:white;width:80%;background:#400;border:3px solid red">
+	     Please use the WebXR iOS browser to experience this app.
+	     <br/><br/>
+	     <a href="https://itunes.apple.com/us/app/webxr-viewer/id1295998056?mt=8">
+	     https://itunes.apple.com/us/app/webxr-viewer/id1295998056?mt=8</a></div>
+	   `
+	}
+
+}
+
+///
+/// UXAugmentedView
+///
+/// Manages display and user interaction for entities
+///
+
+class AugmentedView {
+
+	constructor(entity_manager,dom_element) {
+
+		this.xrbase = new XRBase()
+
+		this.init3js()
+		this.initializeScene(dom_element)
+
+		this.xrbase.startup({
+			glContext:this.glContext,
+			updateScene:this.updateScene.bind(this),
+			createVirtualReality:false,
+			shouldStartPresenting:true,
+			useComputervision:false,
+			worldSensing:true,
+			alignEUS:true
+		})
+
+        // general settings
+        this.params = {}
+        this.params.general_object_size = 0.1
+
+        // block the parent class from doing some work
+		this.requestedFloor = true
+
+		this.entity_manager = entity_manager
+
+		this.nodes = {}
+
+		this.please_update = 1
 	}
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -275,8 +263,41 @@ if(!this.display._arKitWrapper) {
 
 	}
 
-	setOutlined(mesh) {
-		if(this.outlinePass) this.outlinePass.selectedObjects = mesh ? [ mesh ] : []
+	///
+	/// called by parent class - scene geometry and update callback helpers
+	///
+
+	initializeScene(dom_element) {
+
+		this.listenerSetup = false
+
+		// load a font
+		var loader = new THREE.FontLoader();
+		loader.load( '/fonts/helvetiker_bold.typeface.json', font => {
+			console.log(font)
+			this.font = font
+		})
+
+		// add some light
+		this.scene.add(new THREE.AmbientLight('#FFF', 0.2))
+
+		let directionalLight = new THREE.DirectionalLight('#FFF', 0.6)
+		directionalLight.position.set(1, 1, 1)
+
+		let pointLight = new THREE.PointLight( 0xffffff );
+		this.camera.add(pointLight);
+
+		//let flashlight = new THREE.SpotLight(0xffffff,4,40);
+		//this.camera.add(flashlight);
+		//flashlight.position.set(0,0,1);
+		//flashlight.target = this.camera;
+		//flashlight.castShadow = false;
+
+		// attach something to 0,0,0 - TODO this breaks picker HORRIBLY
+        //this.scene.add( this.AxesHelper( this.params.general_object_size ) );
+
+        // attach picker
+		this.arcontrols = new ARControls(this,dom_element,this.camera,this.scene)
 	}
 
 	initComposer(width,height) {
@@ -313,129 +334,55 @@ if(!this.display._arKitWrapper) {
         this.composer.setSize( width, height );
 
 	}
-	
-	//
-	// Extending classes should override this to set up the scene during class construction
-	//
-	initializeScene(){}
 
-	//
-	// Extending classes that need to update the layer during each frame should override this method
-	//
-	updateScene(frame){}
-
-	_handleScene(frame) {
-
-
-		let width = this.session.baseLayer.framebufferWidth || window.innerWidth
-		let height = this.session.baseLayer.framebufferHeight || window.innerHeight
-
-		// Let the extending class update the scene before each render
-		this.updateScene(frame)
-
-		// Prep THREE.js for the render of each XRView
-		this.renderer.autoClear = false
-		this.renderer.setSize(width,height, false)
-		this.renderer.clear()
-
-		this.camera.matrixAutoUpdate = false
-
-		// Render each view into this.session.baseLayer.context
-		for(const view of frame.views){
-			// Each XRView has its own projection matrix, so set the camera to use that
-			this.camera.matrix.fromArray(view.viewMatrix)
-			this.camera.updateMatrixWorld()
-			this.camera.projectionMatrix.fromArray(view.projectionMatrix)
-
-			// Set up the renderer to the XRView's viewport and then render
-			this.renderer.clearDepth()
-			const viewport = view.getViewport(this.session.baseLayer)
-			this.renderer.setViewport(viewport.x, viewport.y, viewport.width, viewport.height)
-			this.doRender()
-		}
-
-	}
-
-	doRender(){
-		if(this.composer) {
-			this.composer.render()
-			return
-		} else {
-			this.renderer.render(this.scene, this.camera)
-		}
-	}
-
-}
-
-///
-/// UXAugmentedView
-///
-/// Manages display and user interaction for entities
-///
-
-class AugmentedView extends XRExampleBaseModified {
-
-	constructor(entity_manager,dom_element) {
-
-        super(dom_element,false,true,false,true,true)
-
-        this.dom_element = dom_element
-
-        // general settings
-        this.params = {}
-        this.params.general_object_size = 0.1
-
-        // block the parent class from doing some work
-		this.requestedFloor = true
-
-		this.entity_manager = entity_manager
-
-		this.nodes = {}
-
-		this.please_update = 1
-	}
-
-	///
-	/// called by parent class - scene geometry and update callback helpers
-	///
-
-	initializeScene() {
-		this.listenerSetup = false
-
-		// load a font
-		var loader = new THREE.FontLoader();
-		loader.load( '/fonts/helvetiker_bold.typeface.json', font => {
-			console.log(font)
-			this.font = font
-		})
-
-		// add some light
-		this.scene.add(new THREE.AmbientLight('#FFF', 0.2))
-
-		let directionalLight = new THREE.DirectionalLight('#FFF', 0.6)
-		directionalLight.position.set(1, 1, 1)
-
-		let pointLight = new THREE.PointLight( 0xffffff );
-		this.camera.add(pointLight);
-
-		//let flashlight = new THREE.SpotLight(0xffffff,4,40);
-		//this.camera.add(flashlight);
-		//flashlight.position.set(0,0,1);
-		//flashlight.target = this.camera;
-		//flashlight.castShadow = false;
-
-		// attach something to 0,0,0 - TODO this breaks picker HORRIBLY
-        //this.scene.add( this.AxesHelper( this.params.general_object_size ) );
-
-        // attach picker
-		this.arcontrols = new ARControls(this,this.dom_element,this.camera,this.scene)
+	setOutlined(mesh) {
+		if(this.outlinePass) this.outlinePass.selectedObjects = mesh ? [ mesh ] : []
 	}
 
 	///
 	/// Called once per frame by base class, before render, to give the app a chance to update this.scene
 	///
 
-	updateScene(frame) {
+	updateScene(session,frame) {
+
+		// ask xr about the display size
+		this.session = session
+
+		let width = this.session.baseLayer.framebufferWidth || window.innerWidth
+		let height = this.session.baseLayer.framebufferHeight || window.innerHeight
+
+		// move objects around
+		this.updateEntities(frame)
+
+		// Render each view into this.session.baseLayer.context - there is only 1 view on arkit for an ios device
+		for(const view of frame.views){
+
+			// Each XRView has its own projection matrix, so set the camera to use that
+			this.camera.matrixAutoUpdate = false
+			this.camera.matrix.fromArray(view.viewMatrix)
+			this.camera.updateMatrixWorld()
+			this.camera.projectionMatrix.fromArray(view.projectionMatrix)
+
+			// Prep THREE.js for the render of each XRView
+			this.renderer.autoClear = false
+			this.renderer.setSize(width,height, false)
+			this.renderer.clear()
+
+			// Set up the renderer to the XRView's viewport and then render
+			this.renderer.clearDepth()
+			const viewport = view.getViewport(this.session.baseLayer)
+			this.renderer.setViewport(viewport.x, viewport.y, viewport.width, viewport.height)
+			if(this.composer) {
+				this.composer.render()
+				return
+			} else {
+				this.renderer.render(this.scene, this.camera)
+			}
+		}
+	}
+
+
+	updateEntities(frame) {
 
 		// is this display active?
 
