@@ -7,9 +7,11 @@ See https://hacks.mozilla.org/2019/01/augmented-reality-and-the-browser%e2%80%8a
 
 Also here is a video: https://www.youtube.com/watch?v=rYxahAnz34g
 
-An exploration of persistent AR in the browser leveraging ARKit to simulate centimeter accurate GPS. Uses webxr-ios to fetch arkit maps into the browser. In combination with a gps location, we can compute the gps location for other anchors that are placed in the environment.
+This app is an exploration of persistent AR in the browser leveraging ARKit to simulate centimeter accurate GPS. Uses webxr-ios to fetch arkit maps into the browser. In combination with a gps location, we can compute the gps location for other anchors that are placed in the environment.
 
-A client/server architecture is used where maps associated with a gps location can be saved to the server and then fetched by clients at that gps location. In addition any user placed features can also be retrieved.
+Persistence is supported using a client/server architecture where maps associated with a gps location can be saved to the server and then fetched by clients at that gps location. In addition any user placed features can also be retrieved.
+
+Early explorations of multi-player support are also present. There are thoughts here about a larger richer social experience such as filtering posts based on if they are by parties that you have friended. This is ongoing however. As it stands you can see other players as a "heart" floating in space where their phone is, and you can see each other move and edit objects.
 
 # Build
 
@@ -37,11 +39,13 @@ The client web app usage is as follows:
 
 # Code Design
 
-Typically an application like this would be built using React. React is a component based framework that allows developers to consolidate UX elements into standalone blocks and allows for event propagation and url routing. Often developers will combine React with MobX or other state management schemes. Often React like frameworks focus on efficiently updating a shadow DOM. Often React apps are 'compiled' and there is a background 'build compile run' process.
+*2D Components*. Typically an application like this would be built using React. React is a component based framework that allows developers to consolidate UX elements into standalone blocks and allows for event propagation and url routing. Often developers will combine React with MobX or other state management schemes. Often React like frameworks focus on efficiently updating a shadow DOM. Often React apps are 'compiled' and there is a background 'build compile run' process.
 
 In my application I'm exploring an idea of using pure HTMLComponent based objects with no compile phase. I don't worry about optimally regenerating the DOM based on state changes because the cost of that is low. I also have my own small router. It is some extra work to avoid having any kind of custom base class for my components to inherit, but the win at the end of the day is that pure HTMLComponents could be shared between various projects without any apriori agreement or base foundation.
 
-For 3d objects and behaviors I have some new work that is not merged in here yet. It sits below concepts like AFrame and above concepts like 3js.
+*3D Components*. For 3d objects and behaviors I have some new work that is not merged in here yet. It sits below concepts like AFrame and above concepts like 3js.
+
+*Geolocation*. ARKit lets us place objects persistently in scanned volume. This volume itself can be geolocated using a GPS. The combination of both gives us centimeter accurate geolocation even without GPS (once the volume is scanned). This app is based around that observation - that we can play with ideas of persistent AR even early in the technology curve.
 
 # Future Ideas
 
