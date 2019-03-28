@@ -7,7 +7,7 @@ import {XRAnchorCartography} from './XRAnchorCartography.js'
 
 export class XRBase {
 
-	startup(args) {
+	constructor(args) {
 
 		// Useful for setting up the requestAnimationFrame callback
 		this._boundHandleFrame = this._handleFrame.bind(this)
@@ -149,20 +149,8 @@ class AugmentedView {
 
 	constructor(entity_manager,dom_element) {
 
-		this.xrbase = new XRBase()
-
 		this.init3js()
 		this.initializeScene(dom_element)
-
-		this.xrbase.startup({
-			glContext:this.glContext,
-			updateScene:this.updateScene.bind(this),
-			createVirtualReality:false,
-			shouldStartPresenting:true,
-			useComputervision:false,
-			worldSensing:true,
-			alignEUS:true
-		})
 
         // general settings
         this.params = {}
@@ -176,6 +164,17 @@ class AugmentedView {
 		this.nodes = {}
 
 		this.please_update = 1
+
+		this.xrbase = new XRBase({
+			glContext:this.glContext,
+			updateScene:this.updateScene.bind(this),
+			createVirtualReality:false,
+			shouldStartPresenting:true,
+			useComputervision:false,
+			worldSensing:true,
+			alignEUS:true
+		})
+
 	}
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
