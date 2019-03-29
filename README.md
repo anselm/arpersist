@@ -39,15 +39,19 @@ The client web app usage is as follows:
 
 # Code Design
 
-*2D Components*. Typically an application like this would be built using React. React is a component based framework that allows developers to consolidate UX elements into standalone blocks and allows for event propagation and url routing. Often developers will combine React with MobX or other state management schemes. Often React like frameworks focus on efficiently updating a shadow DOM. Often React apps are 'compiled' and there is a background 'build compile run' process.
-
-In my application I'm exploring an idea of using pure HTMLComponent based objects with no compile phase. I don't worry about optimally regenerating the DOM based on state changes because the cost of that is low. I also have my own small router. It is some extra work to avoid having any kind of custom base class for my components to inherit, but the win at the end of the day is that pure HTMLComponents could be shared between various projects without any apriori agreement or base foundation.
+*2D Components*. Typically an application like this would be built using React. React is a component based framework that allows developers to consolidate UX elements into standalone blocks and allows for event propagation and url routing. Often developers will combine React with MobX or other state management schemes. Often React like frameworks focus on efficiently updating a shadow DOM. Often React apps are 'compiled' and there is a background 'build compile run' process.  In my application I'm exploring an idea of using pure HTMLComponent based objects with no compile phase. I don't worry about optimally regenerating the DOM based on state changes because the cost of that is low. I also have my own small router. It is some extra work to avoid having any kind of custom base class for my components to inherit, but the win at the end of the day is that pure HTMLComponents could be shared between various projects without any apriori agreement or base foundation.
 
 *3D Components*. For 3d objects and behaviors I have some new work that is not merged in here yet. It sits below concepts like AFrame and above concepts like 3js.
 
 *Geolocation*. ARKit lets us place objects persistently in scanned volume. This volume itself can be geolocated using a GPS. The combination of both gives us centimeter accurate geolocation even without GPS (once the volume is scanned). This app is based around that observation - that we can play with ideas of persistent AR even early in the technology curve.
 
 # Future Ideas
+
+Use the Hubs asset loaders to fetch arbitrary assets from arbitrary sources.
+
+Pull in leap motion hands or hands of some kind - a deep learning classifier.
+
+Pull in faces
 
 Improving the user controls by introducing widgets and manipulators to select, scale, rotate, move, cut, paste, retexture and otherwise alter objects. There may be a property sheet editor and or a palette of some kind to allow rich property editing on objects. For now I've introduced an idea of using the phone itself as a 6dof controller to grab and move and stretch objects - but richer manipulations would be desired.
 
@@ -69,9 +73,7 @@ Stronger social capabilities; to friend, filter by friends and suchlike. It's ar
 
 Formalization of basic properties of objects. Right now objects have properties such as a title, link, location, time, radius, priority, privacy, semantic hints (stick to floor etc), tags, a photo or image representation. There may be other properties as well. Ideally there would be kinds of objects and a schema editor per kind of object.
 
-BIP39 could continue to be refined as a pattern for a zero server managed login philosophy which is aligned with my own values around breaking away from centralization.
-
-https://www.mobilefish.com/developer/nodejs/nodejs_quickguide_browserify_bip39.html
+BIP39 could continue to be refined as a pattern for a zero server managed login philosophy which is aligned with my own values around breaking away from centralization.  https://www.mobilefish.com/developer/nodejs/nodejs_quickguide_browserify_bip39.html
 
 
 
