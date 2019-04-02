@@ -6,22 +6,25 @@
 ///
 ///
 
-export class XRSupport {
+export default class XRSupport {
 
 	constructor(args) {
 
-		// caller may provide a message handler for some convenience messages
-		this.showMessage = args.showMessage || this.defaultShowMessage
-
-		// caller must provide scene information
-		this.glContext = args.glContext
-		this.scene = args.scene
+		// caller must provide some parameters
 		this.camera = args.camera
+		this.canvas = args.canvas ? args.canvas : args.renderer.domElement
+		this.context = args.context ? args.context : args.renderer.getContext()
 		this.renderer = args.renderer
-		this.composer = args.composer
+		this.render = args.render
+
+		// avoid clearing color and depth since both are apparently over-written by the xr pass through camera
+		this.renderer.autoClear = false
 
 		// caller may provide a method to update their scene every frame
 		this.updateScene = args.updateScene
+
+		// caller may provide a message handler for some convenience messages
+		this.showMessage = args.showMessage || this.defaultShowMessage
 
 		// Set during the XR.getDisplays call below
 		this.displays = null
@@ -106,7 +109,7 @@ export class XRSupport {
 		}
 
 		// Set the session's base layer into which the app will render
-		this.session.baseLayer = new XRWebGLLayer(this.session, this.glContext)
+		this.session.baseLayer = new XRWebGLLayer(this.session, this.context)
 
 		// kickstart updates
 		this.session.requestFrame(this._boundHandleFrame)
@@ -119,8 +122,12 @@ export class XRSupport {
 			return
 		}
 
+		// a clock
+		if(!this.clock) this.clock = new THREE.Clock()
+        let time = this.clock.getElapsedTime()
+
 		// callback to update the 3js scenegraph
-		this.updateScene(this.session,frame)
+		this.updateScene(time,this.session,frame)
 
 		let width = this.session.baseLayer.framebufferWidth || window.innerWidth
 		let height = this.session.baseLayer.framebufferHeight || window.innerHeight
@@ -147,11 +154,7 @@ export class XRSupport {
 			this.renderer.setViewport(viewport.x, viewport.y, viewport.width, viewport.height)
 
 			// paint
-			if(this.composer) {
-				this.composer.render(this.scene, this.camera)
-			} else {
-				this.renderer.render(this.scene, this.camera)
-			}
+			this.render()
 		}
 	}
 

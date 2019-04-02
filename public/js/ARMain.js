@@ -1,5 +1,5 @@
 
-import {XRSupport} from './XRSupport.js'
+import XRSupport from './XRSupport.js'
 import {XRAnchorCartography} from './XRAnchorCartography.js'
 
 ///
@@ -30,30 +30,13 @@ class AugmentedView {
         // a flag to continue or stop updating the 3d view (sometimes other panels are up and no point in painting this)
 		this.please_update = 1
 
-		// startup up 3js, building a scene, setting up a glcontext
+		// startup up 3js - binds to the xr support also
 		this.init3js()
 
         // attach a picker/helper/manipulator thingie - this is a very simple controller to move and place objects using 6dof pov
-        if(dom_element) {
+        if(this.camera && this.scene && dom_element) {
 			this.arcontrols = new ARControls(this,this.camera,this.scene,dom_element)
 		}
-
-		// attach xr support for pass through xr and arkit support - which will then take over the camera and render loop
-		this.xr = new XRSupport({
-			showMessage:this.showMessage.bind(this),
-			glContext:this.glContext,
-			renderer:this.renderer,
-			composer:this.composer,
-			scene:this.scene,
-			camera:this.camera,
-			updateScene:this.updateScene.bind(this),
-			createVirtualReality:false,
-			shouldStartPresenting:true,
-			useComputervision:false,
-			worldSensing:true,
-			alignEUS:true
-		})
-
 	}
 
 	///
@@ -86,25 +69,8 @@ class AugmentedView {
 		let width = this.width = window.innerWidth || 1024
 		let height = this.height = window.innerHeight || 1024
 
-		// Canvas and context for renderer (this could be created automatically but doing it by hand for now)
-		this.glCanvas = document.createElement('canvas')
-		this.glContext = this.glCanvas.getContext('webgl')
-		if(this.glContext === null){
-			this.showMessage('Could not create a WebGL canvas')
-			throw new Error('Could not create GL context')
-			return
-		}
-
-		// Set up the THREE renderer with the session's layer's glContext
-		this.renderer = new THREE.WebGLRenderer({
-			canvas: this.glCanvas,
-			context: this.glContext,
-			antialias: false,
-			alpha: true
-		})
-		this.renderer.setPixelRatio(1)
-		this.renderer.autoClear = false
-		this.renderer.setClearColor('#000', 0)
+		// Set up the THREE renderer with alpha enabled
+		this.renderer = new THREE.WebGLRenderer({ alpha: true })
 
 		// a scene...
 		this.scene = new THREE.Scene()
@@ -125,18 +91,25 @@ class AugmentedView {
 		let pointLight = new THREE.PointLight( 0xffffff );
 		this.camera.add(pointLight);
 
-		//let flashlight = new THREE.SpotLight(0xffffff,4,40);
-		//this.camera.add(flashlight);
-		//flashlight.position.set(0,0,1);
-		//flashlight.target = this.camera;
-		//flashlight.castShadow = false;
-
 		// attach something to 0,0,0 - TODO this breaks picker HORRIBLY for some reason
         //this.scene.add( this.AxesHelper( this.params.general_object_size ) );
 
 		// I've chosen to have a slightly fancier render pipeline so I can do some effects
 		this.initComposer(width,height)
 
+		// attach xr support for pass through xr and arkit support - which will then take over the camera and render loop
+		this.xr = new XRSupport({
+			camera:this.camera,
+			renderer:this.renderer,
+			render:this.composer.render.bind(this.composer),
+			updateScene:this.updateScene.bind(this),
+			showMessage:this.showMessage.bind(this),
+			createVirtualReality:false,
+			shouldStartPresenting:true,
+			useComputervision:false,
+			worldSensing:true,
+			alignEUS:true
+		})
 	}
 
 	initComposer(width,height) {
@@ -181,7 +154,7 @@ class AugmentedView {
 	/// Called once per frame by base class, before render, to give the app a chance to update this.scene
 	///
 
-	updateScene(session,frame) {
+	updateScene(time,session,frame) {
 
 		// is this display active?
 
@@ -390,21 +363,6 @@ class AugmentedView {
 
 			args = args.substring(4)
 
-/*https://stackoverflow.com/questions/1255512/how-to-draw-a-rounded-rectangle-on-html-canvas
-				CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
-				  if (w < 2 * r) r = w / 2;
-				  if (h < 2 * r) r = h / 2;
-				  this.beginPath();
-				  this.moveTo(x+r, y);
-				  this.arcTo(x+w, y,   x+w, y+h, r);
-				  this.arcTo(x+w, y+h, x,   y+h, r);
-				  this.arcTo(x,   y+h, x,   y,   r);
-				  this.arcTo(x,   y,   x+w, y,   r);
-				  this.closePath();
-				  return this;
-				}
-
-*/
 				CanvasRenderingContext2D.prototype.roundRect = function(sx,sy,ex,ey,r) {
 				    var r2d = Math.PI/180;
 				    if( ( ex - sx ) - ( 2 * r ) < 0 ) { r = ( ( ex - sx ) / 2 ); } //ensure that the radius isn't too large for x
@@ -467,10 +425,10 @@ class AugmentedView {
     let w = 600.0
     let h = 220.0
 
-			let canvas = document.createElement("canvas")
-			canvas.width = w
-			canvas.height = h
-			let context = canvas.getContext("2d")
+			let scratch = document.createElement("canvas")
+			scratch.width = w
+			scratch.height = h
+			let context = scratch.getContext("2d")
 			//context.clearRect(0,0,w,h);
 			context.font = fsize + "pt Arial"
 			//context.textAlign = "center"
@@ -478,7 +436,7 @@ class AugmentedView {
 			//context.fillRect(0, 0, w, h)
 			context.fillStyle = "#cc00cc"
 			context.strokeStyle = "#cc00cc";
-			//context.fillText(args, canvas.width / 2, canvas.height / 2)
+			//context.fillText(args, scratch.width / 2, scratch.height / 2)
 
 			//	context.roundRect(0,0,600,600,10).stroke(); //or .fill() for a filled rect
 			//_cxt.roundRect(35,10,260,120,20);
@@ -489,7 +447,7 @@ class AugmentedView {
 
 			wrapText(context,args,fsize,fsize*1.5+2,w-fsize*2,fsize+2)
 
-			let texture = new THREE.Texture(canvas)
+			let texture = new THREE.Texture(scratch)
 			texture.needsUpdate = true
 			let material = new THREE.MeshBasicMaterial({map : texture})
 			return new THREE.Mesh(new THREE.PlaneGeometry(0.5, h/w, 10, 10), material)
